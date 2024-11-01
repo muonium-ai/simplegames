@@ -107,7 +107,7 @@ class Minesweeper:
         self.font = pygame.font.Font(None, 36)
         
         # Button layout
-        button_width = 130
+        button_width = 110
         button_height = 30
         button_y = 10
 
@@ -115,6 +115,7 @@ class Minesweeper:
         self.restart_button = Button(PADDING + button_width + PADDING, button_y, button_width, button_height, "Restart Game")
         self.quick_start_button = Button(PADDING + 2 * (button_width + PADDING), button_y, button_width, button_height, "Quick Start")
         self.hint_button = Button(PADDING + 3 * (button_width + PADDING), button_y, button_width, button_height, "Hint")
+        self.solve_button = Button(PADDING + 4 * (button_width + PADDING), button_y, button_width, button_height, "Solve It")
 
         # Input box for seed and display for time, points, hints
         self.seed_input_box = InputBox(PADDING, HEADER_HEIGHT - 35, 100, 30)
@@ -171,6 +172,18 @@ class Minesweeper:
                 self.reveal_adjacent_cells(x, y)
             # Check for victory after revealing a cell
             self.check_victory()
+
+    def solve_it(self):
+        # Reveal all non-mine cells and flag all mines without changing the score
+        for y in range(GRID_HEIGHT):
+            for x in range(GRID_WIDTH):
+                cell = self.grid[y][x]
+                if cell.is_mine:
+                    cell.state = CellState.FLAGGED
+                else:
+                    cell.state = CellState.REVEALED
+        # End the game and stop the timer
+        self.game_over = True
 
     def place_mines(self, first_x, first_y):
         safe_cells = [(first_x, first_y)]
@@ -258,6 +271,7 @@ class Minesweeper:
         self.restart_button.draw(self.screen, self.font)
         self.quick_start_button.draw(self.screen, self.font)
         self.hint_button.draw(self.screen, self.font)
+        self.solve_button.draw(self.screen, self.font)
 
         # Draw second line of header with seed, time, points, hints
         self.seed_input_box.draw(self.screen)
@@ -332,6 +346,8 @@ class Minesweeper:
                             self.quick_start()
                         elif self.hint_button.handle_event(event):
                             self.hint()
+                        elif self.solve_button.handle_event(event):
+                            self.solve_it()
                         elif event.pos[1] > HEADER_HEIGHT:  # Only process clicks on grid below header
                             self.handle_click(event.pos, event.button == 3)
                     elif event.button == 3:
