@@ -21,6 +21,8 @@ DARK_RED = (128, 0, 0)
 DARK_BLUE = (0, 0, 128)
 BROWN = (128, 128, 0)
 BLACK = (0, 0, 0)
+BUTTON_COLOR = (70, 130, 180)  # Steel Blue
+BUTTON_HOVER_COLOR = (100, 149, 237)  # Cornflower Blue
 
 # Number colors
 NUMBER_COLORS = {
@@ -39,6 +41,30 @@ class CellState(Enum):
     REVEALED = 1
     FLAGGED = 2
 
+class Button:
+    def __init__(self, x, y, width, height, text):
+        self.rect = pygame.Rect(x, y, width, height)
+        self.text = text
+        self.is_hovered = False
+
+    def draw(self, screen, font):
+        color = BUTTON_HOVER_COLOR if self.is_hovered else BUTTON_COLOR
+        pygame.draw.rect(screen, color, self.rect)
+        pygame.draw.rect(screen, BLACK, self.rect, 2)
+        
+        text_surface = font.render(self.text, True, WHITE)
+        text_rect = text_surface.get_rect(center=self.rect.center)
+        screen.blit(text_surface, text_rect)
+
+    def handle_event(self, event):
+        if event.type == pygame.MOUSEMOTION:
+            self.is_hovered = self.rect.collidepoint(event.pos)
+            return False
+        elif event.type == pygame.MOUSEBUTTONDOWN:
+            if event.button == 1 and self.rect.collidepoint(event.pos):
+                return True
+        return False
+
 class Cell:
     def __init__(self):
         self.is_mine = False
@@ -53,6 +79,12 @@ class Minesweeper:
         self.clock = pygame.time.Clock()
         self.font = pygame.font.Font(None, 36)
         
+        # Create Quick Start button
+        button_width = 150
+        button_height = 30
+        button_x = WINDOW_WIDTH // 2 - button_width // 2
+        self.quick_start_button = Button(button_x, 10, button_width, button_height, "Quick Start")
+        
         self.reset_game()
 
     def reset_game(self):
@@ -63,6 +95,29 @@ class Minesweeper:
         self.start_time = None
         self.elapsed_time = 0
         self.first_click = True
+
+    def quick_start(self):
+        if not self.first_click:
+            return
+        
+        # First, place mines avoiding a random starting point
+        start_x = random.randint(0, GRID_WIDTH - 1)
+        start_y = random.randint(0, GRID_HEIGHT - 1)
+        self.place_mines(start_x, start_y)
+        self.first_click = False
+        self.start_time = pygame.time.get_ticks()
+
+        # Find all safe cells
+        safe_cells = []
+        for y in range(GRID_HEIGHT):
+            for x in range(GRID_WIDTH):
+                if not self.grid[y][x].is_mine:
+                    safe_cells.append((x, y))
+
+        # Randomly select and reveal 5 safe cells
+        cells_to_reveal = random.sample(safe_cells, min(5, len(safe_cells)))
+        for x, y in cells_to_reveal:
+            self.reveal_cell(x, y)
 
     def place_mines(self, first_x, first_y):
         # Place mines randomly, avoiding the first clicked cell and its neighbors
@@ -174,6 +229,10 @@ class Minesweeper:
         timer_text = self.font.render(f"Time: {self.elapsed_time}", True, RED)
         self.screen.blit(timer_text, (WINDOW_WIDTH - 150, 10))
 
+        # Draw Quick Start button
+        if self.first_click:
+            self.quick_start_button.draw(self.screen, self.font)
+
         # Draw grid
         for y in range(GRID_HEIGHT):
             for x in range(GRID_WIDTH):
@@ -228,7 +287,17 @@ class Minesweeper:
                     running = False
                 elif event.type == pygame.MOUSEBUTTONDOWN:
                     if event.button in (1, 3):  # Left or right click
-                        self.handle_click(event.pos, event.button == 3)
+                        # Check if Quick Start button was clicked
+                        if event.button == 1 and self.first_click:
+                            if self.quick_start_button.handle_event(event):
+                                self.quick_start()
+                            else:
+                                self.handle_click(event.pos, event.button == 3)
+                        else:
+                            self.handle_click(event.pos, event.button == 3)
+                elif event.type == pygame.MOUSEMOTION:
+                    if self.first_click:
+                        self.quick_start_button.handle_event(event)
                 elif event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_r:
                         self.reset_game()
