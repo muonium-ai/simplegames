@@ -9,16 +9,18 @@ class Game2048Client:
         self.game_id = None
         self.screenshot_count = 0
         self.screenshot_folder = "screenshots"
+        self.session_folder = ""
 
     def start_game(self):
         response = requests.post(f"{self.server_url}/start")
         if response.status_code == 201:
             data = response.json()
             self.game_id = data["game_id"]
+            # Create a unique subfolder for the game session
             session_folder_name = datetime.now().strftime("%Y%m%d_%H%M%S")
             self.session_folder = os.path.join(self.screenshot_folder, session_folder_name)
             os.makedirs(self.session_folder, exist_ok=True)
-            self.screenshot_count = 0
+            self.screenshot_count = 0  # Reset screenshot count for this session
             print("New game started!")
             print("Game ID:", self.game_id)
             print("Initial State:")
@@ -34,8 +36,7 @@ class Game2048Client:
         response = requests.post(f"{self.server_url}/move", json={"direction": direction})
         if response.status_code == 200:
             data = response.json()
-            max_tile = self.get_max_tile(data["state"])  # Calculate max tile after the move
-            print(f"Move: {direction} | Max Tile: {max_tile}")
+            print(f"Move: {direction}")
             self.print_grid(data["state"])
             print("Score:", data["score"])
             print("Total Moves:", data["total_moves"])
@@ -54,12 +55,10 @@ class Game2048Client:
         response = requests.get(f"{self.server_url}/state")
         if response.status_code == 200:
             data = response.json()
-            max_tile = self.get_max_tile(data["state"])  # Get max tile in the current state
             print("Current Game State:")
             self.print_grid(data["state"])
             print("Score:", data["score"])
             print("Total Moves:", data["total_moves"])
-            print("Max Tile:", max_tile)
             print("Status:", data["status"])
             return data
         else:
@@ -75,6 +74,7 @@ class Game2048Client:
 
         response = requests.get(f"{self.server_url}/screenshot")
         if response.status_code == 200:
+            # Format filename as 4-digit sequential numbers (e.g., 0001.png, 0002.png)
             filename = f"{self.screenshot_count:04d}.png"
             screenshot_path = os.path.join(self.session_folder, filename)
             with open(screenshot_path, "wb") as f:
@@ -90,9 +90,43 @@ class Game2048Client:
             print("\t".join(str(cell) if cell != 0 else "." for cell in row))
         print("\n")
 
-    def get_max_tile(self, grid):
-        """Returns the maximum tile value in the current grid."""
-        return max(max(row) for row in grid)
+    def evaluate_move(self, grid, direction):
+        """
+        Evaluate the board state resulting from a move by calculating heuristics:
+        - Monotonicity
+        - Empty spaces
+        - Merges
+        """
+        monotonicity_score = self.calculate_monotonicity(grid)
+        empty_score = self.calculate_empty_spaces(grid)
+        merge_score = self.calculate_merges(grid)
+        return monotonicity_score + empty_score + merge_score
+
+    def calculate_monotonicity(self, grid):
+        """Score based on monotonicity towards the bottom-right corner."""
+        score = 0
+        for i in range(4):
+            for j in range(4):
+                if i < 3 and grid[i][j] >= grid[i + 1][j]:  # Vertical
+                    score += grid[i][j]
+                if j < 3 and grid[i][j] >= grid[i][j + 1]:  # Horizontal
+                    score += grid[i][j]
+        return score
+
+    def calculate_empty_spaces(self, grid):
+        """Count empty spaces (0 values) in the grid."""
+        return sum(1 for row in grid for val in row if val == 0)
+
+    def calculate_merges(self, grid):
+        """Count possible merges by checking adjacent cells."""
+        merges = 0
+        for i in range(4):
+            for j in range(4):
+                if i < 3 and grid[i][j] == grid[i + 1][j]:
+                    merges += grid[i][j]
+                if j < 3 and grid[i][j] == grid[i][j + 1]:
+                    merges += grid[i][j]
+        return merges
 
     def solve(self):
         move_priority = ["DOWN", "RIGHT", "LEFT", "UP"]
@@ -111,18 +145,25 @@ class Game2048Client:
                 print("Congratulations! You've won the game!")
                 break
 
-            # Try moves in priority order and select the first that changes the state
+            # Evaluate each move based on heuristics and choose the best one
+            best_move = None
+            best_score = -float('inf')
             for move in move_priority:
-                result = self.make_move(move)
-                if result is not None and result["moved"]:  # Only if a move changes the state
-                    time.sleep(0.1)  # Small delay to avoid rapid requests
-                    break
+                response = self.make_move(move)
+                if response is not None and response["moved"]:
+                    score = self.evaluate_move(response["state"], move)
+                    if score > best_score:
+                        best_score = score
+                        best_move = move
 
+            if best_move:
+                self.make_move(best_move)
+                time.sleep(0.1)  # Small delay to avoid rapid requests
 
 # Example usage
 if __name__ == "__main__":
     client = Game2048Client()
-    # Run the game 25 times
+    # run the game 25 times
     for i in range(25):
         client.start_game()
         client.solve()

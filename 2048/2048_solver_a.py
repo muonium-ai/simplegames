@@ -21,8 +21,6 @@ class Game2048Client:
             self.screenshot_count = 0
             print("New game started!")
             print("Game ID:", self.game_id)
-            print("Initial State:")
-            self.print_grid(data["state"])
         else:
             print("Failed to start a new game.")
             print(response.json())
@@ -34,12 +32,6 @@ class Game2048Client:
         response = requests.post(f"{self.server_url}/move", json={"direction": direction})
         if response.status_code == 200:
             data = response.json()
-            max_tile = self.get_max_tile(data["state"])  # Calculate max tile after the move
-            print(f"Move: {direction} | Max Tile: {max_tile}")
-            self.print_grid(data["state"])
-            print("Score:", data["score"])
-            print("Total Moves:", data["total_moves"])
-            print("Status:", data["status"])
             self.capture_screenshot()  # Capture screenshot after each move
             return data
         else:
@@ -53,15 +45,7 @@ class Game2048Client:
             return None
         response = requests.get(f"{self.server_url}/state")
         if response.status_code == 200:
-            data = response.json()
-            max_tile = self.get_max_tile(data["state"])  # Get max tile in the current state
-            print("Current Game State:")
-            self.print_grid(data["state"])
-            print("Score:", data["score"])
-            print("Total Moves:", data["total_moves"])
-            print("Max Tile:", max_tile)
-            print("Status:", data["status"])
-            return data
+            return response.json()
         else:
             print("Failed to retrieve the game state.")
             print(response.json())
@@ -79,20 +63,30 @@ class Game2048Client:
             screenshot_path = os.path.join(self.session_folder, filename)
             with open(screenshot_path, "wb") as f:
                 f.write(response.content)
-            print(f"Screenshot saved: {screenshot_path}")
             self.screenshot_count += 1
         else:
             print("Failed to capture screenshot.")
             print(response.json())
 
-    def print_grid(self, grid):
-        for row in grid:
-            print("\t".join(str(cell) if cell != 0 else "." for cell in row))
-        print("\n")
+    def print_final_stats(self, grid, score, total_moves, status):
+        """Prints the final statistics of the game."""
+        max_tile = self.get_max_tile(grid)
+        print("\nFinal Game Stats:")
+        print(f"Max Tile: {max_tile}")
+        print(f"Score: {score}")
+        print(f"Total Moves: {total_moves}")
+        print(f"Status: {status}")
+        print("Final Grid:")
+        self.print_grid(grid)
 
     def get_max_tile(self, grid):
         """Returns the maximum tile value in the current grid."""
         return max(max(row) for row in grid)
+
+    def print_grid(self, grid):
+        for row in grid:
+            print("\t".join(str(cell) if cell != 0 else "." for cell in row))
+        print("\n")
 
     def solve(self):
         move_priority = ["DOWN", "RIGHT", "LEFT", "UP"]
@@ -106,9 +100,11 @@ class Game2048Client:
             # Check if the game is over or won
             if state["status"] == "over":
                 print("Game Over!")
+                self.print_final_stats(state["state"], state["score"], state["total_moves"], "over")
                 break
             elif state["status"] == "won":
                 print("Congratulations! You've won the game!")
+                self.print_final_stats(state["state"], state["score"], state["total_moves"], "won")
                 break
 
             # Try moves in priority order and select the first that changes the state
@@ -126,4 +122,4 @@ if __name__ == "__main__":
     for i in range(25):
         client.start_game()
         client.solve()
-        print("Game", i+1, "completed")
+        print(f"Game {i + 1} completed")
