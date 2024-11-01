@@ -169,6 +169,8 @@ class Minesweeper:
             self.hints_used += 1
             if self.grid[y][x].neighbor_mines == 0:
                 self.reveal_adjacent_cells(x, y)
+            # Check for victory after revealing a cell
+            self.check_victory()
 
     def place_mines(self, first_x, first_y):
         safe_cells = [(first_x, first_y)]
@@ -242,12 +244,10 @@ class Minesweeper:
                     self.grid[y][x].state = CellState.REVEALED
 
     def check_victory(self):
-        for y in range(GRID_HEIGHT):
-            for x in range(GRID_WIDTH):
-                cell = self.grid[y][x]
-                if not cell.is_mine and cell.state == CellState.HIDDEN:
-                    return
-        self.victory = True
+        if all(cell.state == CellState.REVEALED or (cell.is_mine and cell.state == CellState.FLAGGED)
+               for row in self.grid for cell in row):
+            self.victory = True
+            self.game_over = True  # Stop the game if victory is achieved
 
     def draw(self):
         self.screen.fill(GRAY)
@@ -299,9 +299,10 @@ class Minesweeper:
                         self.screen.blit(number_text, text_rect)
 
         if self.game_over:
-            self.draw_message("Game Over!")
-        elif self.victory:
-            self.draw_message("Victory!")
+            if self.victory:
+                self.draw_message("Victory!")
+            else:
+                self.draw_message("Game Over!")
 
     def draw_message(self, message):
         overlay = pygame.Surface((WINDOW_WIDTH, WINDOW_HEIGHT))
@@ -343,8 +344,9 @@ class Minesweeper:
                         if seed_input is not None:
                             self.reset_game(seed_input)
 
-            # Update timer
-            self.elapsed_time = (pygame.time.get_ticks() - self.start_time) // 1000
+            # Update timer only if the game is active
+            if not self.game_over:
+                self.elapsed_time = (pygame.time.get_ticks() - self.start_time) // 1000
             self.draw()
             pygame.display.flip()
             self.clock.tick(60)
