@@ -280,6 +280,20 @@ class Minesweeper:
             self.victory = True
             self.game_over = True  # Stop the game if victory is achieved
 
+    def check_for_complete_non_mines(self):
+        """Check if all non-mine cells are opened"""
+        opened_cells = sum(1 for row in self.opened for cell in row if cell)
+        total_non_mines = self.grid_size * self.grid_size - self.num_mines
+        return opened_cells == total_non_mines
+
+    def auto_mark_remaining_mines(self):
+        """Mark all unmarked mines when game is complete"""
+        for i in range(self.grid_size):
+            for j in range(self.grid_size):
+                if self.mine_grid[i][j] == 'X' and not self.flagged[i][j]:
+                    self.flagged[i][j] = True
+                    self.flags_placed += 1
+
     def draw(self):
         self.screen.fill(GRAY)
         pygame.draw.rect(self.screen, DARK_GRAY, (0, 0, WINDOW_WIDTH, HEADER_HEIGHT))
@@ -336,6 +350,13 @@ class Minesweeper:
             else:
                 self.draw_message("Game Over!")
 
+        # Add victory message if game won through auto-marking
+        if self.victory:
+            font = pygame.font.Font(None, 48)
+            text = font.render("Victory!", True, (0, 255, 0))
+            text_rect = text.get_rect(center=(self.window_size[0]//2, self.window_size[1]//2))
+            self.window.blit(text, text_rect)
+
     def draw_message(self, message):
         overlay = pygame.Surface((WINDOW_WIDTH, WINDOW_HEIGHT))
         overlay.fill((0, 0, 0))
@@ -350,12 +371,23 @@ class Minesweeper:
 
     def run(self):
         running = True
+        self.left_click_held = False
+        self.right_click_held = False
+
         while running:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     running = False
                 elif event.type == pygame.MOUSEBUTTONDOWN:
                     if event.button == 1:
+                        self.left_click_held = True
+                    elif event.button == 3:
+                        self.right_click_held = True
+
+                    if self.left_click_held and self.right_click_held:
+                        self.handle_both_clicks(event.pos)
+
+                    elif event.button == 1:
                         if self.new_game_button.handle_event(event):
                             self.reset_game()
                         elif self.restart_button.handle_event(event):
@@ -370,6 +402,13 @@ class Minesweeper:
                             self.handle_click(event.pos, event.button == 3)
                     elif event.button == 3:
                         self.handle_click(event.pos, right_click=True)
+
+                elif event.type == pygame.MOUSEBUTTONUP:
+                    if event.button == 1:
+                        self.left_click_held = False
+                    elif event.button == 3:
+                        self.right_click_held = False
+
                 elif event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_r:
                         self.reset_game()
@@ -386,6 +425,37 @@ class Minesweeper:
             self.clock.tick(60)
 
         pygame.quit()
+
+    def handle_both_clicks(self, pos):
+        """Handle simultaneous left and right clicks for fast reveal of adjacent cells."""
+        x = pos[0] // CELL_SIZE
+        y = (pos[1] - HEADER_HEIGHT) // CELL_SIZE
+
+        if not (0 <= x < GRID_WIDTH and 0 <= y < GRID_HEIGHT):
+            return
+
+        cell = self.grid[y][x]
+        if cell.state != CellState.REVEALED or cell.is_mine:
+            return
+
+        # Check the number of flagged neighbors
+        flagged_neighbors = 0
+        unflagged_neighbors = []
+        for dx in [-1, 0, 1]:
+            for dy in [-1, 0, 1]:
+                nx, ny = x + dx, y + dy
+                if 0 <= nx < GRID_WIDTH and 0 <= ny < GRID_HEIGHT:
+                    neighbor = self.grid[ny][nx]
+                    if neighbor.state == CellState.FLAGGED:
+                        flagged_neighbors += 1
+                    elif neighbor.state == CellState.HIDDEN:
+                        unflagged_neighbors.append((nx, ny))
+
+        # If flagged neighbors match the cell's mine count, reveal unflagged neighbors
+        if flagged_neighbors == cell.neighbor_mines:
+            for nx, ny in unflagged_neighbors:
+                self.reveal_cell(nx, ny)
+
 
 if __name__ == "__main__":
     game = Minesweeper()
