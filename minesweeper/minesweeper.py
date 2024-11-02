@@ -44,28 +44,37 @@ class CellState(Enum):
     FLAGGED = 2
 
 class Button:
-    def __init__(self, x, y, width, height, text):
-        self.rect = pygame.Rect(x, y, width, height)
+    def __init__(self, x, y, text, height=30):
         self.text = text
+        self.height = height
         self.is_hovered = False
+        
+        # Calculate width based on text
+        font = pygame.font.Font(None, 36)
+        text_surface = font.render(text, True, WHITE)
+        self.width = max(text_surface.get_width() + 20, 110)  # Min width 110px
+        
+        self.rect = pygame.Rect(x, y, self.width, self.height)
+
+    def handle_event(self, event):
+        """Handle mouse events for the button"""
+        mouse_pos = pygame.mouse.get_pos()
+        
+        # Update hover state
+        self.is_hovered = self.rect.collidepoint(mouse_pos)
+        
+        # Handle click
+        if event.type == pygame.MOUSEBUTTONDOWN:
+            if event.button == 1 and self.is_hovered:  # Left click
+                return True
+        return False
 
     def draw(self, screen, font):
         color = BUTTON_HOVER_COLOR if self.is_hovered else BUTTON_COLOR
         pygame.draw.rect(screen, color, self.rect)
-        pygame.draw.rect(screen, BLACK, self.rect, 2)
-        
         text_surface = font.render(self.text, True, WHITE)
         text_rect = text_surface.get_rect(center=self.rect.center)
         screen.blit(text_surface, text_rect)
-
-    def handle_event(self, event):
-        if event.type == pygame.MOUSEMOTION:
-            self.is_hovered = self.rect.collidepoint(event.pos)
-            return False
-        elif event.type == pygame.MOUSEBUTTONDOWN:
-            if event.button == 1 and self.rect.collidepoint(event.pos):
-                return True
-        return False
 
 class InputBox:
     def __init__(self, x, y, w, h, text=''):
@@ -106,16 +115,25 @@ class Minesweeper:
         self.clock = pygame.time.Clock()
         self.font = pygame.font.Font(None, 36)
         
-        # Button layout
-        button_width = 110
+        # Button layout with dynamic widths
         button_height = 30
         button_y = 10
+        current_x = PADDING
 
-        self.new_game_button = Button(PADDING, button_y, button_width, button_height, "New Game")
-        self.restart_button = Button(PADDING + button_width + PADDING, button_y, button_width, button_height, "Restart Game")
-        self.quick_start_button = Button(PADDING + 2 * (button_width + PADDING), button_y, button_width, button_height, "Quick Start")
-        self.hint_button = Button(PADDING + 3 * (button_width + PADDING), button_y, button_width, button_height, "Hint")
-        self.solve_button = Button(PADDING + 4 * (button_width + PADDING), button_y, button_width, button_height, "Solve It")
+        # Create buttons with dynamic positioning
+        self.new_game_button = Button(current_x, button_y, "New Game")
+        current_x += self.new_game_button.width + PADDING
+        
+        self.restart_button = Button(current_x, button_y, "Restart Game")
+        current_x += self.restart_button.width + PADDING
+        
+        self.quick_start_button = Button(current_x, button_y, "Quick Start")
+        current_x += self.quick_start_button.width + PADDING
+        
+        self.hint_button = Button(current_x, button_y, "Hint")
+        current_x += self.hint_button.width + PADDING
+        
+        self.solve_button = Button(current_x, button_y, "Solve It")
 
         # Input box for seed and display for time, points, hints
         self.seed_input_box = InputBox(PADDING, HEADER_HEIGHT - 35, 100, 30)
