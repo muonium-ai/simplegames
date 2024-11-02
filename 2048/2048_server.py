@@ -11,6 +11,7 @@ WINDOW_HEIGHT = 500
 GAME_SIZE = 4
 BACKGROUND = (187, 173, 160)
 EMPTY_CELL = (205, 193, 180)
+# Update TILE_COLORS dictionary with new values up to 65536
 TILE_COLORS = {
     2: (238, 228, 218),
     4: (237, 224, 200),
@@ -22,7 +23,12 @@ TILE_COLORS = {
     256: (237, 204, 97),
     512: (237, 200, 80),
     1024: (237, 197, 63),
-    2048: (237, 194, 46)
+    2048: (237, 194, 46),
+    4096: (237, 190, 30),
+    8192: (237, 185, 20),
+    16384: (236, 180, 15),
+    32768: (236, 175, 10),
+    65536: (236, 170, 5)
 }
 TEXT_DARK = (119, 110, 101)
 TEXT_LIGHT = (249, 246, 242)
@@ -41,6 +47,8 @@ class Game:
         self.game_won = False
         self.game_over = False
         self.max_tile = 2  # Initialize max tile
+        self.milestones = {2048: False, 4096: False, 8192: False, 
+                          16384: False, 32768: False, 65536: False}
 
     def reset_game(self):
         self.grid = [[0 for _ in range(GAME_SIZE)] for _ in range(GAME_SIZE)]
@@ -124,7 +132,13 @@ class Game:
         return True
 
     def has_won(self):
-        return any(2048 in row for row in self.grid)
+        current_max = max(max(row) for row in self.grid)
+        # Check and update milestones
+        for milestone in sorted(self.milestones.keys()):
+            if current_max >= milestone and not self.milestones[milestone]:
+                self.milestones[milestone] = True
+                print(f"Achievement Unlocked: {milestone}!")
+        return current_max >= 65536
 
     def get_max_tile(self):
         return max(max(row) for row in self.grid)
@@ -187,6 +201,12 @@ def run_flask():
 
 # Pygame display functions
 def draw_text(window, text, font_size, x, y, color):
+    # Adjust font size based on number of digits
+    if len(str(text)) > 4:
+        font_size = int(font_size * 0.8)
+    if len(str(text)) > 5:
+        font_size = int(font_size * 0.7)
+    
     font = pygame.font.SysFont('Arial', font_size, bold=True)
     text_surface = font.render(str(text), True, color)
     text_rect = text_surface.get_rect(center=(x, y))
@@ -201,7 +221,7 @@ def reset_screen(window, game_id):
 def main():
     pygame.init()
     window = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
-    pygame.display.set_caption(f'2048 Server') # - Max Tile: {game_instance.max_tile}
+    pygame.display.set_caption('2048 Extended')
     clock = pygame.time.Clock()
 
     threading.Thread(target=run_flask).start()
@@ -244,7 +264,16 @@ def main():
                 value = game_instance.grid[i][j]
                 pygame.draw.rect(window, TILE_COLORS.get(value, EMPTY_CELL), (x + 5, y + 5, WINDOW_WIDTH // GAME_SIZE - 10, WINDOW_WIDTH // GAME_SIZE - 10), border_radius=5)
                 if value != 0:
-                    font_size = 48 if value < 100 else 36 if value < 1000 else 24
+                    # Dynamic font sizing based on number length
+                    if value <= 4:
+                        font_size = 48
+                    elif value <= 512:
+                        font_size = 36
+                    elif value <= 16384:
+                        font_size = 24
+                    else:
+                        font_size = 20
+                    
                     text_color = TEXT_DARK if value <= 4 else TEXT_LIGHT
                     draw_text(window, value, font_size, x + WINDOW_WIDTH // GAME_SIZE // 2, y + WINDOW_WIDTH // GAME_SIZE // 2, text_color)
 
@@ -253,13 +282,13 @@ def main():
             overlay.fill((0, 0, 0))
             overlay.set_alpha(128)
             window.blit(overlay, (0, 0))
-            draw_text(window, "Game Over!", 64, WINDOW_WIDTH // 2, WINDOW_HEIGHT // 2, TEXT_LIGHT)
+            draw_text(window, f"Game Over! Max: {game_instance.max_tile}", 64, WINDOW_WIDTH // 2, WINDOW_HEIGHT // 2, TEXT_LIGHT)
         elif game_instance.game_won:
             overlay = pygame.Surface((WINDOW_WIDTH, WINDOW_HEIGHT))
             overlay.fill((255, 223, 0))
             overlay.set_alpha(128)
             window.blit(overlay, (0, 0))
-            draw_text(window, "You Win!", 64, WINDOW_WIDTH // 2, WINDOW_HEIGHT // 2, TEXT_DARK)
+            draw_text(window, "65536 Achieved!", 64, WINDOW_WIDTH // 2, WINDOW_HEIGHT // 2, TEXT_DARK)
 
         pygame.display.update()
         clock.tick(60)
