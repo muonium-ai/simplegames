@@ -40,6 +40,7 @@ class Game:
         self.add_new_tile()
         self.game_won = False
         self.game_over = False
+        self.max_tile = 2  # Initialize max tile
 
     def reset_game(self):
         self.grid = [[0 for _ in range(GAME_SIZE)] for _ in range(GAME_SIZE)]
@@ -78,6 +79,7 @@ class Game:
             self.score += score_added
             self.total_moves += 1  # Increment total moves on each valid move
             self.add_new_tile()
+            self.max_tile = self.get_max_tile()  # Update max tile after move
 
         self.game_over = self.is_game_over()
         self.game_won = self.has_won()
@@ -123,6 +125,9 @@ class Game:
 
     def has_won(self):
         return any(2048 in row for row in self.grid)
+
+    def get_max_tile(self):
+        return max(max(row) for row in self.grid)
 
 # API Endpoints
 game_instance = Game()
@@ -196,7 +201,7 @@ def reset_screen(window, game_id):
 def main():
     pygame.init()
     window = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
-    pygame.display.set_caption('2048')
+    pygame.display.set_caption(f'2048 Server') # - Max Tile: {game_instance.max_tile}
     clock = pygame.time.Clock()
 
     threading.Thread(target=run_flask).start()
@@ -211,21 +216,25 @@ def main():
                 pygame.quit()
                 return
             elif event.type == pygame.KEYDOWN and not game_instance.game_over:
+                moved = False
                 if event.key == pygame.K_UP:
-                    game_instance.move('UP')
+                    moved = game_instance.move('UP')
                 elif event.key == pygame.K_DOWN:
-                    game_instance.move('DOWN')
+                    moved = game_instance.move('DOWN')
                 elif event.key == pygame.K_LEFT:
-                    game_instance.move('LEFT')
+                    moved = game_instance.move('LEFT')
                 elif event.key == pygame.K_RIGHT:
-                    game_instance.move('RIGHT')
+                    moved = game_instance.move('RIGHT')
+                
+                if moved:
+                    pygame.display.set_caption(f'2048 - Max Tile: {game_instance.max_tile}')
 
         # Draw background
         window.fill(BACKGROUND)
         pygame.draw.rect(window, EMPTY_CELL, (10, 10, WINDOW_WIDTH - 20, 60), border_radius=5)
 
         # Display score and total moves at the top
-        draw_text(window, f"Score: {game_instance.score} | Moves: {game_instance.total_moves}", 32, WINDOW_WIDTH // 2, 40, TEXT_DARK)
+        draw_text(window, f"Score: {game_instance.score} | Moves: {game_instance.total_moves} | Max: {game_instance.max_tile}", 24, WINDOW_WIDTH // 2, 40, TEXT_DARK)
 
         # Draw grid
         for i in range(GAME_SIZE):
