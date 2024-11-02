@@ -108,6 +108,10 @@ class Cell:
         self.neighbor_mines = 0
 
 class Minesweeper:
+    # Add image paths as class constants
+    FLAG_IMAGE_PATH = "images/red-flag.png"
+    MINE_IMAGE_PATH = "images/landmine.png"
+
     def __init__(self):
         pygame.init()
         self.screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
@@ -140,6 +144,25 @@ class Minesweeper:
         self.seed = None
         self.hints_used = 0
         self.reset_game()
+
+        # Load and scale images
+        try:
+            self.flag_img = pygame.image.load(self.FLAG_IMAGE_PATH).convert_alpha()
+            self.mine_img = pygame.image.load(self.MINE_IMAGE_PATH).convert_alpha()
+            
+            # Calculate image size (80% of cell size)
+            self.img_size = int(CELL_SIZE * 0.8)
+            
+            # Scale images
+            self.flag_img = pygame.transform.scale(self.flag_img, 
+                                                 (self.img_size, self.img_size))
+            self.mine_img = pygame.transform.scale(self.mine_img, 
+                                                 (self.img_size, self.img_size))
+            
+            self.images_loaded = True
+        except (pygame.error, FileNotFoundError) as e:
+            print(f"Error loading images: {e}")
+            self.images_loaded = False
 
     def reset_game(self, seed=None):
         self.grid = [[Cell() for _ in range(GRID_WIDTH)] for _ in range(GRID_HEIGHT)]
@@ -331,14 +354,26 @@ class Minesweeper:
                 elif cell.state == CellState.FLAGGED:
                     pygame.draw.rect(self.screen, DARK_GRAY, rect)
                     pygame.draw.rect(self.screen, WHITE, rect, 1)
-                    flag_text = self.font.render("🚩", True, RED)
-                    self.screen.blit(flag_text, (x * CELL_SIZE + 5, y * CELL_SIZE + HEADER_HEIGHT + 5))
+                    if self.images_loaded:
+                        # Center the flag image in the cell
+                        img_x = rect[0] + (CELL_SIZE - self.img_size) // 2
+                        img_y = rect[1] + (CELL_SIZE - self.img_size) // 2
+                        self.screen.blit(self.flag_img, (img_x, img_y))
+                    else:
+                        flag_text = self.font.render("🚩", True, RED)
+                        self.screen.blit(flag_text, (x * CELL_SIZE + 5, y * CELL_SIZE + HEADER_HEIGHT + 5))
                 else:
                     pygame.draw.rect(self.screen, GRAY, rect)
                     pygame.draw.rect(self.screen, WHITE, rect, 1)
                     if cell.is_mine:
-                        mine_text = self.font.render("💣", True, BLACK)
-                        self.screen.blit(mine_text, (x * CELL_SIZE + 5, y * CELL_SIZE + HEADER_HEIGHT + 5))
+                        if self.images_loaded:
+                            # Center the mine image in the cell
+                            img_x = rect[0] + (CELL_SIZE - self.img_size) // 2
+                            img_y = rect[1] + (CELL_SIZE - self.img_size) // 2
+                            self.screen.blit(self.mine_img, (img_x, img_y))
+                        else:
+                            mine_text = self.font.render("💣", True, BLACK)
+                            self.screen.blit(mine_text, (x * CELL_SIZE + 5, y * CELL_SIZE + HEADER_HEIGHT + 5))
                     elif cell.neighbor_mines > 0:
                         number_text = self.font.render(str(cell.neighbor_mines), True, NUMBER_COLORS[cell.neighbor_mines])
                         text_rect = number_text.get_rect(center=(x * CELL_SIZE + CELL_SIZE // 2, y * CELL_SIZE + CELL_SIZE // 2 + HEADER_HEIGHT))
