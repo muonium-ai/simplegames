@@ -272,6 +272,8 @@ class Minesweeper:
             self.points += cell.neighbor_mines if cell.neighbor_mines else 1
         if cell.neighbor_mines == 0 and not cell.is_mine:
             self.reveal_adjacent_cells(x, y)
+        if self.check_victory():
+            self.handle_victory()
 
     def reveal_adjacent_cells(self, x, y):
         for dx in [-1, 0, 1]:
@@ -314,11 +316,75 @@ class Minesweeper:
                 if self.grid[y][x].is_mine:
                     self.grid[y][x].state = CellState.REVEALED
 
-    def check_victory(self):
-        if all(cell.state == CellState.REVEALED or (cell.is_mine and cell.state == CellState.FLAGGED)
-               for row in self.grid for cell in row):
-            self.victory = True
-            self.game_over = True  # Stop the game if victory is achieved
+    def check_victory(self) -> bool:
+        """
+        Check if victory conditions are met:
+        - All non-mine cells revealed OR
+        - All mines correctly flagged
+        """
+        # Count various cell states
+        total_hidden = self.count_hidden()
+        total_mines = MINE_COUNT
+        total_flags = sum(1 for row in self.grid for cell in row if cell.state == CellState.FLAGGED)
+        
+        # Victory condition 1: All non-mine cells revealed
+        if total_hidden == total_mines:
+            for y in range(GRID_HEIGHT):
+                for x in range(GRID_WIDTH):
+                    if self.grid[y][x].state == CellState.HIDDEN and not self.grid[y][x].is_mine:
+                        return False
+            self.handle_victory()
+            return True
+        
+        # Victory condition 2: All mines correctly flagged
+        if total_flags == total_mines:
+            for y in range(GRID_HEIGHT):
+                for x in range(GRID_WIDTH):
+                    cell = self.grid[y][x]
+                    if cell.is_mine and cellstate != CellState.FLAGGED:
+                        return False
+            self.handle_victory()
+            return True
+        
+        return False
+
+    def handle_victory(self):
+        """Handle victory state and display"""
+        self.victory = True
+        self.game_over = True
+        self.show_victory_screen()
+
+    def show_victory_screen(self):
+        """Display victory screen with statistics"""
+        # Create semi-transparent overlay
+        overlay = pygame.Surface((WINDOW_WIDTH, WINDOW_HEIGHT))
+        overlay.fill((255, 255, 255))
+        overlay.set_alpha(128)
+        self.screen.blit(overlay, (0, 0))
+        
+        # Display victory message and stats
+        victory_font = pygame.font.Font(None, 64)
+        stats_font = pygame.font.Font(None, 36)
+        
+        # Victory text
+        victory_text = victory_font.render("Victory!", True, DARK_GREEN)
+        text_rect = victory_text.get_rect(center=(WINDOW_WIDTH // 2, WINDOW_HEIGHT // 2 - 50))
+        self.screen.blit(victory_text, text_rect)
+        
+        # Statistics
+        stats = [
+            f"Time: {self.elapsed_time}s",
+            f"Points: {self.points}",
+            f"Hints Used: {self.hints_used}",
+            f"Total Moves: {self.total_moves}"
+        ]
+        
+        for i, stat in enumerate(stats):
+            stat_text = stats_font.render(stat, True, BLACK)
+            text_rect = stat_text.get_rect(
+                center=(WINDOW_WIDTH // 2, WINDOW_HEIGHT // 2 + 30 * i)
+            )
+            self.screen.blit(stat_text, text_rect)
 
     def check_for_complete_non_mines(self):
         """Check if all non-mine cells are opened"""
