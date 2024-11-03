@@ -25,6 +25,7 @@ BROWN = (128, 128, 0)
 BLACK = (0, 0, 0)
 BUTTON_COLOR = (70, 130, 180)  # Steel Blue
 BUTTON_HOVER_COLOR = (100, 149, 237)  # Cornflower Blue
+PAUSE_COLOR = (255, 255, 0)  # Yellow for pause state
 
 # Number colors
 NUMBER_COLORS = {
@@ -75,6 +76,13 @@ class Button:
         text_surface = font.render(self.text, True, WHITE)
         text_rect = text_surface.get_rect(center=self.rect.center)
         screen.blit(text_surface, text_rect)
+
+    def update_text(self, text):
+        self.text = text
+    
+    def set_paused(self, paused):
+        self.paused = paused
+        self.color = PAUSE_COLOR if paused else BUTTON_COLOR
 
 class InputBox:
     def __init__(self, x, y, w, h, text=''):
@@ -138,6 +146,14 @@ class Minesweeper:
         current_x += self.hint_button.width + PADDING
         
         self.solve_button = Button(current_x, button_y, "Solve It")
+        current_x += self.solve_button.width + PADDING
+
+        self.pause_button = Button(current_x, button_y, "Pause")
+
+        # Pause state
+        self.is_paused = False
+        self.pause_start_time = 0
+        self.total_pause_time = 0
 
         # Input box for seed and display for time, points, hints
         self.seed_input_box = InputBox(PADDING, HEADER_HEIGHT - 35, 100, 30)
@@ -327,6 +343,7 @@ class Minesweeper:
         self.quick_start_button.draw(self.screen, self.font)
         self.hint_button.draw(self.screen, self.font)
         self.solve_button.draw(self.screen, self.font)
+        self.pause_button.draw(self.screen, self.font)
 
         # Draw second line of header with seed, time, points, hints
         self.seed_input_box.draw(self.screen)
@@ -433,6 +450,8 @@ class Minesweeper:
                             self.hint()
                         elif self.solve_button.handle_event(event):
                             self.solve_it()
+                        elif self.pause_button.handle_event(event):
+                            self.toggle_pause()
                         elif event.pos[1] > HEADER_HEIGHT:  # Only process clicks on grid below header
                             self.handle_click(event.pos, event.button == 3)
                     elif event.button == 3:
@@ -454,7 +473,7 @@ class Minesweeper:
 
             # Update timer only if the game is active
             if not self.game_over:
-                self.elapsed_time = (pygame.time.get_ticks() - self.start_time) // 1000
+                self.elapsed_time = self.get_game_time()
             self.draw()
             pygame.display.flip()
             self.clock.tick(60)
@@ -490,6 +509,25 @@ class Minesweeper:
         if flagged_neighbors == cell.neighbor_mines:
             for nx, ny in unflagged_neighbors:
                 self.reveal_cell(nx, ny)
+
+    def toggle_pause(self):
+        current_time = pygame.time.get_ticks()
+        if not self.is_paused:
+            self.is_paused = True
+            self.pause_start_time = current_time
+            self.pause_button.update_text("Resume")
+            self.pause_button.set_paused(True)
+        else:
+            self.is_paused = False
+            self.total_pause_time += current_time - self.pause_start_time
+            self.pause_button.update_text("Pause")
+            self.pause_button.set_paused(False)
+
+    def get_game_time(self):
+        current_time = pygame.time.get_ticks()
+        if self.is_paused:
+            return (self.pause_start_time - self.start_time - self.total_pause_time) // 1000
+        return (current_time - self.start_time - self.total_pause_time) // 1000
 
 
 if __name__ == "__main__":
