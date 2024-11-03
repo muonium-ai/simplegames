@@ -481,7 +481,7 @@ class Minesweeper:
         pygame.quit()
 
     def handle_both_clicks(self, pos):
-        """Handle simultaneous left and right clicks for fast reveal of adjacent cells."""
+        """Handle simultaneous left and right clicks for fast reveal and auto-flagging of adjacent cells."""
         x = pos[0] // CELL_SIZE
         y = (pos[1] - HEADER_HEIGHT) // CELL_SIZE
 
@@ -492,7 +492,7 @@ class Minesweeper:
         if cell.state != CellState.REVEALED or cell.is_mine:
             return
 
-        # Check the number of flagged neighbors
+        # Check the number of flagged and unflagged neighbors
         flagged_neighbors = 0
         unflagged_neighbors = []
         for dx in [-1, 0, 1]:
@@ -505,10 +505,20 @@ class Minesweeper:
                     elif neighbor.state == CellState.HIDDEN:
                         unflagged_neighbors.append((nx, ny))
 
+        # Calculate remaining mines to be flagged
+        remaining_mines_to_flag = cell.neighbor_mines - flagged_neighbors
+
+        # If remaining unflagged neighbors equals remaining mines, flag unmarked neighbors as mines
+        if remaining_mines_to_flag == len(unflagged_neighbors):
+            for nx, ny in unflagged_neighbors:
+                self.grid[ny][nx].state = CellState.FLAGGED
+                self.mines_remaining -= 1  # Adjust mine count
+
         # If flagged neighbors match the cell's mine count, reveal unflagged neighbors
-        if flagged_neighbors == cell.neighbor_mines:
+        elif flagged_neighbors == cell.neighbor_mines:
             for nx, ny in unflagged_neighbors:
                 self.reveal_cell(nx, ny)
+
 
     def toggle_pause(self):
         current_time = pygame.time.get_ticks()
