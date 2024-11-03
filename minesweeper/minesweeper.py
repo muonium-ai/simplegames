@@ -125,7 +125,12 @@ class Minesweeper:
         self.screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
         pygame.display.set_caption("Minesweeper")
         self.clock = pygame.time.Clock()
-        self.font = pygame.font.Font(None, 36)
+        self.font = pygame.font.Font(None, 36)\
+        
+        # Initialize game state # crash fixing
+        self.total_moves = 0
+        self.window_size = (WINDOW_WIDTH, WINDOW_HEIGHT)
+        self.window = pygame.display.set_mode(self.window_size)
         
         # Button layout with dynamic widths
         button_height = 30
@@ -341,11 +346,11 @@ class Minesweeper:
             for y in range(GRID_HEIGHT):
                 for x in range(GRID_WIDTH):
                     cell = self.grid[y][x]
-                    if cell.is_mine and cellstate != CellState.FLAGGED:
+                    if cell.is_mine and cell.state != CellState.FLAGGED:
                         return False
             self.handle_victory()
             return True
-        
+        #self.total_moves
         return False
 
     def handle_victory(self):
