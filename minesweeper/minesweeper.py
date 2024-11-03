@@ -185,6 +185,7 @@ class Minesweeper:
         self.game_over = False
         self.victory = False
         self.mines_remaining = MINE_COUNT
+        self.unmarked_boxes = GRID_WIDTH * GRID_HEIGHT
         self.start_time = pygame.time.get_ticks()
         self.elapsed_time = 0
         self.first_click = True
@@ -357,7 +358,7 @@ class Minesweeper:
         hints_text = self.font.render(f"Hints Used: {self.hints_used}", True, RED)
         self.screen.blit(hints_text, (400 + 3 * PADDING, HEADER_HEIGHT - 35))
         
-        mines_text = self.font.render(f"Mines: {self.mines_remaining}", True, RED)
+        mines_text = self.font.render(f"Mines: {self.mines_remaining} | Hidden: {self.count_hidden()} ", True, RED)
         self.screen.blit(mines_text, (600 + 4 * PADDING, HEADER_HEIGHT - 35))
 
         # Draw grid
@@ -538,6 +539,19 @@ class Minesweeper:
         if self.is_paused:
             return (self.pause_start_time - self.start_time - self.total_pause_time) // 1000
         return (current_time - self.start_time - self.total_pause_time) // 1000
+
+    def count_hidden(self) -> int:
+        """
+        Count number of cells in HIDDEN state.
+        Returns:
+            int: Total number of hidden cells in the grid
+        """
+        return sum(
+            1 
+            for row in self.grid 
+            for cell in row 
+            if cell.state == CellState.HIDDEN
+        )
 
 
 if __name__ == "__main__":
