@@ -5,14 +5,16 @@ import random
 from config import *
 from cell import Cell, CellState
 
+
 class Minesweeper:
-    def __init__(self):
+    def __init__(self, solver=None):
         pygame.init()
         self.screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
         pygame.display.set_caption("Minesweeper")
         self.clock = pygame.time.Clock()
         self.font = pygame.font.Font(None, 36)
         self.reset_game()
+        self.solver = solver(self) if solver else None  # Initialize solver if provided
 
     def reset_game(self):
         self.grid = [[Cell() for _ in range(GRID_WIDTH)] for _ in range(GRID_HEIGHT)]
@@ -47,6 +49,7 @@ class Minesweeper:
                     )
 
     def reveal_cell(self, x, y):
+        """Reveal a cell and handle cascade reveal if the cell has no neighboring mines."""
         if self.first_click:
             self.place_mines(x, y)
             self.first_click = False
@@ -54,6 +57,7 @@ class Minesweeper:
         cell = self.grid[y][x]
         if cell.state != CellState.HIDDEN:
             return
+
         cell.state = CellState.REVEALED
         print(f"Revealed cell at ({x}, {y}) - Neighbor mines: {cell.neighbor_mines}")
 
@@ -61,16 +65,34 @@ class Minesweeper:
             self.game_over = True
             print("Game Over! Mine clicked.")
             self.reveal_all_mines()
+        elif cell.neighbor_mines == 0:
+            self.cascade_reveal(x, y)
+
+    def cascade_reveal(self, x, y):
+        """Recursively reveal adjacent cells if they have no neighboring mines."""
+        directions = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)]
+        for dx, dy in directions:
+            nx, ny = x + dx, y + dy
+            if 0 <= nx < GRID_WIDTH and 0 <= ny < GRID_HEIGHT:
+                neighbor = self.grid[ny][nx]
+                if neighbor.state == CellState.HIDDEN and not neighbor.is_mine:
+                    neighbor.state = CellState.REVEALED
+                    print(f"Cascade reveal cell at ({nx}, {ny}) - Neighbor mines: {neighbor.neighbor_mines}")
+                    if neighbor.neighbor_mines == 0:
+                        self.cascade_reveal(nx, ny)
 
     def reveal_all_mines(self):
+        """Reveal all mines when the game is over."""
         for y in range(GRID_HEIGHT):
             for x in range(GRID_WIDTH):
-                if self.grid[y][x].is_mine:
-                    self.grid[y][x].state = CellState.REVEALED
+                cell = self.grid[y][x]
+                if cell.is_mine:
+                    cell.state = CellState.REVEALED
+        print("All mines revealed.")
 
     def handle_click(self, pos, right_click=False):
         if self.game_over:
-            return  # Prevent clicks after game over
+            return
         x = pos[0] // CELL_SIZE
         y = (pos[1] - HEADER_HEIGHT) // CELL_SIZE
         if not (0 <= x < GRID_WIDTH and 0 <= y < GRID_HEIGHT):
@@ -108,6 +130,18 @@ class Minesweeper:
     def run(self):
         running = True
         while running:
+            if self.solver and not self.game_over:
+                move = self.solver.next_move()
+                if move:
+                    x, y, action = move
+                    if action == 'reveal':
+                        self.reveal_cell(x, y)
+                    elif action == 'flag':
+                        self.grid[y][x].state = CellState.FLAGGED
+                        print(f"Flagged cell at ({x}, {y}) as a mine")
+                else:
+                    print("No moves available from the solver.")
+
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     running = False
