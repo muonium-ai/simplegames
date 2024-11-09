@@ -1,12 +1,13 @@
 # solvers/simple_solver.py
 
-import random  # Add this import statement
+import random
 from cell import CellState
 from config import GRID_WIDTH, GRID_HEIGHT
 
 class Solver:
-    def __init__(self, game):
+    def __init__(self, game, debug_mode=False):
         self.game = game
+        self.debug_mode = debug_mode  # Enable debug mode for conditional printing
         self.initial_move_made = False
 
     def next_move(self):
@@ -14,6 +15,8 @@ class Solver:
         if not self.initial_move_made:
             self.initial_move_made = True
             x, y = self.random_hidden_cell()
+            if self.debug_mode:
+                print(f"Initial random move at ({x}, {y}) to start the game.")
             return x, y, 'reveal'
 
         # Analyze the board for moves
@@ -27,15 +30,21 @@ class Solver:
                     # Reveal all safe cells
                     if len(flagged_neighbors) == cell.neighbor_mines:
                         for hx, hy in hidden_neighbors:
+                            if self.debug_mode:
+                                print(f"Safe cell found at ({hx}, {hy}), revealing it.")
                             return hx, hy, 'reveal'
                     
                     # Flag cells that must be mines
                     if len(hidden_neighbors) == cell.neighbor_mines:
                         for hx, hy in hidden_neighbors:
+                            if self.debug_mode:
+                                print(f"Cell at ({hx}, {hy}) must be a mine, flagging it.")
                             return hx, hy, 'flag'
 
         # If no logical move is available, make a random move
         x, y = self.random_hidden_cell()
+        if self.debug_mode:
+            print(f"No logical move found, choosing random hidden cell at ({x}, {y}) to reveal.")
         return x, y, 'reveal'
 
     def get_neighbors(self, x, y):
@@ -53,6 +62,9 @@ class Solver:
                 elif neighbor.state == CellState.FLAGGED:
                     flagged_neighbors.append((nx, ny))
                     
+        if self.debug_mode:
+            print(f"Cell at ({x}, {y}) has {len(hidden_neighbors)} hidden and {len(flagged_neighbors)} flagged neighbors.")
+        
         return hidden_neighbors, flagged_neighbors
 
     def random_hidden_cell(self):
@@ -65,4 +77,7 @@ class Solver:
         
         if hidden_cells:
             return random.choice(hidden_cells)
+        
+        if self.debug_mode:
+            print("No hidden cells left to reveal.")
         return None  # No hidden cells left
