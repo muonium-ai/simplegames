@@ -102,7 +102,10 @@ class Solver:
             return best_cell[0], best_cell[1], 'reveal'
         else:
             # Fall back to random choice if no probabilistic move is found
-            x, y = self.random_hidden_cell()
+            hidden_cell = self.random_hidden_cell()
+            if hidden_cell is None:
+                return None  # No moves left
+            x, y = hidden_cell
             if self.debug_mode:
                 print(f"No probabilistic move found, falling back to random cell at ({x}, {y})")
             return x, y, 'reveal'
