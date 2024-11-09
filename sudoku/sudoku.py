@@ -1,10 +1,11 @@
 import pygame
 import sys
+import time
 
 pygame.init()
 
 # Screen dimensions
-WIDTH, HEIGHT = 540, 600  # Additional height for menu
+WIDTH, HEIGHT = 540, 640  # Additional height for menu and status bar
 WIN = pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.display.set_caption("Sudoku Game")
 
@@ -15,10 +16,12 @@ GRAY = (150, 150, 150)
 LIGHT_GRAY = (200, 200, 200)
 SELECTED_CELL_COLOR = (189, 214, 255)
 HIGHLIGHT_COLOR = (255, 255, 0)
+RED = (255, 0, 0)
 
 # Fonts
 FONT = pygame.font.SysFont("comicsans", 40)
 NUMBER_FONT = pygame.font.SysFont("comicsans", 40)
+STATUS_FONT = pygame.font.SysFont("comicsans", 30)
 
 # Sample Sudoku board (0 represents empty cells)
 board = [
@@ -134,6 +137,19 @@ class Grid:
             for cell in row:
                 cell.highlighted = cell.value == num
 
+    def unhighlight(self):
+        for row in self.cells:
+            for cell in row:
+                cell.highlighted = False
+
+    def count_filled(self):
+        filled = 0
+        for row in self.cells:
+            for cell in row:
+                if cell.value != 0:
+                    filled +=1
+        return filled
+
 def draw_menu(win, selected_num):
     gap = WIDTH / 9
     for i in range(9):
@@ -143,13 +159,29 @@ def draw_menu(win, selected_num):
         if selected_num == i+1:
             pygame.draw.rect(win, LIGHT_GRAY, rect)
         pygame.draw.rect(win, BLACK, rect, 1)
-        text = NUMBER_FONT.render(str(i+1), True, BLACK)
+        text = NUMBER_FONT.render(str(i+1), True, RED)
         win.blit(text, (x + (gap/2 - text.get_width()/2), y + (60/2 - text.get_height()/2)))
 
-def redraw_window(win, grid, selected_num):
+def draw_status_bar(win, elapsed_time, message, filled_cells):
+    status_bar_height = 40
+    y = HEIGHT - status_bar_height
+    pygame.draw.rect(win, LIGHT_GRAY, (0, y, WIDTH, status_bar_height))
+    pygame.draw.line(win, BLACK, (0, y), (WIDTH, y), 2)
+
+    time_text = STATUS_FONT.render(f"Time: {int(elapsed_time)}s", True, BLACK)
+    cells_text = STATUS_FONT.render(f"Filled Cells: {filled_cells}/81", True, BLACK)
+    message_text = STATUS_FONT.render(message, True, RED if message else BLACK)
+
+    win.blit(time_text, (10, y + 5))
+    win.blit(cells_text, (200, y +5))
+    win.blit(message_text, (400, y +5))
+
+def redraw_window(win, grid, selected_num, elapsed_time, message):
     win.fill(WHITE)
     draw_menu(win, selected_num)
     grid.draw(win)
+    filled_cells = grid.count_filled()
+    draw_status_bar(win, elapsed_time, message, filled_cells)
     pygame.display.update()
 
 def main():
@@ -157,9 +189,12 @@ def main():
     grid = Grid(board, WIDTH, WIDTH)
     key = None
     selected_num = None
+    start_time = time.time()
+    message = ""
 
     while run:
-        redraw_window(WIN, grid, selected_num)
+        elapsed_time = time.time() - start_time
+        redraw_window(WIN, grid, selected_num, elapsed_time, message)
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -177,9 +212,10 @@ def main():
                     if selected_num == num_clicked:
                         # Deselect if clicked again
                         selected_num = None
-                        grid.highlight(0)  # Remove highlighting
+                        grid.unhighlight()
                     else:
                         selected_num = num_clicked
+                        grid.unhighlight()
                         grid.highlight(selected_num)
                 else:
                     clicked = grid.click(pos)
@@ -189,6 +225,7 @@ def main():
                         if cell.editable:
                             grid.select(row, col)
                             key = None
+                            message = ""
                     else:
                         grid.selected = None
 
@@ -220,10 +257,12 @@ def main():
                     if cell.editable:
                         if key == 0:
                             cell.value = 0
+                            message = ""
                         elif grid.valid(key, row, col):
                             cell.value = key
+                            message = ""
                         else:
-                            print("Invalid move")
+                            message = "Invalid Move"
                         key = None
 
     pygame.quit()
