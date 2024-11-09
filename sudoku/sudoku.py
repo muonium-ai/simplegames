@@ -4,19 +4,21 @@ import sys
 pygame.init()
 
 # Screen dimensions
-WIDTH, HEIGHT = 540, 600
+WIDTH, HEIGHT = 540, 600  # Additional height for menu
 WIN = pygame.display.set_mode((WIDTH, HEIGHT))
-pygame.display.set_caption("Simple Sudoku")
+pygame.display.set_caption("Sudoku Game")
 
 # Colors
 WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
-GRAY = (128, 128, 128)
+GRAY = (150, 150, 150)
+LIGHT_GRAY = (200, 200, 200)
 SELECTED_CELL_COLOR = (189, 214, 255)
+HIGHLIGHT_COLOR = (255, 255, 0)
 
 # Fonts
 FONT = pygame.font.SysFont("comicsans", 40)
-NUMBER_FONT = pygame.font.SysFont("comicsans", 50)
+NUMBER_FONT = pygame.font.SysFont("comicsans", 40)
 
 # Sample Sudoku board (0 represents empty cells)
 board = [
@@ -31,42 +33,133 @@ board = [
     [0, 4, 9, 2, 0, 6, 0, 0, 7]
 ]
 
-def draw_grid(win):
-    gap = WIDTH // 9
-    for i in range(10):
-        thickness = 4 if i % 3 == 0 else 1
-        # Horizontal lines
-        pygame.draw.line(win, BLACK, (0, i * gap), (WIDTH, i * gap), thickness)
-        # Vertical lines
-        pygame.draw.line(win, BLACK, (i * gap, 0), (i * gap, WIDTH), thickness)
+class Cell:
+    def __init__(self, value, row, col, width, height, editable):
+        self.value = value
+        self.row = row
+        self.col = col
+        self.width = width
+        self.height = height
+        self.editable = editable
+        self.selected = False
+        self.highlighted = False
 
-def draw_numbers(win, board, selected):
-    gap = WIDTH // 9
+    def draw(self, win):
+        gap = self.width / 9
+        x = self.col * gap
+        y = self.row * gap + 60  # Adjust for menu height
+
+        if self.highlighted:
+            pygame.draw.rect(win, HIGHLIGHT_COLOR, (x, y, gap, gap))
+
+        if self.selected:
+            pygame.draw.rect(win, SELECTED_CELL_COLOR, (x, y, gap, gap))
+
+        if self.value != 0:
+            font_color = GRAY if not self.editable else BLACK
+            text = NUMBER_FONT.render(str(self.value), True, font_color)
+            win.blit(text, (x + (gap/2 - text.get_width()/2), y + (gap/2 - text.get_height()/2)))
+
+class Grid:
+    def __init__(self, board, width, height):
+        self.rows = 9
+        self.cols = 9
+        self.cells = [[Cell(board[i][j], i, j, width, height, board[i][j] == 0) for j in range(9)] for i in range(9)]
+        self.width = width
+        self.height = height
+        self.selected = None
+
+    def draw(self, win):
+        # Draw grid lines
+        gap = self.width / 9
+        for i in range(self.rows+1):
+            thickness = 4 if i % 3 == 0 else 1
+            pygame.draw.line(win, BLACK, (0, i * gap + 60), (self.width, i * gap + 60), thickness)
+            pygame.draw.line(win, BLACK, (i * gap, 60), (i * gap, self.height + 60), thickness)
+
+        # Draw cells
+        for row in self.cells:
+            for cell in row:
+                cell.draw(win)
+
+    def click(self, pos):
+        if pos[1] < 60 or pos[1] > self.height + 60:
+            return None
+        gap = self.width / 9
+        x = pos[0] // gap
+        y = (pos[1] - 60) // gap
+        if x >= 0 and y >= 0 and x < 9 and y <9:
+            return (int(y), int(x))
+        else:
+            return None
+
+    def select(self, row, col):
+        for r in self.cells:
+            for cell in r:
+                cell.selected = False
+        self.cells[row][col].selected = True
+        self.selected = (row, col)
+
+    def place(self, val):
+        row, col = self.selected
+        cell = self.cells[row][col]
+        if cell.editable:
+            if self.valid(val, row, col):
+                cell.value = val
+                return True
+            else:
+                return False
+
+    def valid(self, val, row, col):
+        # Check row
+        for i in range(9):
+            if self.cells[row][i].value == val and i != col:
+                return False
+        # Check column
+        for i in range(9):
+            if self.cells[i][col].value == val and i != row:
+                return False
+        # Check square
+        start_row = row - row % 3
+        start_col = col - col % 3
+        for i in range(3):
+            for j in range(3):
+                cell = self.cells[start_row + i][start_col + j]
+                if cell.value == val and (start_row + i, start_col + j) != (row, col):
+                    return False
+        return True
+
+    def highlight(self, num):
+        for row in self.cells:
+            for cell in row:
+                cell.highlighted = cell.value == num
+
+def draw_menu(win, selected_num):
+    gap = WIDTH / 9
     for i in range(9):
-        for j in range(9):
-            x = j * gap
-            y = i * gap
+        x = i * gap
+        y = 0
+        rect = pygame.Rect(x, y, gap, 60)
+        if selected_num == i+1:
+            pygame.draw.rect(win, LIGHT_GRAY, rect)
+        pygame.draw.rect(win, BLACK, rect, 1)
+        text = NUMBER_FONT.render(str(i+1), True, BLACK)
+        win.blit(text, (x + (gap/2 - text.get_width()/2), y + (60/2 - text.get_height()/2)))
 
-            if board[i][j] != 0:
-                text = NUMBER_FONT.render(str(board[i][j]), True, BLACK)
-                win.blit(text, (x + (gap//2 - text.get_width()//2), y + (gap//2 - text.get_height()//2)))
-
-            if selected == (i, j):
-                pygame.draw.rect(win, SELECTED_CELL_COLOR, (x, y, gap, gap))
-
-def redraw_window(win, board, selected):
+def redraw_window(win, grid, selected_num):
     win.fill(WHITE)
-    draw_grid(win)
-    draw_numbers(win, board, selected)
+    draw_menu(win, selected_num)
+    grid.draw(win)
     pygame.display.update()
 
 def main():
     run = True
-    selected = None
+    grid = Grid(board, WIDTH, WIDTH)
     key = None
+    selected_num = None
 
     while run:
-        redraw_window(WIN, board, selected)
+        redraw_window(WIN, grid, selected_num)
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -76,11 +169,28 @@ def main():
 
             if event.type == pygame.MOUSEBUTTONDOWN:
                 pos = pygame.mouse.get_pos()
-                gap = WIDTH // 9
-                x = pos[0] // gap
-                y = pos[1] // gap
-                if y < 9:
-                    selected = (int(y), int(x))
+                if pos[1] < 60:
+                    # Clicked on menu
+                    gap = WIDTH / 9
+                    x = pos[0] // gap
+                    num_clicked = int(x) + 1
+                    if selected_num == num_clicked:
+                        # Deselect if clicked again
+                        selected_num = None
+                        grid.highlight(0)  # Remove highlighting
+                    else:
+                        selected_num = num_clicked
+                        grid.highlight(selected_num)
+                else:
+                    clicked = grid.click(pos)
+                    if clicked:
+                        row, col = clicked
+                        cell = grid.cells[row][col]
+                        if cell.editable:
+                            grid.select(row, col)
+                            key = None
+                    else:
+                        grid.selected = None
 
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_1 or event.key == pygame.K_KP1:
@@ -104,10 +214,19 @@ def main():
                 if event.key == pygame.K_BACKSPACE or event.key == pygame.K_DELETE:
                     key = 0
 
-                if selected and key is not None:
-                    row, col = selected
-                    board[row][col] = key
-                    key = None
+                if grid.selected and key is not None:
+                    row, col = grid.selected
+                    cell = grid.cells[row][col]
+                    if cell.editable:
+                        if key == 0:
+                            cell.value = 0
+                        elif grid.valid(key, row, col):
+                            cell.value = key
+                        else:
+                            print("Invalid move")
+                        key = None
+
+    pygame.quit()
 
 if __name__ == "__main__":
     main()
