@@ -5,7 +5,6 @@ import random
 from config import *
 from cell import Cell, CellState
 
-
 class Minesweeper:
     def __init__(self, solver=None):
         pygame.init()
@@ -15,11 +14,13 @@ class Minesweeper:
         self.font = pygame.font.Font(None, 36)
         self.reset_game()
         self.solver = solver(self) if solver else None  # Initialize solver if provided
+        self.iteration = 0  # Track the number of iterations
 
     def reset_game(self):
         self.grid = [[Cell() for _ in range(GRID_WIDTH)] for _ in range(GRID_HEIGHT)]
         self.game_over = False
         self.first_click = True
+        self.mines_remaining = MINE_COUNT
         print("Game reset with hidden cells.")
 
     def place_mines(self, first_x, first_y):
@@ -101,10 +102,19 @@ class Minesweeper:
         if right_click:
             if cell.state == CellState.HIDDEN:
                 cell.state = CellState.FLAGGED
+                self.mines_remaining -= 1
             elif cell.state == CellState.FLAGGED:
                 cell.state = CellState.HIDDEN
+                self.mines_remaining += 1
         else:
             self.reveal_cell(x, y)
+
+    def count_hidden_cells(self):
+        """Count the number of hidden cells on the board."""
+        return sum(
+            1 for row in self.grid for cell in row
+            if cell.state == CellState.HIDDEN
+        )
 
     def draw(self):
         self.screen.fill(GRAY)
@@ -131,16 +141,25 @@ class Minesweeper:
         running = True
         while running:
             if self.solver and not self.game_over:
+                self.iteration += 1
                 move = self.solver.next_move()
+                
                 if move:
                     x, y, action = move
                     if action == 'reveal':
                         self.reveal_cell(x, y)
                     elif action == 'flag':
                         self.grid[y][x].state = CellState.FLAGGED
+                        self.mines_remaining -= 1
                         print(f"Flagged cell at ({x}, {y}) as a mine")
-                else:
+
+                # Debug output: Print iteration, remaining mines, and hidden cells
+                remaining_hidden = self.count_hidden_cells()
+                print(f"Iteration: {self.iteration} | Remaining Mines: {self.mines_remaining} | Remaining Hidden Cells: {remaining_hidden}")
+
+                if move is None:
                     print("No moves available from the solver.")
+                    break
 
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
