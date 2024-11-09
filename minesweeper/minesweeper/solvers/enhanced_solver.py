@@ -5,8 +5,9 @@ from cell import CellState
 from config import GRID_WIDTH, GRID_HEIGHT
 
 class Solver:
-    def __init__(self, game):
+    def __init__(self, game, debug_mode=False):
         self.game = game
+        self.debug_mode = debug_mode  # Set debug mode for conditional printing
         self.initial_move_made = False
 
     def next_move(self):
@@ -96,10 +97,12 @@ class Solver:
 
         # If a cell with low probability is found, reveal it; otherwise, choose randomly
         if best_cell:
-            print(f"Probabilistic guess at {best_cell} with mine probability: {min_probability}")
+            if self.debug_mode:
+                print(f"Probabilistic guess at {best_cell} with mine probability: {min_probability}")
             return best_cell[0], best_cell[1], 'reveal'
         else:
             # Fall back to random choice if no probabilistic move is found
             x, y = self.random_hidden_cell()
-            print(f"No probabilistic move found, falling back to random cell at ({x}, {y})")
+            if self.debug_mode:
+                print(f"No probabilistic move found, falling back to random cell at ({x}, {y})")
             return x, y, 'reveal'

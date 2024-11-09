@@ -41,8 +41,8 @@ if __name__ == "__main__":
         print("No valid solver provided. Exiting.")
         sys.exit()
 
-    # Initialize the game with the solver
-    game = Minesweeper(solver=SolverClass)
+    # Initialize the game with the solver and pass debug_mode
+    game = Minesweeper(solver=lambda g: SolverClass(g, debug_mode=debug_mode), debug_mode=debug_mode)
     game.iteration = 0  # Track the number of iterations
 
     running = True

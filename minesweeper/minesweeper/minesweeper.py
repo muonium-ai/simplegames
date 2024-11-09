@@ -6,22 +6,24 @@ from config import *
 from cell import Cell, CellState
 
 class Minesweeper:
-    def __init__(self, solver=None):
+    def __init__(self, solver=None, debug_mode=False):
         pygame.init()
         self.screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
         pygame.display.set_caption("Minesweeper")
         self.clock = pygame.time.Clock()
         self.font = pygame.font.Font(None, 36)
+        self.debug_mode = debug_mode  # Set debug mode
         self.reset_game()
         self.solver = solver(self) if solver else None  # Initialize solver if provided
-        self.iteration = 0  # Track the number of iterations
+        self.iteration = 0
 
     def reset_game(self):
         self.grid = [[Cell() for _ in range(GRID_WIDTH)] for _ in range(GRID_HEIGHT)]
         self.game_over = False
         self.first_click = True
         self.mines_remaining = MINE_COUNT
-        print("Game reset with hidden cells.")
+        if self.debug_mode:
+            print("Game reset with hidden cells.")
 
     def place_mines(self, first_x, first_y):
         safe_cells = [(first_x, first_y)]
@@ -60,7 +62,8 @@ class Minesweeper:
             return
 
         cell.state = CellState.REVEALED
-        print(f"Revealed cell at ({x}, {y}) - Neighbor mines: {cell.neighbor_mines}")
+        if self.debug_mode:
+            print(f"Revealed cell at ({x}, {y}) - Neighbor mines: {cell.neighbor_mines}")
 
         if cell.is_mine:
             self.game_over = True
@@ -78,7 +81,8 @@ class Minesweeper:
                 neighbor = self.grid[ny][nx]
                 if neighbor.state == CellState.HIDDEN and not neighbor.is_mine:
                     neighbor.state = CellState.REVEALED
-                    print(f"Cascade reveal cell at ({nx}, {ny}) - Neighbor mines: {neighbor.neighbor_mines}")
+                    if self.debug_mode:
+                        print(f"Cascade reveal cell at ({nx}, {ny}) - Neighbor mines: {neighbor.neighbor_mines}")
                     if neighbor.neighbor_mines == 0:
                         self.cascade_reveal(nx, ny)
 
@@ -90,24 +94,6 @@ class Minesweeper:
                 if cell.is_mine:
                     cell.state = CellState.REVEALED
         print("All mines revealed.")
-
-    def handle_click(self, pos, right_click=False):
-        if self.game_over:
-            return
-        x = pos[0] // CELL_SIZE
-        y = (pos[1] - HEADER_HEIGHT) // CELL_SIZE
-        if not (0 <= x < GRID_WIDTH and 0 <= y < GRID_HEIGHT):
-            return
-        cell = self.grid[y][x]
-        if right_click:
-            if cell.state == CellState.HIDDEN:
-                cell.state = CellState.FLAGGED
-                self.mines_remaining -= 1
-            elif cell.state == CellState.FLAGGED:
-                cell.state = CellState.HIDDEN
-                self.mines_remaining += 1
-        else:
-            self.reveal_cell(x, y)
 
     def count_hidden_cells(self):
         """Count the number of hidden cells on the board."""
@@ -143,7 +129,7 @@ class Minesweeper:
             if self.solver and not self.game_over:
                 self.iteration += 1
                 move = self.solver.next_move()
-                
+
                 if move:
                     x, y, action = move
                     if action == 'reveal':
@@ -151,11 +137,13 @@ class Minesweeper:
                     elif action == 'flag':
                         self.grid[y][x].state = CellState.FLAGGED
                         self.mines_remaining -= 1
-                        print(f"Flagged cell at ({x}, {y}) as a mine")
+                        if self.debug_mode:
+                            print(f"Flagged cell at ({x}, {y}) as a mine")
 
                 # Debug output: Print iteration, remaining mines, and hidden cells
                 remaining_hidden = self.count_hidden_cells()
-                print(f"Iteration: {self.iteration} | Remaining Mines: {self.mines_remaining} | Remaining Hidden Cells: {remaining_hidden}")
+                if self.debug_mode or self.game_over:
+                    print(f"Iteration: {self.iteration} | Remaining Mines: {self.mines_remaining} | Remaining Hidden Cells: {remaining_hidden}")
 
                 if move is None:
                     print("No moves available from the solver.")
@@ -164,8 +152,7 @@ class Minesweeper:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     running = False
-                elif event.type == pygame.MOUSEBUTTONDOWN:
-                    self.handle_click(event.pos, event.button == 3)
+
             self.draw()
             pygame.display.flip()
             self.clock.tick(60)
