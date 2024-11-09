@@ -150,6 +150,40 @@ class Grid:
                     filled +=1
         return filled
 
+    def is_solved(self):
+        # Check if all cells are filled
+        for row in self.cells:
+            for cell in row:
+                if cell.value == 0:
+                    return False
+        # Check rows
+        for i in range(9):
+            nums = []
+            for j in range(9):
+                val = self.cells[i][j].value
+                if val in nums:
+                    return False
+                nums.append(val)
+        # Check columns
+        for i in range(9):
+            nums = []
+            for j in range(9):
+                val = self.cells[j][i].value
+                if val in nums:
+                    return False
+                nums.append(val)
+        # Check squares
+        for box_x in range(3):
+            for box_y in range(3):
+                nums = []
+                for i in range(3):
+                    for j in range(3):
+                        val = self.cells[box_x*3 + i][box_y*3 + j].value
+                        if val in nums:
+                            return False
+                        nums.append(val)
+        return True
+
 def draw_menu(win, selected_num):
     gap = WIDTH / 9
     for i in range(9):
@@ -261,6 +295,10 @@ def main():
                         elif grid.valid(key, row, col):
                             cell.value = key
                             message = ""
+                            # Check if the puzzle is solved
+                            if grid.is_solved():
+                                message = "Victory!"
+                                print("Victory")
                         else:
                             message = "Invalid Move"
                         key = None
