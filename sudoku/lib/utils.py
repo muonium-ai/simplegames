@@ -10,8 +10,8 @@ from .config import (
     WHITE,
     NUMBER_FONT,
     STATUS_FONT,
+    FONT,
 )
-from .config import FONT  # If needed
 
 def draw_menu(win, selected_num):
     gap = WIDTH / 9
@@ -44,10 +44,22 @@ def draw_status_bar(win, elapsed_time, message, filled_cells):
     win.blit(cells_text, (200, y + 5))
     win.blit(message_text, (400, y + 5))
 
-def redraw_window(win, grid, selected_num, elapsed_time, message):
+def redraw_window(win, grid, selected_num, elapsed_time, message, game_over):
     win.fill(WHITE)
     draw_menu(win, selected_num)
     grid.draw(win)
     filled_cells = grid.count_filled()
     draw_status_bar(win, elapsed_time, message, filled_cells)
+
+    if game_over:
+        # Display Victory message
+        victory_text = FONT.render("Victory!", True, RED)
+        win.blit(
+            victory_text,
+            (
+                WIDTH / 2 - victory_text.get_width() / 2,
+                HEIGHT / 2 - victory_text.get_height() / 2,
+            ),
+        )
+
     pygame.display.update()

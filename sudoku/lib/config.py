@@ -17,6 +17,6 @@ HIGHLIGHT_COLOR = (255, 255, 0)
 RED = (255, 0, 0)
 
 # Fonts
-FONT = pygame.font.SysFont("comicsans", 40)
+FONT = pygame.font.SysFont("comicsans", 60)  # Increased font size for Victory message
 NUMBER_FONT = pygame.font.SysFont("comicsans", 40)
 STATUS_FONT = pygame.font.SysFont("comicsans", 30)
