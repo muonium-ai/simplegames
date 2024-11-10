@@ -18,6 +18,7 @@ from .config import (
     STATUS_BAR_HEIGHT,
     MENU_BAR_HEIGHT,
     TOP_OFFSET,
+    SPACING,
 )
 from .config import pygame  # Ensure pygame is initialized
 
@@ -36,20 +37,19 @@ def draw_menu(win, selected_num):
             (x + (gap / 2 - text.get_width() / 2), y + (MENU_BAR_HEIGHT / 2 - text.get_height() / 2)),
         )
 
-def draw_status_bar(win, elapsed_time, message, filled_cells):
+def draw_status_bar(win, elapsed_time, message):
     y = BUTTON_BAR_HEIGHT  # Position below the buttons
     pygame.draw.rect(win, LIGHT_GRAY, (0, y, WIDTH, STATUS_BAR_HEIGHT))
     pygame.draw.line(win, BLACK, (0, y), (WIDTH, y), 2)
 
     time_text = STATUS_FONT.render(f"Time: {int(elapsed_time)}s", True, BLACK)
-    cells_text = STATUS_FONT.render(f"Filled Cells: {filled_cells}/81", True, BLACK)
     message_text = STATUS_FONT.render(
         message, True, RED if message == "Invalid Move" else BLACK
     )
 
     win.blit(time_text, (10, y + 5))
-    win.blit(cells_text, (200, y +5))
-    win.blit(message_text, (400, y +5))
+    win.blit(message_text, (200, y +5))
+    # Removed "Filled Cells" text to save space
 
 def draw_buttons(win):
     button_width = 150
@@ -108,7 +108,7 @@ def draw_buttons(win):
 def redraw_window(win, grid, selected_num, elapsed_time, message, game_over):
     win.fill(WHITE)
     buttons = draw_buttons(win)
-    draw_status_bar(win, elapsed_time, message, grid.count_filled())
+    draw_status_bar(win, elapsed_time, message)
     draw_menu(win, selected_num)
     grid.draw(win)
     

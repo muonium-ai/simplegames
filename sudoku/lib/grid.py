@@ -1,6 +1,7 @@
 # lib/grid.py
 
 import pygame
+import random  # Import random module
 from .cell import Cell
 from .config import BLACK, TOP_OFFSET
 
@@ -144,15 +145,18 @@ class Grid:
         return True
 
     def hint(self, solution_board):
-        # Find an empty cell
-        for i in range(9):
-            for j in range(9):
-                cell = self.cells[i][j]
-                if cell.value == 0:
-                    cell.value = solution_board[i][j]
-                    cell.editable = False  # Make the cell non-editable after hint
-                    return True  # Hint provided
-        return False  # No empty cells
+        # Collect all empty cells
+        empty_cells = [(i, j) for i in range(9) for j in range(9) if self.cells[i][j].value == 0]
+        if not empty_cells:
+            return False  # No empty cells
+
+        # Choose a random empty cell
+        i, j = random.choice(empty_cells)
+        cell = self.cells[i][j]
+        cell.value = solution_board[i][j]
+        cell.editable = False  # Make the cell non-editable after hint
+        cell.hinted = True  # Mark the cell as hinted
+        return True  # Hint provided
 
     def solve(self, solution_board):
         # Fill in all empty cells

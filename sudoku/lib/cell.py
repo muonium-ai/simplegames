@@ -1,7 +1,7 @@
 # lib/cell.py
 
 import pygame
-from .config import BLACK, GRAY, SELECTED_CELL_COLOR, HIGHLIGHT_COLOR, NUMBER_FONT, TOP_OFFSET
+from .config import BLACK, GRAY, GREEN, SELECTED_CELL_COLOR, HIGHLIGHT_COLOR, NUMBER_FONT, TOP_OFFSET
 
 class Cell:
     def __init__(self, value, row, col, width, height, editable):
@@ -13,6 +13,7 @@ class Cell:
         self.editable = editable
         self.selected = False
         self.highlighted = False
+        self.hinted = False  # New attribute to track hinted cells
 
     def draw(self, win):
         gap = self.width / 9
@@ -26,7 +27,12 @@ class Cell:
             pygame.draw.rect(win, SELECTED_CELL_COLOR, (x, y, gap, gap))
 
         if self.value != 0:
-            font_color = GRAY if not self.editable else BLACK
+            if not self.editable:
+                font_color = GRAY
+            elif self.hinted:
+                font_color = GREEN  # Hinted numbers in green
+            else:
+                font_color = BLACK
             text = NUMBER_FONT.render(str(self.value), True, font_color)
             win.blit(
                 text,
