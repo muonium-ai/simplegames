@@ -24,8 +24,21 @@ Welcome to **SimpleGames**! This is an open-source project featuring classic gam
    - Enjoy the addictive 2048 game, where numbers merge to reach the 2048 tile!
    - **AI Solver**: A unique addition to this project, the AI solver is implemented using Flask and runs through HTTP requests. You can watch an AI tackle the game, exploring how an algorithm strategizes for optimal moves.
 
-2. **Sudoku with Solver** 🔢
+3. **Sudoku with Solver** 🔢
    - The Sudoku Game with Solver in SimpleGames offers the classic puzzle experience where players fill a 9x9 grid following Sudoku rules. Additionally, it includes an AI-based solver that can help players find solutions. 
+
+4. **Chess Replay Viewer** ♔♕
+
+   - This project is a **Chess Replay Viewer** built with Python, Pygame, and `python-chess`. It reads a PGN (Portable Game Notation) file containing one or multiple chess games and visually replays each game move-by-move.
+
+
+
+### Usage
+1. Place your PGN file in the `pgns` folder (or provide the path to any other location).
+2. Run the script:
+   ```bash
+   python chess_player.py path/to/your_game.pgn
+   ```
 
 
 ## 🛠️ Tech Stack
@@ -41,8 +54,7 @@ This project is also a showcase of **AI-assisted development**. Over 90% of the 
 ## 🚀 Future Plans
 
 We’re excited to keep expanding SimpleGames with more classic games and AI functionalities:
-1. **Sudoku**: Implementing game mode and solver functionalities.
-2. **Chess**: A fully playable chess game with AI move suggestions to challenge players.
+Sudoku and Chess are done
 
 Stay tuned for these additions and more!
 
@@ -74,6 +86,10 @@ Each game project has a readme in the folder
      python ai_solver.py
      ```
    - The 2048 game can make HTTP requests to the AI solver to see AI strategies in action.
+   **Chess Replay Viewer**
+      ```bash
+      python chess_player.py path/to/your_game.pgn
+      ```
 
 ## 🎮 Usage
 
