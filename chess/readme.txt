@@ -1,0 +1,1 @@
+Basic chess player to play a single chess game from pgn file
