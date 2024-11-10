@@ -13,7 +13,7 @@ pygame.display.set_caption("Chess Replay")
 # Colors
 white = (255, 255, 255)
 black = (0, 0, 0)
-light_square = (240, 217, 181)
+light_square = (222, 184, 135)  # A darker shade of beige for better contrast
 dark_square = (181, 136, 99)
 
 # Unicode chess pieces
@@ -74,6 +74,8 @@ while running:
         draw_board(board)
         move_index += 1
         last_move_time = current_time
+    elif move_index >= len(moves):  # Stop when all moves are played
+        running = False
 
     clock.tick(30)  # Run at 30 FPS
 
