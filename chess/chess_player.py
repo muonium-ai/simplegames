@@ -6,9 +6,9 @@ import os
 
 # Initialize Pygame
 pygame.init()
-screen_size = 800  # Doubled the screen size to 800x800 pixels
+screen_size = 800  # Screen size for the chessboard display
 square_size = screen_size // 8
-info_height = 100  # Increased space above the board for displaying FEN and step information
+info_height = 100  # Space above the board for displaying game details
 screen = pygame.display.set_mode((screen_size, screen_size + info_height))
 pygame.display.set_caption("Chess Replay")
 
@@ -24,36 +24,53 @@ unicode_pieces = {
     'p': '♟', 'n': '♞', 'b': '♝', 'r': '♜', 'q': '♛', 'k': '♚'   # Black pieces
 }
 
-# Load PGN from file
-pgn_file = sys.argv[1] if len(sys.argv) > 1 else "game.pgn"
+# Load PGN file and extract games
+pgn_file = sys.argv[1] if len(sys.argv) > 1 else "games.pgn"
 game_name = os.path.splitext(os.path.basename(pgn_file))[0]
 screenshot_dir = os.path.join("screenshots", game_name)
 os.makedirs(screenshot_dir, exist_ok=True)
 
+# Extract all games from the PGN file
 with open(pgn_file) as f:
-    game = chess.pgn.read_game(f)
-
-# Initialize the board
-board = game.board()
-
-# Setup game variables
-clock = pygame.time.Clock()
-moves = list(game.mainline_moves())
-move_index = 0
-move_time = 1000  # 1 second in milliseconds
+    games = []
+    while True:
+        game = chess.pgn.read_game(f)
+        if game is None:
+            break
+        games.append(game)
 
 # Fonts
 pygame.font.init()
 font = pygame.font.SysFont("Segoe UI Symbol", square_size - 10)
 info_font = pygame.font.SysFont("Arial", 24)
 
-# Function to draw board and pieces
-def draw_board(board, move_index, last_move):
-    # Clear the screen
+def show_game_details(game, game_id):
+    screen.fill(white)
+    event = game.headers.get("Event", "Unknown Event")
+    white_player = game.headers.get("White", "Unknown White")
+    black_player = game.headers.get("Black", "Unknown Black")
+    date = game.headers.get("Date", "Unknown Date")
+    
+    # Display game details
+    lines = [
+        f"Game ID: {game_id}",
+        f"Event: {event}",
+        f"White: {white_player}",
+        f"Black: {black_player}",
+        f"Date: {date}",
+    ]
+    for i, line in enumerate(lines):
+        text_surface = info_font.render(line, True, black)
+        screen.blit(text_surface, (20, 30 + i * 30))
+    
+    pygame.display.flip()
+    pygame.time.delay(2000)  # Display game details for 2 seconds
+
+def draw_board(board, move_index, last_move, result=None):
     screen.fill(white)
 
     # Draw step number, last move, and FEN
-    step_text = f"Step: {move_index + 1}"
+    step_text = f"Step: {move_index + 1}" if result is None else f"Result: {result}"
     last_move_text = f"Last Move: {last_move}" if last_move else "Last Move: -"
     fen_text = f"FEN: {board.fen()}"
     step_surface = info_font.render(step_text, True, black)
@@ -66,7 +83,6 @@ def draw_board(board, move_index, last_move):
     # Draw the chessboard
     for row in range(8):
         for col in range(8):
-            # Alternate colors for the squares
             color = light_square if (row + col) % 2 == 0 else dark_square
             pygame.draw.rect(screen, color, pygame.Rect(col * square_size, row * square_size + info_height, square_size, square_size))
             
@@ -75,39 +91,60 @@ def draw_board(board, move_index, last_move):
             if piece:
                 piece_unicode = unicode_pieces[piece.symbol()]
                 text_surface = font.render(piece_unicode, True, black if piece.color == chess.WHITE else white)
-                
-                # Center the piece in the square
                 text_rect = text_surface.get_rect(center=(col * square_size + square_size // 2, row * square_size + info_height + square_size // 2))
                 screen.blit(text_surface, text_rect)
 
     pygame.display.flip()
 
-    # Save screenshot of the current step
-    screenshot_path = os.path.join(screenshot_dir, f"{move_index + 1:03}.png")
-    pygame.image.save(screen, screenshot_path)
+def play_game(game, game_id):
+    # Initialize board and moves
+    board = game.board()
+    moves = list(game.mainline_moves())
+    move_index = 0
+    last_move = None
+    result = game.headers.get("Result", "Unknown")
 
-# Main loop
-running = True
-last_move_time = pygame.time.get_ticks()
-last_move = None  # Variable to store the last move played
+    # Create subfolder for each game
+    game_dir = os.path.join(screenshot_dir, game_id)
+    os.makedirs(game_dir, exist_ok=True)
 
-while running:
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
+    # Initialize clock within play_game function
+    clock = pygame.time.Clock()
+
+    running = True
+    last_move_time = pygame.time.get_ticks()
+
+    while running:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+
+        current_time = pygame.time.get_ticks()
+        
+        # Display the next move every 0.1 seconds
+        if move_index < len(moves) and current_time - last_move_time >= 100:
+            last_move = board.san(moves[move_index])
+            board.push(moves[move_index])
+            draw_board(board, move_index, last_move)
+            move_index += 1
+            last_move_time = current_time
+            
+            # Save screenshot
+            screenshot_path = os.path.join(game_dir, f"{move_index:03}.png")
+            pygame.image.save(screen, screenshot_path)
+        
+        elif move_index >= len(moves):  # Show result when all moves are played
+            draw_board(board, move_index, last_move, result=result)
+            pygame.time.delay(2000)  # Pause for 2 seconds at end of game
             running = False
 
-    current_time = pygame.time.get_ticks()
-    
-    # Display the next move every second
-    if move_index < len(moves) and current_time - last_move_time >= move_time:
-        last_move = board.san(moves[move_index])  # Get the move in SAN format (e.g., e4, e5, Qxe7)
-        board.push(moves[move_index])
-        draw_board(board, move_index, last_move)
-        move_index += 1
-        last_move_time = current_time
-    elif move_index >= len(moves):  # Stop when all moves are played
-        running = False
+        clock.tick(30)
 
-    clock.tick(30)  # Run at 30 FPS
+# Main loop to process all games
+for i, game in enumerate(games):
+    game_id = f"game_{i+1}"
+    show_game_details(game, game_id)
+    play_game(game, game_id)
 
 pygame.quit()
