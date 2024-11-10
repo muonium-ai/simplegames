@@ -13,7 +13,7 @@ class Cell:
         self.editable = editable
         self.selected = False
         self.highlighted = False
-        self.hinted = False  # New attribute to track hinted cells
+        self.hinted = False  # Attribute to track hinted or solved cells
 
     def draw(self, win):
         gap = self.width / 9
@@ -27,10 +27,10 @@ class Cell:
             pygame.draw.rect(win, SELECTED_CELL_COLOR, (x, y, gap, gap))
 
         if self.value != 0:
-            if not self.editable:
+            if self.hinted:
+                font_color = GREEN  # Hinted or solved numbers in green
+            elif not self.editable:
                 font_color = GRAY
-            elif self.hinted:
-                font_color = GREEN  # Hinted numbers in green
             else:
                 font_color = BLACK
             text = NUMBER_FONT.render(str(self.value), True, font_color)

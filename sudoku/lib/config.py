@@ -15,7 +15,7 @@ LIGHT_GRAY = (200, 150, 150)
 SELECTED_CELL_COLOR = (189, 214, 255)
 HIGHLIGHT_COLOR = (255, 255, 0)
 RED = (255, 0, 0)
-GREEN = (0, 255, 0)
+GREEN = (0, 128, 0)  # Changed to a darker green
 BLUE = (0, 0, 255)  # Blue color for buttons
 
 # Fonts

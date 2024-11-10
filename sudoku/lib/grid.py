@@ -166,3 +166,4 @@ class Grid:
                 if cell.value == 0:
                     cell.value = solution_board[i][j]
                     cell.editable = False  # Make cells non-editable after solving
+                    cell.hinted = True  # Mark the cell as hinted (for green color)
