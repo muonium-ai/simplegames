@@ -1,7 +1,7 @@
 # lib/grid.py
 
 import pygame
-import random  # Import random module
+import random  # Needed for the hint method
 from .cell import Cell
 from .config import BLACK, TOP_OFFSET
 
@@ -111,37 +111,37 @@ class Grid:
         return filled
 
     def is_solved(self):
-        # Check if all cells are filled
+        # Check if all cells are filled with numbers from 1 to 9
         for row in self.cells:
             for cell in row:
-                if cell.value == 0:
+                if cell.value == 0 or not (1 <= cell.value <= 9):
                     return False
         # Check rows
         for i in range(9):
-            nums = []
+            nums = set()
             for j in range(9):
                 val = self.cells[i][j].value
                 if val in nums:
                     return False
-                nums.append(val)
+                nums.add(val)
         # Check columns
         for i in range(9):
-            nums = []
+            nums = set()
             for j in range(9):
                 val = self.cells[j][i].value
                 if val in nums:
                     return False
-                nums.append(val)
-        # Check squares
+                nums.add(val)
+        # Check 3x3 squares
         for box_x in range(3):
             for box_y in range(3):
-                nums = []
+                nums = set()
                 for i in range(3):
                     for j in range(3):
                         val = self.cells[box_x * 3 + i][box_y * 3 + j].value
                         if val in nums:
                             return False
-                        nums.append(val)
+                        nums.add(val)
         return True
 
     def hint(self, solution_board):
