@@ -17,6 +17,7 @@ white = (255, 255, 255)
 black = (0, 0, 0)
 light_square = (222, 184, 135)  # A darker shade of beige for better contrast
 dark_square = (181, 136, 99)
+info_bg_color = (200, 220, 240)  # Light blue background for info screen
 
 # Unicode chess pieces
 unicode_pieces = {
@@ -44,20 +45,22 @@ pygame.font.init()
 font = pygame.font.SysFont("Segoe UI Symbol", square_size - 10)
 info_font = pygame.font.SysFont("Arial", 24)
 
-def show_game_details(game, game_id):
-    screen.fill(white)
+def show_game_details(game, game_id, game_dir):
+    screen.fill(info_bg_color)  # Set background color for info screen
     event = game.headers.get("Event", "Unknown Event")
     white_player = game.headers.get("White", "Unknown White")
     black_player = game.headers.get("Black", "Unknown Black")
     date = game.headers.get("Date", "Unknown Date")
+    result = game.headers.get("Result", "Unknown Result")
     
-    # Display game details
+    # Display game details, including result
     lines = [
         f"Game ID: {game_id}",
         f"Event: {event}",
         f"White: {white_player}",
         f"Black: {black_player}",
         f"Date: {date}",
+        f"Result: {result}"
     ]
     for i, line in enumerate(lines):
         text_surface = info_font.render(line, True, black)
@@ -66,11 +69,15 @@ def show_game_details(game, game_id):
     pygame.display.flip()
     pygame.time.delay(2000)  # Display game details for 2 seconds
 
-def draw_board(board, move_index, last_move, result=None):
+    # Save screenshot of the game info (including result)
+    info_screenshot_path = os.path.join(game_dir, "info.png")
+    pygame.image.save(screen, info_screenshot_path)
+
+def draw_board(board, move_index, last_move):
     screen.fill(white)
 
     # Draw step number, last move, and FEN
-    step_text = f"Step: {move_index + 1}" if result is None else f"Result: {result}"
+    step_text = f"Step: {move_index + 1}"
     last_move_text = f"Last Move: {last_move}" if last_move else "Last Move: -"
     fen_text = f"FEN: {board.fen()}"
     step_surface = info_font.render(step_text, True, black)
@@ -102,11 +109,13 @@ def play_game(game, game_id):
     moves = list(game.mainline_moves())
     move_index = 0
     last_move = None
-    result = game.headers.get("Result", "Unknown")
 
     # Create subfolder for each game
     game_dir = os.path.join(screenshot_dir, game_id)
     os.makedirs(game_dir, exist_ok=True)
+
+    # Show game details and capture info screenshot
+    show_game_details(game, game_id, game_dir)
 
     # Initialize clock within play_game function
     clock = pygame.time.Clock()
@@ -130,12 +139,11 @@ def play_game(game, game_id):
             move_index += 1
             last_move_time = current_time
             
-            # Save screenshot
+            # Save screenshot for each move
             screenshot_path = os.path.join(game_dir, f"{move_index:03}.png")
             pygame.image.save(screen, screenshot_path)
         
-        elif move_index >= len(moves):  # Show result when all moves are played
-            draw_board(board, move_index, last_move, result=result)
+        elif move_index >= len(moves):  # Exit when all moves are played
             pygame.time.delay(2000)  # Pause for 2 seconds at end of game
             running = False
 
@@ -144,7 +152,6 @@ def play_game(game, game_id):
 # Main loop to process all games
 for i, game in enumerate(games):
     game_id = f"game_{i+1}"
-    show_game_details(game, game_id)
     play_game(game, game_id)
 
 pygame.quit()
