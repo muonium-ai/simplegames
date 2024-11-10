@@ -68,14 +68,14 @@ def remove_numbers(board, attempts=5):
         # Make a copy and try to solve it
         board_copy = copy.deepcopy(puzzle)
         solutions = [0]
-        solve(board_copy, solutions)
+        solve_for_uniqueness(board_copy, solutions)
         if solutions[0] != 1:
             # Not unique solution, restore the cell
             puzzle[row][col] = backup
             attempts -=1
     return puzzle
 
-def solve(board, solutions, limit=2):
+def solve_for_uniqueness(board, solutions, limit=2):
     find = find_empty(board)
     if not find:
         solutions[0] += 1
@@ -85,7 +85,7 @@ def solve(board, solutions, limit=2):
     for num in range(1,10):
         if valid(board, num, (row, col)):
             board[row][col] = num
-            if solve(board, solutions, limit):
+            if solve_for_uniqueness(board, solutions, limit):
                 if solutions[0] >= limit:
                     return True
             board[row][col] = 0
@@ -100,5 +100,6 @@ def find_empty(board):
 
 def generate_puzzle(difficulty=5):
     board = generate_board()
+    solution = copy.deepcopy(board)
     puzzle = remove_numbers(board, attempts=difficulty)
-    return puzzle
+    return puzzle, solution

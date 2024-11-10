@@ -134,3 +134,21 @@ class Grid:
                             return False
                         nums.append(val)
         return True
+
+    def hint(self, solution_board):
+        # Find an empty cell
+        for i in range(9):
+            for j in range(9):
+                cell = self.cells[i][j]
+                if cell.value == 0:
+                    cell.value = solution_board[i][j]
+                    return True  # Hint provided
+        return False  # No empty cells
+
+    def solve(self, solution_board):
+        # Fill in all empty cells
+        for i in range(9):
+            for j in range(9):
+                cell = self.cells[i][j]
+                if cell.value == 0:
+                    cell.value = solution_board[i][j]

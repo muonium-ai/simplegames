@@ -16,13 +16,16 @@ def main():
 
     run = True
     difficulty = 5  # Adjust this value for different difficulty levels
-    puzzle = generate_puzzle(difficulty)
+
+    # Generate puzzle and solution
+    puzzle, solution = generate_puzzle(difficulty)
     grid = Grid(puzzle, WIDTH, WIDTH)
+    original_board = solution  # Keep the solution for hints and solving
     key = None
     selected_num = None
     start_time = time.time()
     message = ""
-    game_over = False  # New flag to indicate if the game is over
+    game_over = False  # Flag to indicate if the game is over
 
     while run:
         # Stop updating the elapsed time when the game is over
@@ -32,7 +35,8 @@ def main():
             # Freeze the time when the game is won
             elapsed_time = elapsed_time
 
-        redraw_window(WIN, grid, selected_num, elapsed_time, message, game_over)
+        # Get button rectangles from redraw_window
+        buttons = redraw_window(WIN, grid, selected_num, elapsed_time, message, game_over)
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -40,9 +44,30 @@ def main():
                 pygame.quit()
                 sys.exit()
 
-            if not game_over:
-                if event.type == pygame.MOUSEBUTTONDOWN:
-                    pos = pygame.mouse.get_pos()
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                pos = pygame.mouse.get_pos()
+                if buttons['new_game'].collidepoint(pos):
+                    # New Game button clicked
+                    puzzle, solution = generate_puzzle(difficulty)
+                    grid = Grid(puzzle, WIDTH, WIDTH)
+                    original_board = solution
+                    key = None
+                    selected_num = None
+                    start_time = time.time()
+                    message = ""
+                    game_over = False
+                elif buttons['hint'].collidepoint(pos) and not game_over:
+                    # Hint button clicked
+                    if not grid.hint(original_board):
+                        message = "No Hints Available"
+                    else:
+                        message = ""
+                elif buttons['solve'].collidepoint(pos) and not game_over:
+                    # Solve button clicked
+                    grid.solve(original_board)
+                    game_over = True
+                    message = "Puzzle Solved"
+                elif not game_over:
                     if pos[1] < 60:
                         # Clicked on menu
                         gap = WIDTH / 9
@@ -68,46 +93,46 @@ def main():
                         else:
                             grid.selected = None
 
-                if event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_1 or event.key == pygame.K_KP1:
-                        key = 1
-                    if event.key == pygame.K_2 or event.key == pygame.K_KP2:
-                        key = 2
-                    if event.key == pygame.K_3 or event.key == pygame.K_KP3:
-                        key = 3
-                    if event.key == pygame.K_4 or event.key == pygame.K_KP4:
-                        key = 4
-                    if event.key == pygame.K_5 or event.key == pygame.K_KP5:
-                        key = 5
-                    if event.key == pygame.K_6 or event.key == pygame.K_KP6:
-                        key = 6
-                    if event.key == pygame.K_7 or event.key == pygame.K_KP7:
-                        key = 7
-                    if event.key == pygame.K_8 or event.key == pygame.K_KP8:
-                        key = 8
-                    if event.key == pygame.K_9 or event.key == pygame.K_KP9:
-                        key = 9
-                    if event.key == pygame.K_BACKSPACE or event.key == pygame.K_DELETE:
-                        key = 0
+            if event.type == pygame.KEYDOWN and not game_over:
+                if event.key == pygame.K_1 or event.key == pygame.K_KP1:
+                    key = 1
+                if event.key == pygame.K_2 or event.key == pygame.K_KP2:
+                    key = 2
+                if event.key == pygame.K_3 or event.key == pygame.K_KP3:
+                    key = 3
+                if event.key == pygame.K_4 or event.key == pygame.K_KP4:
+                    key = 4
+                if event.key == pygame.K_5 or event.key == pygame.K_KP5:
+                    key = 5
+                if event.key == pygame.K_6 or event.key == pygame.K_KP6:
+                    key = 6
+                if event.key == pygame.K_7 or event.key == pygame.K_KP7:
+                    key = 7
+                if event.key == pygame.K_8 or event.key == pygame.K_KP8:
+                    key = 8
+                if event.key == pygame.K_9 or event.key == pygame.K_KP9:
+                    key = 9
+                if event.key == pygame.K_BACKSPACE or event.key == pygame.K_DELETE:
+                    key = 0
 
-                    if grid.selected and key is not None:
-                        row, col = grid.selected
-                        cell = grid.cells[row][col]
-                        if cell.editable:
-                            if key == 0:
-                                cell.value = 0
-                                message = ""
-                            elif grid.valid(key, row, col):
-                                cell.value = key
-                                message = ""
-                                # Check if the puzzle is solved
-                                if grid.is_solved():
-                                    message = "Victory!"
-                                    print("Victory")
-                                    game_over = True  # Set the game_over flag to True
-                            else:
-                                message = "Invalid Move"
-                            key = None
+                if grid.selected and key is not None:
+                    row, col = grid.selected
+                    cell = grid.cells[row][col]
+                    if cell.editable:
+                        if key == 0:
+                            cell.value = 0
+                            message = ""
+                        elif grid.valid(key, row, col):
+                            cell.value = key
+                            message = ""
+                            # Check if the puzzle is solved
+                            if grid.is_solved():
+                                message = "Victory!"
+                                print("Victory")
+                                game_over = True  # Set the game_over flag to True
+                        else:
+                            message = "Invalid Move"
+                        key = None
 
     pygame.quit()
 
