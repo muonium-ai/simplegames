@@ -1,7 +1,7 @@
 # lib/cell.py
 
 import pygame
-from .config import BLACK, GRAY, SELECTED_CELL_COLOR, HIGHLIGHT_COLOR, NUMBER_FONT
+from .config import BLACK, GRAY, SELECTED_CELL_COLOR, HIGHLIGHT_COLOR, NUMBER_FONT, TOP_OFFSET
 
 class Cell:
     def __init__(self, value, row, col, width, height, editable):
@@ -17,7 +17,7 @@ class Cell:
     def draw(self, win):
         gap = self.width / 9
         x = self.col * gap
-        y = self.row * gap + 60  # Adjust for menu height
+        y = self.row * gap + TOP_OFFSET  # Adjusted position
 
         if self.highlighted:
             pygame.draw.rect(win, HIGHLIGHT_COLOR, (x, y, gap, gap))

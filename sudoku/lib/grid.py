@@ -2,7 +2,7 @@
 
 import pygame
 from .cell import Cell
-from .config import BLACK
+from .config import BLACK, TOP_OFFSET
 
 class Grid:
     def __init__(self, board, width, height):
@@ -25,10 +25,18 @@ class Grid:
         for i in range(self.rows + 1):
             thickness = 4 if i % 3 == 0 else 1
             pygame.draw.line(
-                win, BLACK, (0, i * gap + 60), (self.width, i * gap + 60), thickness
+                win,
+                BLACK,
+                (0, i * gap + TOP_OFFSET),
+                (self.width, i * gap + TOP_OFFSET),
+                thickness,
             )
             pygame.draw.line(
-                win, BLACK, (i * gap, 60), (i * gap, self.height + 60), thickness
+                win,
+                BLACK,
+                (i * gap, TOP_OFFSET),
+                (i * gap, self.height + TOP_OFFSET),
+                thickness,
             )
 
         # Draw cells
@@ -37,11 +45,11 @@ class Grid:
                 cell.draw(win)
 
     def click(self, pos):
-        if pos[1] < 60 or pos[1] > self.height + 60:
+        if pos[1] < TOP_OFFSET or pos[1] > self.height + TOP_OFFSET:
             return None
         gap = self.width / 9
         x = pos[0] // gap
-        y = (pos[1] - 60) // gap
+        y = (pos[1] - TOP_OFFSET) // gap
         if x >= 0 and y >= 0 and x < 9 and y < 9:
             return (int(y), int(x))
         else:
@@ -142,6 +150,7 @@ class Grid:
                 cell = self.cells[i][j]
                 if cell.value == 0:
                     cell.value = solution_board[i][j]
+                    cell.editable = False  # Make the cell non-editable after hint
                     return True  # Hint provided
         return False  # No empty cells
 
@@ -152,3 +161,4 @@ class Grid:
                 cell = self.cells[i][j]
                 if cell.value == 0:
                     cell.value = solution_board[i][j]
+                    cell.editable = False  # Make cells non-editable after solving

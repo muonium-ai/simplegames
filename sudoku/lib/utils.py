@@ -13,28 +13,32 @@ from .config import (
     FONT,
     BUTTON_FONT,
     GREEN,
+    BLUE,
+    BUTTON_BAR_HEIGHT,
+    STATUS_BAR_HEIGHT,
+    MENU_BAR_HEIGHT,
+    TOP_OFFSET,
 )
 from .config import pygame  # Ensure pygame is initialized
 
 def draw_menu(win, selected_num):
     gap = WIDTH / 9
+    y = BUTTON_BAR_HEIGHT + STATUS_BAR_HEIGHT  # Adjusted position
     for i in range(9):
         x = i * gap
-        y = 0
-        rect = pygame.Rect(x, y, gap, 60)
+        rect = pygame.Rect(x, y, gap, MENU_BAR_HEIGHT)
         if selected_num == i + 1:
             pygame.draw.rect(win, LIGHT_GRAY, rect)
         pygame.draw.rect(win, BLACK, rect, 1)
         text = NUMBER_FONT.render(str(i + 1), True, RED)
         win.blit(
             text,
-            (x + (gap / 2 - text.get_width() / 2), y + (60 / 2 - text.get_height() / 2)),
+            (x + (gap / 2 - text.get_width() / 2), y + (MENU_BAR_HEIGHT / 2 - text.get_height() / 2)),
         )
 
 def draw_status_bar(win, elapsed_time, message, filled_cells):
-    status_bar_height = 40
-    y = HEIGHT - status_bar_height
-    pygame.draw.rect(win, LIGHT_GRAY, (0, y, WIDTH, status_bar_height))
+    y = BUTTON_BAR_HEIGHT  # Position below the buttons
+    pygame.draw.rect(win, LIGHT_GRAY, (0, y, WIDTH, STATUS_BAR_HEIGHT))
     pygame.draw.line(win, BLACK, (0, y), (WIDTH, y), 2)
 
     time_text = STATUS_FONT.render(f"Time: {int(elapsed_time)}s", True, BLACK)
@@ -44,14 +48,14 @@ def draw_status_bar(win, elapsed_time, message, filled_cells):
     )
 
     win.blit(time_text, (10, y + 5))
-    win.blit(cells_text, (200, y + 5))
-    win.blit(message_text, (400, y + 5))
+    win.blit(cells_text, (200, y +5))
+    win.blit(message_text, (400, y +5))
 
 def draw_buttons(win):
     button_width = 150
     button_height = 40
     gap = 20
-    y = HEIGHT - 100  # Position buttons above the status bar
+    y = 0  # Position at the very top
 
     # New Game Button
     new_game_rect = pygame.Rect(
@@ -60,7 +64,7 @@ def draw_buttons(win):
     )
     pygame.draw.rect(win, LIGHT_GRAY, new_game_rect)
     pygame.draw.rect(win, BLACK, new_game_rect, 2)
-    new_game_text = BUTTON_FONT.render("New Game", True, BLACK)
+    new_game_text = BUTTON_FONT.render("New Game", True, BLUE)  # Text in blue
     win.blit(
         new_game_text,
         (
@@ -75,7 +79,7 @@ def draw_buttons(win):
     )
     pygame.draw.rect(win, LIGHT_GRAY, hint_rect)
     pygame.draw.rect(win, BLACK, hint_rect, 2)
-    hint_text = BUTTON_FONT.render("Hint", True, BLACK)
+    hint_text = BUTTON_FONT.render("Hint", True, BLUE)  # Text in blue
     win.blit(
         hint_text,
         (
@@ -90,7 +94,7 @@ def draw_buttons(win):
     )
     pygame.draw.rect(win, LIGHT_GRAY, solve_rect)
     pygame.draw.rect(win, BLACK, solve_rect, 2)
-    solve_text = BUTTON_FONT.render("Solve", True, BLACK)
+    solve_text = BUTTON_FONT.render("Solve", True, BLUE)  # Text in blue
     win.blit(
         solve_text,
         (
@@ -103,12 +107,11 @@ def draw_buttons(win):
 
 def redraw_window(win, grid, selected_num, elapsed_time, message, game_over):
     win.fill(WHITE)
+    buttons = draw_buttons(win)
+    draw_status_bar(win, elapsed_time, message, grid.count_filled())
     draw_menu(win, selected_num)
     grid.draw(win)
-    filled_cells = grid.count_filled()
-    draw_status_bar(win, elapsed_time, message, filled_cells)
-    buttons = draw_buttons(win)
-
+    
     if game_over:
         # Display Victory message
         victory_text = FONT.render("Victory!", True, RED)

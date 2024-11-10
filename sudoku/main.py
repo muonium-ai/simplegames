@@ -4,7 +4,7 @@ import pygame
 import sys
 import time
 
-from lib.config import WIDTH, HEIGHT, WHITE
+from lib.config import WIDTH, HEIGHT, WHITE, BUTTON_BAR_HEIGHT, STATUS_BAR_HEIGHT, MENU_BAR_HEIGHT, TOP_OFFSET
 from lib.config import pygame  # Ensure pygame is initialized
 from lib.grid import Grid
 from lib.utils import redraw_window
@@ -62,13 +62,18 @@ def main():
                         message = "No Hints Available"
                     else:
                         message = ""
+                        # Check if the puzzle is solved
+                        if grid.is_solved():
+                            message = "Victory!"
+                            print("Victory")
+                            game_over = True
                 elif buttons['solve'].collidepoint(pos) and not game_over:
                     # Solve button clicked
                     grid.solve(original_board)
                     game_over = True
                     message = "Puzzle Solved"
                 elif not game_over:
-                    if pos[1] < 60:
+                    if pos[1] >= BUTTON_BAR_HEIGHT + STATUS_BAR_HEIGHT and pos[1] < BUTTON_BAR_HEIGHT + STATUS_BAR_HEIGHT + MENU_BAR_HEIGHT:
                         # Clicked on menu
                         gap = WIDTH / 9
                         x = pos[0] // gap
@@ -81,7 +86,8 @@ def main():
                             selected_num = num_clicked
                             grid.unhighlight()
                             grid.highlight(selected_num)
-                    else:
+                    elif pos[1] >= TOP_OFFSET:
+                        # Clicked on the grid
                         clicked = grid.click(pos)
                         if clicked:
                             row, col = clicked
