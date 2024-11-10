@@ -16,6 +16,12 @@ black = (0, 0, 0)
 light_square = (240, 217, 181)
 dark_square = (181, 136, 99)
 
+# Unicode chess pieces
+unicode_pieces = {
+    'P': '♙', 'N': '♘', 'B': '♗', 'R': '♖', 'Q': '♕', 'K': '♔',  # White pieces
+    'p': '♟', 'n': '♞', 'b': '♝', 'r': '♜', 'q': '♛', 'k': '♚'   # Black pieces
+}
+
 # Load PGN from file
 pgn_file = sys.argv[1] if len(sys.argv) > 1 else "game.pgn"
 with open(pgn_file) as f:
@@ -30,9 +36,9 @@ moves = list(game.mainline_moves())
 move_index = 0
 move_time = 1000  # 1 second in milliseconds
 
-# Piece font
+# Piece font using Segoe UI Symbol
 pygame.font.init()
-font = pygame.font.SysFont('Arial', square_size // 2)
+font = pygame.font.SysFont("Segoe UI Symbol", square_size - 10)
 
 # Function to draw board and pieces
 def draw_board(board):
@@ -45,9 +51,9 @@ def draw_board(board):
             # Draw pieces
             piece = board.piece_at(chess.square(col, 7 - row))
             if piece:
-                piece_text = piece.symbol().upper() if piece.color == chess.WHITE else piece.symbol().lower()
-                text_surface = font.render(piece_text, True, black if piece.color == chess.WHITE else white)
-                screen.blit(text_surface, (col * square_size + square_size // 4, row * square_size + square_size // 4))
+                piece_unicode = unicode_pieces[piece.symbol()]
+                text_surface = font.render(piece_unicode, True, black if piece.color == chess.WHITE else white)
+                screen.blit(text_surface, (col * square_size + square_size // 6, row * square_size + square_size // 10))
 
     pygame.display.flip()
 
