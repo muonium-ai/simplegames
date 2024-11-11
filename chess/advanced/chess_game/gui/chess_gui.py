@@ -1,17 +1,26 @@
-# chess_game/gui/chess_gui.py
+# gui/chess_gui.py
 
 import pygame
 import chess
 
-from chess.advanced.config import LABEL_OFFSET, SCREEN_HEIGHT, SCREEN_WIDTH, SQUARE_SIZE
+#from chess.advanced.config import LABEL_OFFSET, SCREEN_HEIGHT, SCREEN_WIDTH, SQUARE_SIZE
 
 #from chess.chess_autoplay import BLACK_PIECE_COLOR, COLUMNS, DARK_SQUARE, HIGHLIGHT_COLOR, LABEL_COLOR, LIGHT_SQUARE, ROWS, UNICODE_PIECES, WHITE_PIECE_COLOR
 
-screen_width = 520
-screen_height = 560
-square_size = 60
-label_offset = 20
-screen = pygame.display.set_mode((screen_width, screen_height))
+# Screen configuration
+SCREEN_WIDTH = 520
+SCREEN_HEIGHT = 560
+SQUARE_SIZE = 60
+LABEL_OFFSET = 20
+
+
+# Screen configuration
+
+#screen_width = 520
+#screen_height = 560
+#square_size = 60
+#label_offset = 20
+#screen = pygame.display.set_mode((screen_width, screen_height))
 
 # Colors and fonts
 LIGHT_SQUARE = (240, 217, 181)
@@ -20,8 +29,8 @@ HIGHLIGHT_COLOR = (186, 202, 68)
 LABEL_COLOR = (0, 0, 0)
 WHITE_PIECE_COLOR = (255, 255, 255)  # Changed: White pieces will render as white
 BLACK_PIECE_COLOR = (0, 0, 0)        # Changed: Black pieces will render as black
-font = pygame.font.SysFont("Segoe UI Symbol", square_size - 10)
-label_font = pygame.font.SysFont("Arial", 20)
+#font = pygame.font.SysFont("Segoe UI Symbol", square_size - 10)
+#label_font = pygame.font.SysFont("Arial", 20)
 
 # Unicode pieces dictionary
 UNICODE_PIECES = {
@@ -35,7 +44,7 @@ COLUMNS = ['h', 'g', 'f', 'e', 'd', 'c', 'b', 'a']
 ROWS = ['1', '2', '3', '4', '5', '6', '7', '8']
 
 
-from ..config import *
+#from ..config import *
 
 class ChessGUI:
     """Handles the graphical interface and game display."""

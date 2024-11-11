@@ -1,4 +1,4 @@
-# chess_game/game/chess_game.py
+# game/chess_game.py
 
 import pygame
 import chess

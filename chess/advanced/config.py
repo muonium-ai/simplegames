@@ -1,4 +1,4 @@
-# chess_game/config.py
+# config.py
 
 # Screen configuration
 SCREEN_WIDTH = 520

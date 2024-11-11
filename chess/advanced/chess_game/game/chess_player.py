@@ -1,4 +1,4 @@
-# chess_game/game/chess_player.py
+# game/chess_player.py
 
 from abc import ABC, abstractmethod
 import random
