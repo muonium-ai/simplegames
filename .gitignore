@@ -1,6 +1,7 @@
 temp/
 screenshots/
 pgns/
+learn/
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
