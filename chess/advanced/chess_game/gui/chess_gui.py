@@ -6,7 +6,7 @@ import chess
 class ChessGUI:
     def __init__(self):
         # Initialize Pygame and screen variables
-        self.screen_width = 520
+        self.screen_width = 600  # Increased width for better spacing
         self.screen_height = 720  # Increased height for expanded menu
         self.square_size = 60
         self.label_offset = 20
@@ -58,20 +58,20 @@ class ChessGUI:
         
         # Status
         status_text = self.menu_font.render(f"Status: {self.check_status}", True, self.LABEL_COLOR)
-        self.screen.blit(status_text, (300, 10))
+        self.screen.blit(status_text, (350, 10))
         
         # Second Line: White Captured
-        captured_white_text = self.menu_font.render(f"White: {''.join(self.captured_white)}", True, self.LABEL_COLOR)
+        captured_white_text = self.menu_font.render(f"White Captured: {''.join(self.captured_white)}", True, self.LABEL_COLOR)
         self.screen.blit(captured_white_text, (10, 50))
         
         # Third Line: Black Captured
-        captured_black_text = self.menu_font.render(f"Black: {''.join(self.captured_black)}", True, self.LABEL_COLOR)
+        captured_black_text = self.menu_font.render(f"Black Captured: {''.join(self.captured_black)}", True, self.LABEL_COLOR)
         self.screen.blit(captured_black_text, (10, 80))
         
         # Castling indication (optional on the third line)
         if self.castling_occurred:
             castling_text = self.menu_font.render("Castling occurred", True, self.LABEL_COLOR)
-            self.screen.blit(castling_text, (300, 80))
+            self.screen.blit(castling_text, (350, 80))
 
     def draw_board(self, board, selected_square=None):
         """Draw the chessboard with labels, pieces, and highlights."""

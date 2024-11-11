@@ -26,52 +26,75 @@ class ChessGame:
         """Main game loop."""
         clock = pygame.time.Clock()
         while self.running:
+            # Handle events (for computer-only game, minimal events handling)
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     self.running = False
 
-            # If the game is over, break the loop
+            # Check if the game is over
             if self.board.is_game_over():
                 print("Game over!")
                 print(f"Result: {self.board.result()}")
                 self.running = False
                 continue
 
-            # Determine whose turn it is
-            if self.board.turn == chess.WHITE:
-                if self.white_player:
-                    move = self.white_player.make_move(self.board)
-                    if move:
-                        self.board.push(move)
-                        self.update_game_state(move)
-            else:
-                if self.black_player:
-                    move = self.black_player.make_move(self.board)
-                    if move:
-                        self.board.push(move)
-                        self.update_game_state(move)
+            # Let computer players make moves
+            if self.board.turn == chess.WHITE and self.white_player:
+                move = self.white_player.make_move(self.board)
+                if move:
+                    # Capture piece before making the move
+                    captured_piece = self.get_captured_piece(move)
+                    if captured_piece:
+                        piece_symbol = self.gui.UNICODE_PIECES.get(captured_piece.symbol(), '')
+                        if piece_symbol:
+                            if captured_piece.color == chess.WHITE:
+                                self.captured_white.append(piece_symbol)
+                            else:
+                                self.captured_black.append(piece_symbol)
+                    self.board.push(move)
+                    self.update_game_state(move)
+            elif self.board.turn == chess.BLACK and self.black_player:
+                move = self.black_player.make_move(self.board)
+                if move:
+                    # Capture piece before making the move
+                    captured_piece = self.get_captured_piece(move)
+                    if captured_piece:
+                        piece_symbol = self.gui.UNICODE_PIECES.get(captured_piece.symbol(), '')
+                        if piece_symbol:
+                            if captured_piece.color == chess.WHITE:
+                                self.captured_white.append(piece_symbol)
+                            else:
+                                self.captured_black.append(piece_symbol)
+                    self.board.push(move)
+                    self.update_game_state(move)
 
             # Draw the board and update the display
             self.gui.draw_board(self.board)
             pygame.display.flip()
-            clock.tick(30)  # Limit to 30 frames per second to reduce CPU usage
+            clock.tick(2)  # Slow down to 2 frames per second for visibility
 
         pygame.quit()
 
+    def get_captured_piece(self, move):
+        """Retrieve the captured piece based on the move."""
+        if not self.board.is_capture(move):
+            return None
+
+        if self.board.is_en_passant(move):
+            # For en passant, the captured pawn is not on the to_square
+            direction = 1 if self.board.turn == chess.WHITE else -1
+            captured_square = chess.square(file=chess.square_file(move.to_square),
+                                          rank=chess.square_rank(move.to_square) - direction)
+        else:
+            # Otherwise, the captured piece is on the to_square
+            captured_square = move.to_square
+
+        return self.board.piece_at(captured_square)
+
     def update_game_state(self, move):
+        """Update the game state information after a move."""
         self.move_count += 1
         self.last_move = move.uci()
-
-        # Update captured pieces
-        if self.board.is_capture(move):
-            captured_square = move.to_square
-            captured_piece = self.board.piece_at(captured_square)
-            if captured_piece:
-                piece_symbol = self.gui.UNICODE_PIECES[captured_piece.symbol()]
-                if captured_piece.color == chess.WHITE:
-                    self.captured_white.append(piece_symbol)
-                else:
-                    self.captured_black.append(piece_symbol)
 
         # Check for check or checkmate
         if self.board.is_checkmate():
