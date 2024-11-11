@@ -7,10 +7,10 @@ class ChessGUI:
     def __init__(self):
         # Initialize Pygame and screen variables
         self.screen_width = 520
-        self.screen_height = 600  # Increased height for menu
+        self.screen_height = 720  # Increased height for expanded menu
         self.square_size = 60
         self.label_offset = 20
-        self.menu_height = 80  # Height for the menu bar
+        self.menu_height = 120  # Increased height for three menu lines
         self.screen = pygame.display.set_mode((self.screen_width, self.screen_height))
         pygame.display.set_caption("Chess Game")
         
@@ -26,7 +26,7 @@ class ChessGUI:
         # Fonts
         self.font = pygame.font.SysFont("Segoe UI Symbol", self.square_size - 10)
         self.label_font = pygame.font.SysFont("Arial", 20)
-        self.menu_font = pygame.font.SysFont("Arial", 18)
+        self.menu_font = pygame.font.SysFont("Segoe UI Symbol", 18)  # Ensures Unicode chess pieces display correctly
         
         # Unicode pieces as an instance attribute
         self.UNICODE_PIECES = {
@@ -47,29 +47,31 @@ class ChessGUI:
         # Draw menu background
         pygame.draw.rect(self.screen, self.MENU_BG_COLOR, (0, 0, self.screen_width, self.menu_height))
         
+        # First Line: Move count, Last move, Status
         # Move count
         move_text = self.menu_font.render(f"Move: {self.move_count}", True, self.LABEL_COLOR)
         self.screen.blit(move_text, (10, 10))
         
         # Last move
         last_move_text = self.menu_font.render(f"Last Move: {self.last_move}", True, self.LABEL_COLOR)
-        self.screen.blit(last_move_text, (10, 30))
+        self.screen.blit(last_move_text, (150, 10))
         
-        # Captured pieces
-        captured_white_text = self.menu_font.render("White Captured: " + ''.join(self.captured_white), True, self.LABEL_COLOR)
-        self.screen.blit(captured_white_text, (200, 10))
+        # Status
+        status_text = self.menu_font.render(f"Status: {self.check_status}", True, self.LABEL_COLOR)
+        self.screen.blit(status_text, (300, 10))
         
-        captured_black_text = self.menu_font.render("Black Captured: " + ''.join(self.captured_black), True, self.LABEL_COLOR)
-        self.screen.blit(captured_black_text, (200, 30))
+        # Second Line: White Captured
+        captured_white_text = self.menu_font.render(f"White: {''.join(self.captured_white)}", True, self.LABEL_COLOR)
+        self.screen.blit(captured_white_text, (10, 50))
         
-        # Check status
-        check_text = self.menu_font.render(f"Status: {self.check_status}", True, self.LABEL_COLOR)
-        self.screen.blit(check_text, (10, 50))
+        # Third Line: Black Captured
+        captured_black_text = self.menu_font.render(f"Black: {''.join(self.captured_black)}", True, self.LABEL_COLOR)
+        self.screen.blit(captured_black_text, (10, 80))
         
-        # Castling indication
+        # Castling indication (optional on the third line)
         if self.castling_occurred:
             castling_text = self.menu_font.render("Castling occurred", True, self.LABEL_COLOR)
-            self.screen.blit(castling_text, (200, 50))
+            self.screen.blit(castling_text, (300, 80))
 
     def draw_board(self, board, selected_square=None):
         """Draw the chessboard with labels, pieces, and highlights."""
@@ -104,11 +106,12 @@ class ChessGUI:
                 # Draw pieces
                 piece = board.piece_at(square)
                 if piece:
-                    piece_symbol = self.UNICODE_PIECES[piece.symbol()]
-                    piece_color = self.WHITE_PIECE_COLOR if piece.color == chess.WHITE else self.BLACK_PIECE_COLOR
-                    text_surface = self.font.render(piece_symbol, True, piece_color)
-                    text_rect = text_surface.get_rect(center=rect.center)
-                    self.screen.blit(text_surface, text_rect)
+                    piece_symbol = self.UNICODE_PIECES.get(piece.symbol(), '')
+                    if piece_symbol:
+                        piece_color = self.WHITE_PIECE_COLOR if piece.color == chess.WHITE else self.BLACK_PIECE_COLOR
+                        text_surface = self.font.render(piece_symbol, True, piece_color)
+                        text_rect = text_surface.get_rect(center=rect.center)
+                        self.screen.blit(text_surface, text_rect)
 
         # Optionally, draw labels (ranks and files)
         self.draw_labels()
