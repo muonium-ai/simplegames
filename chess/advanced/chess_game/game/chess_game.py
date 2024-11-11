@@ -2,8 +2,12 @@
 
 import pygame
 import chess
+from .player import Player
+from .random_computer_player import RandomComputerPlayer
+from .minimax_computer_player import MinimaxComputerPlayer
+from .minimax_computer_player2 import MinimaxComputerPlayer2
+from .minimax_computer_player3 import MinimaxComputerPlayer3
 from ..gui.chess_gui import ChessGUI
-from .chess_player import RandomComputerPlayer
 
 class ChessGame:
     """Main game class that coordinates the GUI, board state, and players."""
@@ -71,11 +75,11 @@ class ChessGame:
             # Draw the board and update the display
             self.gui.draw_board(self.board)
             pygame.display.flip()
-            clock.tick(2)  # Slow down to 2 frames per second for visibility
+            clock.tick(2)  # Adjust FPS as needed
 
         pygame.quit()
 
-    def get_captured_piece(self, move):
+    def get_captured_piece(self, move: chess.Move):
         """Retrieve the captured piece based on the move."""
         if not self.board.is_capture(move):
             return None
@@ -83,15 +87,17 @@ class ChessGame:
         if self.board.is_en_passant(move):
             # For en passant, the captured pawn is not on the to_square
             direction = 1 if self.board.turn == chess.WHITE else -1
-            captured_square = chess.square(file=chess.square_file(move.to_square),
-                                          rank=chess.square_rank(move.to_square) - direction)
+            captured_square = chess.square(
+                file=chess.square_file(move.to_square),
+                rank=chess.square_rank(move.to_square) - direction
+            )
         else:
             # Otherwise, the captured piece is on the to_square
             captured_square = move.to_square
 
         return self.board.piece_at(captured_square)
 
-    def update_game_state(self, move):
+    def update_game_state(self, move: chess.Move):
         """Update the game state information after a move."""
         self.move_count += 1
         self.last_move = move.uci()
@@ -105,8 +111,10 @@ class ChessGame:
             self.check_status = ''
 
         # Check for castling
-        if move in [chess.Move.from_uci('e1g1'), chess.Move.from_uci('e1c1'),
-                    chess.Move.from_uci('e8g8'), chess.Move.from_uci('e8c8')]:
+        if move in [
+            chess.Move.from_uci('e1g1'), chess.Move.from_uci('e1c1'),
+            chess.Move.from_uci('e8g8'), chess.Move.from_uci('e8c8')
+        ]:
             self.castling_occurred = True
         else:
             self.castling_occurred = False
