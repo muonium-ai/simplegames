@@ -1,24 +1,19 @@
 # game/chess_player.py
 
-from abc import ABC, abstractmethod
 import random
 import chess
+from abc import ABC, abstractmethod
 
-class ChessPlayer(ABC):
-    """Abstract base class for chess players (human or computer)."""
-    
+class Player(ABC):
     @abstractmethod
     def make_move(self, board):
-        """Make a move given the current board state."""
         pass
 
-class RandomComputerPlayer(ChessPlayer):
-    """Computer player that makes random moves."""
-    
+class RandomComputerPlayer(Player):
     def make_move(self, board):
         legal_moves = list(board.legal_moves)
         if legal_moves:
             move = random.choice(legal_moves)
-            board.push(move)
-            return True
-        return False
+            return move
+        else:
+            return None

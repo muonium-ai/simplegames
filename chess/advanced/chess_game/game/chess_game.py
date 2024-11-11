@@ -2,62 +2,50 @@
 
 import pygame
 import chess
-import sys
 from ..gui.chess_gui import ChessGUI
 from .chess_player import RandomComputerPlayer
 
 class ChessGame:
     """Main game class that coordinates the GUI, board state, and players."""
     
-    def __init__(self, computer_player_class=RandomComputerPlayer):
+    def __init__(self, white_player_class=None, black_player_class=None):
+        pygame.init()
         self.gui = ChessGUI()
         self.board = chess.Board()
-        self.computer = computer_player_class()
-        self.selected_square = None
+        self.white_player = white_player_class() if white_player_class else None
+        self.black_player = black_player_class() if black_player_class else None
+        self.running = True
 
     def run(self):
         """Main game loop."""
-        # Computer (White) makes the first move
-        self.computer.make_move(self.board)
-        self.gui.draw_board(self.board)
-
-        while not self.board.is_game_over():
+        clock = pygame.time.Clock()
+        while self.running:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
-                    pygame.quit()
-                    sys.exit()
+                    self.running = False
 
-                if event.type == pygame.MOUSEBUTTONDOWN and self.board.turn == chess.BLACK:
-                    self._handle_mouse_click(event.pos)
+            # If the game is over, break the loop
+            if self.board.is_game_over():
+                print("Game over!")
+                print(f"Result: {self.board.result()}")
+                self.running = False
+                continue
 
-        self.gui.display_game_over(self.board)
-
-    def _handle_mouse_click(self, pos):
-        """Handle mouse click events for the human player."""
-        clicked_square = self.gui.get_square_from_mouse(pos)
-        
-        if clicked_square is not None:
-            if self.selected_square is None:
-                # Select piece if it's valid
-                piece = self.board.piece_at(clicked_square)
-                if piece and piece.color == chess.BLACK:
-                    self.selected_square = clicked_square
-                    self.gui.draw_board(self.board, self.selected_square)
+            # Determine whose turn it is
+            if self.board.turn == chess.WHITE:
+                if self.white_player:
+                    move = self.white_player.make_move(self.board)  # Changed to make_move
+                    if move:
+                        self.board.push(move)
             else:
-                # Try to make a move
-                move = chess.Move(self.selected_square, clicked_square)
-                if move in self.board.legal_moves:
-                    self.board.push(move)
-                    self.selected_square = None
-                    self.gui.draw_board(self.board)
+                if self.black_player:
+                    move = self.black_player.make_move(self.board)  # Changed to make_move
+                    if move:
+                        self.board.push(move)
 
-                    # Computer's turn
-                    if not self.board.is_game_over():
-                        pygame.time.wait(500)  # Slight delay before computer moves
-                        self.computer.make_move(self.board)
-                        self.gui.draw_board(self.board)
-                else:
-                    # If invalid move, check if new square selection
-                    piece = self.board.piece_at(clicked_square)
-                    self.selected_square = clicked_square if piece and piece.color == chess.BLACK else None
-                    self.gui.draw_board(self.board, self.selected_square)
+            # Draw the board and update the display
+            self.gui.draw_board(self.board)
+            pygame.display.flip()
+            clock.tick(30)  # Limit to 30 frames per second to reduce CPU usage
+
+        pygame.quit()
