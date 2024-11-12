@@ -6,7 +6,8 @@ import os
 import sys
 import time
 import uuid
-
+from os import environ
+environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'  # Hide pygame support prompt
 import pygame
 
 from lib.config import WIDTH, HEIGHT, WHITE, BUTTON_BAR_HEIGHT, STATUS_BAR_HEIGHT, MENU_BAR_HEIGHT, TOP_OFFSET

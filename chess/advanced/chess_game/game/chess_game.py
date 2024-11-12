@@ -1,5 +1,6 @@
 # game/chess_game.py
-
+from os import environ
+environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'  # Hide pygame support prompt
 import pygame
 import chess
 from .player import Player

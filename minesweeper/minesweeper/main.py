@@ -2,6 +2,8 @@
 
 import sys
 import importlib
+from os import environ
+environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'  # Hide pygame support prompt
 import pygame
 import os
 from datetime import datetime
