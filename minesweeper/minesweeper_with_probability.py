@@ -229,17 +229,30 @@ class Minesweeper:
             self.reveal_cell(x, y)
 
     def hint(self):
-        safe_hidden_cells = [(x, y) for y in range(GRID_HEIGHT) for x in range(GRID_WIDTH)
-                             if not self.grid[y][x].is_mine and self.grid[y][x].state == CellState.HIDDEN]
+        """Reveal a random safe cell as a hint"""
+        # Find all safe hidden cells
+        safe_hidden_cells = [
+            (x, y) for y in range(GRID_HEIGHT) 
+            for x in range(GRID_WIDTH)
+            if not self.grid[y][x].is_mine 
+            and self.grid[y][x].state == CellState.HIDDEN
+        ]
         
         if safe_hidden_cells:
+            # Choose random safe cell
             x, y = random.choice(safe_hidden_cells)
-            self.grid[y][x].state = CellState.REVEALED
+            
+            # Use reveal_cell instead of directly setting state
+            self.reveal_cell(x, y)
+            
+            # Update hint tracking
             self.used_hint_or_quickplay = True
             self.hints_used += 1
-            if self.grid[y][x].neighbor_mines == 0:
-                self.reveal_adjacent_cells(x, y)
-            # Check for victory after revealing a cell
+            
+            # Update probabilities after reveal
+            self.update_probabilities()
+            
+            # Check for victory
             self.check_victory()
 
     def solve_it(self):
@@ -273,25 +286,40 @@ class Minesweeper:
                     self.grid[y][x].neighbor_mines = count
 
     def reveal_cell(self, x, y):
-        """Reveal a cell and handle adjacent cells"""
+        """Reveal a cell and calculate adjacent mines"""
         cell = self.grid[y][x]
         if cell.state != CellState.HIDDEN:
             return
             
+        # Set cell as revealed
         cell.state = CellState.REVEALED
         
-        # Count adjacent mines using existing get_adjacent_cells method
-        cell.number = sum(1 for adj_x, adj_y in self.get_adjacent_cells(x, y)
-                         if self.grid[adj_y][adj_x].is_mine)
+        # Calculate adjacent mines
+        adjacent_mines = 0
+        for dx in [-1, 0, 1]:
+            for dy in [-1, 0, 1]:
+                if dx == 0 and dy == 0:
+                    continue
+                new_x, new_y = x + dx, y + dy
+                if (0 <= new_x < GRID_WIDTH and 
+                    0 <= new_y < GRID_HEIGHT and 
+                    self.grid[new_y][new_x].is_mine):
+                    adjacent_mines += 1
         
-        # Update probability display
-        self.update_probabilities()
+        # Set number of adjacent mines
+        cell.number = adjacent_mines
         
-        # Recursively reveal adjacent cells if no adjacent mines
-        if cell.number == 0:
-            for adj_x, adj_y in self.get_adjacent_cells(x, y):
-                if self.grid[adj_y][adj_x].state == CellState.HIDDEN:
-                    self.reveal_cell(adj_x, adj_y)
+        # If no adjacent mines, reveal surrounding cells
+        if adjacent_mines == 0:
+            for dx in [-1, 0, 1]:
+                for dy in [-1, 0, 1]:
+                    if dx == 0 and dy == 0:
+                        continue
+                    new_x, new_y = x + dx, y + dy
+                    if (0 <= new_x < GRID_WIDTH and 
+                        0 <= new_y < GRID_HEIGHT and 
+                        self.grid[new_y][new_x].state == CellState.HIDDEN):
+                        self.reveal_cell(new_x, new_y)
 
     def reveal_adjacent_cells(self, x, y):
         for dx in [-1, 0, 1]:
