@@ -115,8 +115,9 @@ class Cell:
     def __init__(self):
         self.is_mine = False
         self.state = CellState.HIDDEN
-        self.number = 0
-        self.probability = 0.0  # Add probability field
+        self.number = 0  # Number of adjacent mines
+        self.probability = 0.0
+        self.was_clicked = False  # Track if this was the clicked mine
 
 class Minesweeper:
     # Add image paths as class constants
@@ -272,18 +273,25 @@ class Minesweeper:
                     self.grid[y][x].neighbor_mines = count
 
     def reveal_cell(self, x, y):
-        if not (0 <= x < GRID_WIDTH and 0 <= y < GRID_HEIGHT):
-            return
+        """Reveal a cell and handle adjacent cells"""
         cell = self.grid[y][x]
         if cell.state != CellState.HIDDEN:
             return
+            
         cell.state = CellState.REVEALED
-        if not self.used_hint_or_quickplay:
-            self.points += cell.neighbor_mines if cell.neighbor_mines else 1
-        if cell.neighbor_mines == 0 and not cell.is_mine:
-            self.reveal_adjacent_cells(x, y)
-        if self.check_victory():
-            self.handle_victory()
+        
+        # Count adjacent mines using existing get_adjacent_cells method
+        cell.number = sum(1 for adj_x, adj_y in self.get_adjacent_cells(x, y)
+                         if self.grid[adj_y][adj_x].is_mine)
+        
+        # Update probability display
+        self.update_probabilities()
+        
+        # Recursively reveal adjacent cells if no adjacent mines
+        if cell.number == 0:
+            for adj_x, adj_y in self.get_adjacent_cells(x, y):
+                if self.grid[adj_y][adj_x].state == CellState.HIDDEN:
+                    self.reveal_cell(adj_x, adj_y)
 
     def reveal_adjacent_cells(self, x, y):
         for dx in [-1, 0, 1]:
@@ -654,53 +662,71 @@ class Minesweeper:
                             )
 
     def draw_cell(self, x, y):
-        """Draw cell with all states and proper formatting"""
         cell = self.grid[y][x]
-        rect = pygame.Rect(x * CELL_SIZE, y * CELL_SIZE + HEADER_HEIGHT, CELL_SIZE, CELL_SIZE)
+        rect = pygame.Rect(x * CELL_SIZE, 
+                          y * CELL_SIZE + HEADER_HEIGHT, 
+                          CELL_SIZE, CELL_SIZE)
+        
+        # Color mapping for numbers
+        number_colors = {
+            1: BLUE,
+            2: DARK_GREEN,
+            3: RED,
+            4: DARK_BLUE,
+            5: DARK_RED,
+            6: (0, 128, 128),  # Teal
+            7: BLACK,
+            8: DARK_GRAY
+        }
 
         # Draw base cell
         if cell.state == CellState.HIDDEN:
+            # Hidden cell
             pygame.draw.rect(self.screen, GRAY, rect)
             pygame.draw.rect(self.screen, DARK_GRAY, rect, 1)
             
-            # Show probability for hidden cells (not game over)
+            # Show probability if game is active
             if not self.game_over:
                 prob_text = f"{cell.probability:.2f}"
                 prob_surface = self.small_font.render(prob_text, True, BLACK)
                 text_rect = prob_surface.get_rect(center=rect.center)
                 self.screen.blit(prob_surface, text_rect)
-        
+
         elif cell.state == CellState.REVEALED:
+            # Revealed cell
             pygame.draw.rect(self.screen, WHITE, rect)
             pygame.draw.rect(self.screen, DARK_GRAY, rect, 1)
             
-            # Draw numbers for revealed cells
+            # Show number if has adjacent mines
             if cell.number > 0:
-                number_colors = {
-                    1: BLUE, 2: DARK_GREEN, 3: RED, 4: DARK_BLUE,
-                    5: DARK_RED, 6: (0, 128, 128), 7: BLACK, 8: DARK_GRAY
-                }
                 color = number_colors.get(cell.number, BLACK)
                 number_text = str(cell.number)
                 text_surface = self.font.render(number_text, True, color)
                 text_rect = text_surface.get_rect(center=rect.center)
                 self.screen.blit(text_surface, text_rect)
-        
+
         elif cell.state == CellState.FLAGGED:
+            # Flagged cell
             pygame.draw.rect(self.screen, GRAY, rect)
             pygame.draw.rect(self.screen, DARK_GRAY, rect, 1)
-            # Draw flag (existing flag drawing code)
+            
+            # Draw flag
+            flag_points = [
+                (rect.centerx - 8, rect.centery + 8),
+                (rect.centerx - 8, rect.centery - 8),
+                (rect.centerx + 4, rect.centery - 4),
+                (rect.centerx - 8, rect.centery)
+            ]
+            pygame.draw.line(self.screen, BLACK, 
+                            (rect.centerx - 8, rect.centery + 8),
+                            (rect.centerx - 8, rect.centery - 8), 2)
+            pygame.draw.polygon(self.screen, RED, flag_points)
 
         # Show mines on game over
         if self.game_over and cell.is_mine:
-            if cell.was_clicked:  # Mine that was clicked
+            if cell.was_clicked:
                 pygame.draw.rect(self.screen, RED, rect)
-            else:  # Other mines
-                pygame.draw.rect(self.screen, GRAY, rect)
-            # Draw mine symbol
-            mine_radius = CELL_SIZE // 4
-            center = (rect.centerx, rect.centery)
-            pygame.draw.circle(self.screen, BLACK, center, mine_radius)
+            pygame.draw.circle(self.screen, BLACK, rect.center, CELL_SIZE // 4)
 
     def handle_game_over(self, clicked_pos=None):
         """Handle game over state and reveal all mines"""
