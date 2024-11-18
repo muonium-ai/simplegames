@@ -251,6 +251,8 @@ class Minesweeper:
             
             # Update probabilities after reveal
             self.update_probabilities()
+            self.update_probabilities()
+            
             
             # Check for victory
             self.check_victory()
@@ -355,6 +357,7 @@ class Minesweeper:
             self.reveal_cell(x, y)
             self.check_victory()
         if not self.game_over:
+            self.update_probabilities()
             self.update_probabilities()
 
     def reveal_all_mines(self):
