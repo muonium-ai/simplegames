@@ -559,6 +559,11 @@ class Minesweeper:
                     elif event.key == pygame.K_h:
                         game.hint()
                         print("Hint invoked via 'H' key.")
+                    elif event.key == pygame.K_m:
+                        if self.mark_probable_mines():
+                            print("Marked cells with 100% mine probability")
+                        else:
+                            print("No cells with 100% mine probability found")
                     else:
                         seed_input = self.seed_input_box.handle_event(event)
                         if seed_input is not None:
@@ -645,7 +650,7 @@ class Minesweeper:
             if cell.state == CellState.HIDDEN
         )
 
-    def calculate_base_probability(self):
+    def calculate_mine_probability(self):
         """Calculate base probability for all unopened cells"""
         unopened_cells = sum(1 for row in self.grid 
                             for cell in row if cell.state == CellState.HIDDEN)
@@ -668,7 +673,7 @@ class Minesweeper:
     def update_probabilities(self):
         """Update mine probabilities for all cells"""
         # Set base probability for all hidden cells
-        base_prob = self.calculate_base_probability()
+        base_prob = self.calculate_mine_probability()
         for y in range(GRID_HEIGHT):
             for x in range(GRID_WIDTH):
                 cell = self.grid[y][x]
@@ -781,6 +786,33 @@ class Minesweeper:
                 if cell.is_mine:
                     cell.state = CellState.REVEALED
 
+    def mark_probable_mines(self):
+        """Mark all cells with probability 1.0 as mines."""
+        marked_count = 0
+        probabilities = self.calculate_mine_probability()
+        
+        for y in range(GRID_HEIGHT):
+            for x in range(GRID_WIDTH):
+                # Skip if already flagged or revealed
+                if self.grid[y][x].state != CellState.HIDDEN:
+                    continue
+                    
+                # Check if probability is 1.0
+                if probabilities[y][x] == 1.0:
+                    cell = self.grid[y][x]
+                    if not cell.is_flagged_in_game:
+                        cell.state = CellState.FLAGGED
+                        cell.is_flagged_in_game = True
+                        self.mines_remaining -= 1
+                        marked_count += 1
+                        
+                        if self.debug_mode:
+                            print(f"Marked cell at ({x}, {y}) as mine (probability = 1.0)")
+
+        if self.debug_mode:
+            print(f"Marked {marked_count} cells as mines based on probability")
+
+        return marked_count > 0
 
 if __name__ == "__main__":
     game = Minesweeper()
