@@ -552,11 +552,13 @@ class Minesweeper:
                 elif event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_r:
                         self.reset_game()
-                    elif event.type == pygame.KEYDOWN:
-                        if event.key == pygame.K_q:
-                            game.reset_game()
-                            game.quick_start()
-                            print("New game started and quick start invoked via 'Q' key.")
+                    elif event.key == pygame.K_q:
+                        game.reset_game()
+                        game.quick_start()
+                        print("New game started and quick start invoked via 'Q' key.")
+                    elif event.key == pygame.K_h:
+                        game.hint()
+                        print("Hint invoked via 'H' key.")
                     else:
                         seed_input = self.seed_input_box.handle_event(event)
                         if seed_input is not None:
