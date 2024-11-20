@@ -79,6 +79,11 @@ class Minesweeper:
         # Add the debug_mode attribute
         self.debug_mode = False  # Set to True to enable debug messages
 
+        self.left_clicks = 0
+        self.right_clicks = 0
+        self.both_clicks = 0
+        self.clicks_made = 0
+
     def reset_game(self, seed=None):
         self.grid = [[Cell(x, y) for x in range(GRID_WIDTH)] for y in range(GRID_HEIGHT)]
         self.game_over = False
@@ -228,6 +233,7 @@ class Minesweeper:
             return
         cell = self.grid[y][x]
         if right_click:
+            self.right_clicks += 1
             if cell.state == CellState.HIDDEN:
                 cell.state = CellState.FLAGGED
                 self.mines_remaining -= 1
@@ -235,6 +241,7 @@ class Minesweeper:
                 cell.state = CellState.HIDDEN
                 self.mines_remaining += 1
             return
+        self.left_clicks += 1
         if cell.state == CellState.FLAGGED:
             return
         if self.first_click:
@@ -247,7 +254,8 @@ class Minesweeper:
             self.check_victory()
         if not self.game_over:
             self.update_probabilities()
-            self.update_probabilities()
+            self.print_board()
+            #self.update_probabilities()
 
     def reveal_all_mines(self):
         for y in range(GRID_HEIGHT):
@@ -453,6 +461,8 @@ class Minesweeper:
                             print("Marked cells with 100% mine probability.")
                         else:
                             print("No cells with 100% mine probability found.")
+                    elif event.key == pygame.K_d:
+                        self.print_board()
                     else:
                         seed_input = self.seed_input_box.handle_event(event)
                         if seed_input is not None:
@@ -469,6 +479,7 @@ class Minesweeper:
 
     def handle_both_clicks(self, pos):
         """Handle simultaneous left and right clicks for fast reveal and auto-flagging of adjacent cells."""
+        self.both_clicks += 1
         x = pos[0] // CELL_SIZE
         y = (pos[1] - HEADER_HEIGHT) // CELL_SIZE
 
@@ -505,7 +516,8 @@ class Minesweeper:
         elif flagged_neighbors == cell.neighbor_mines:
             for nx, ny in unflagged_neighbors:
                 self.reveal_cell(nx, ny)
-
+        
+        self.print_board
 
     def toggle_pause(self):
         current_time = pygame.time.get_ticks()
@@ -675,8 +687,27 @@ class Minesweeper:
                 if cell.is_mine:
                     cell.state = CellState.REVEALED
 
+        # Determine if victory or loss
+        if self.victory:
+            result = "Victory"
+        else:
+            result = "Clicked on mine"
+
+        # Count total mines and hidden boxes
+        total_mines = sum(1 for row in self.grid for cell in row if cell.is_mine)
+        hidden_boxes = sum(1 for row in self.grid for cell in row if cell.state == CellState.HIDDEN)
+
+        # Print game summary
+        print(f"Game Over: {result}")
+        print(f"Total Mines: {total_mines}")
+        print(f"Hidden Boxes: {hidden_boxes}")
+        print(f"Left Clicks: {self.left_clicks}")
+        print(f"Right Clicks: {self.right_clicks}")
+        print(f"Both Clicks: {self.both_clicks}")
+        print(f"Total Clicks: {self.left_clicks + self.right_clicks + self.both_clicks}")
+
     def mark_probable_mines(self):
-        """Mark all cells with probability 1.0 as mines."""
+        """Mark all cells with probability greater than 0.9 as mines."""
         marked_count = 0
         probabilities = self.calculate_mine_probabilities()
         
@@ -759,3 +790,87 @@ class Minesweeper:
                     probabilities[y][x] = 0.0  # Default probability
 
         return probabilities
+
+    def draw_header(self):
+        """Draw the header with game information."""
+        pygame.draw.rect(self.screen, GRAY, (0, 0, WINDOW_WIDTH, HEADER_HEIGHT))
+        pygame.draw.rect(self.screen, DARK_GRAY, (0, HEADER_HEIGHT - 2, WINDOW_WIDTH, 2))
+
+        # Display clicks made in the header
+        clicks_text = self.small_font.render(f"Left Clicks: {self.left_clicks}", True, BLACK)
+        clicks_rect = clicks_text.get_rect(topleft=(PADDING, PADDING))
+        self.screen.blit(clicks_text, clicks_rect)
+
+        right_clicks_text = self.small_font.render(f"Right Clicks: {self.right_clicks}", True, BLACK)
+        right_clicks_rect = right_clicks_text.get_rect(topleft=(PADDING, PADDING + 20))
+        self.screen.blit(right_clicks_text, right_clicks_rect)
+
+        both_clicks_text = self.small_font.render(f"Both Clicks: {self.both_clicks}", True, BLACK)
+        both_clicks_rect = both_clicks_text.get_rect(topleft=(PADDING, PADDING + 40))
+        self.screen.blit(both_clicks_text, both_clicks_rect)
+
+        total_clicks_text = self.small_font.render(f"Total Clicks: {self.left_clicks + self.right_clicks + self.both_clicks}", True, BLACK)
+        total_clicks_rect = total_clicks_text.get_rect(topleft=(PADDING, PADDING + 60))
+        self.screen.blit(total_clicks_text, total_clicks_rect)
+
+    def find_safe_cell(self):
+        """Find a safe cell to reveal as a hint."""
+        safe_cells = [(x, y) for y in range(GRID_HEIGHT) for x in range(GRID_WIDTH) if not self.grid[y][x].is_mine and self.grid[y][x].state == CellState.HIDDEN]
+        if safe_cells:
+            return random.choice(safe_cells)
+        return None, None
+
+    def get_quick_start_cells(self):
+        """Determine which cells to click during quick start."""
+        quick_start_cells = []
+        
+        # Example logic: Click the center cell
+        center_x = GRID_WIDTH // 2
+        center_y = GRID_HEIGHT // 2
+        quick_start_cells.append((center_x, center_y))
+        
+        return quick_start_cells
+    
+    def print_board(self):
+        """
+        Print the Minesweeper board for debugging purposes.
+
+        Rules:
+        - Empty spaces are printed as '0'
+        - Flagged cells are printed as 'F'
+        - Numeric data (number of nearby mines) is printed as the number
+        - Probability ranges:
+        * D for 0 < probability <= 0.25
+        * C for 0.25 < probability <= 0.5
+        * B for 0.5 < probability <= 0.9
+        * A for 0.9 < probability <= 1
+        """
+        for row in self.grid:
+            row_str = []
+            for cell in row:
+                if cell.state == CellState.HIDDEN:
+                    prob = cell.probability
+                    if prob > 0.99999:
+                        row_str.append('A')
+                        # mark as mine
+                        cell.state = CellState.FLAGGED
+                        print(f"Marked cell at ({cell.x}, {cell.y}) as mine (probability = {prob:.4f})")
+                    elif prob > 0.5:
+                        row_str.append('B')
+                    elif prob > 0.25:
+                        row_str.append('C')
+                    elif prob > 0:
+                        row_str.append('D')
+                    else:
+                        row_str.append('0')
+                elif cell.state == CellState.FLAGGED:
+                    row_str.append('F')
+                elif cell.state == CellState.REVEALED:
+                    if cell.number > 0:
+                        row_str.append(str(cell.number))
+                    else:
+                        row_str.append('0')
+                else:
+                    row_str.append('0')
+            print(' '.join(row_str))
+
