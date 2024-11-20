@@ -120,6 +120,7 @@ class Cell:
         self.neighbor_mines = 0
         self.was_clicked = False
         self.is_flagged_in_game = False  # Add this line
+        self.number = 0
 
 class Minesweeper:
     # Add image paths as class constants
