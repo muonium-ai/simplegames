@@ -121,6 +121,8 @@ class Minesweeper:
         cells_to_reveal = random.sample(safe_cells, min(5, len(safe_cells)))
         for x, y in cells_to_reveal:
             self.reveal_cell(x, y)
+            pos = (x * CELL_SIZE, y * CELL_SIZE + HEADER_HEIGHT)
+            self.handle_click(pos)
 
     def hint(self):
         """Reveal a random safe cell as a hint"""
@@ -144,9 +146,10 @@ class Minesweeper:
             self.hints_used += 1
             
             # Update probabilities after reveal
-            self.update_probabilities()
-            self.update_probabilities()
-            
+            #self.update_probabilities()
+            #self.update_probabilities()
+            pos = (x * CELL_SIZE, y * CELL_SIZE + HEADER_HEIGHT)
+            self.handle_click(pos)
             
             # Check for victory
             self.check_victory()
@@ -516,8 +519,8 @@ class Minesweeper:
         elif flagged_neighbors == cell.neighbor_mines:
             for nx, ny in unflagged_neighbors:
                 self.reveal_cell(nx, ny)
-        
-        self.print_board
+        self.handle_click(pos)
+        #self.print_board
 
     def toggle_pause(self):
         current_time = pygame.time.get_ticks()
