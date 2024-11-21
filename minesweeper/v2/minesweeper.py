@@ -116,6 +116,7 @@ class Minesweeper:
         start_x = random.randint(0, GRID_WIDTH - 1)
         start_y = random.randint(0, GRID_HEIGHT - 1)
         self.place_mines(start_x, start_y)
+        self.hints_used += 5
         
         # Find all safe cells and reveal 5 random ones
         safe_cells = [(x, y) for y in range(GRID_HEIGHT) for x in range(GRID_WIDTH) if not self.grid[y][x].is_mine]
