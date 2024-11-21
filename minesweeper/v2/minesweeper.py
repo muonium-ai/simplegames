@@ -97,6 +97,7 @@ class Minesweeper:
         self.elapsed_time = 0
         self.first_click = True
         self.points = 0
+        self.clicks_made=0
         self.used_hint_or_quickplay = False
         self.hints_used = 0  # Reset hint counter on new game
         if seed is None:
