@@ -3,6 +3,7 @@ import pygame
 import random
 from config import *
 from common import Cell,CellState, Button, InputBox
+import sys
 
 
 class Minesweeper:
@@ -411,72 +412,77 @@ class Minesweeper:
         running = True
         self.left_click_held = False
         self.right_click_held = False
+        try:
+            while running:
+                for event in pygame.event.get():
+                    if event.type == pygame.QUIT:
+                        running = False
+                    elif event.type == pygame.MOUSEBUTTONDOWN:
+                        if event.button == 1:
+                            self.left_click_held = True
+                        elif event.button == 3:
+                            self.right_click_held = True
 
-        while running:
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    running = False
-                elif event.type == pygame.MOUSEBUTTONDOWN:
-                    if event.button == 1:
-                        self.left_click_held = True
-                    elif event.button == 3:
-                        self.right_click_held = True
+                        if self.left_click_held and self.right_click_held:
+                            self.handle_both_clicks(event.pos)
 
-                    if self.left_click_held and self.right_click_held:
-                        self.handle_both_clicks(event.pos)
+                        elif event.button == 1:
+                            if self.new_game_button.handle_event(event):
+                                self.reset_game()
+                            elif self.restart_button.handle_event(event):
+                                self.reset_game(self.seed)
+                            elif self.quick_start_button.handle_event(event):
+                                self.quick_start()
+                            elif self.hint_button.handle_event(event):
+                                self.hint()
+                            elif self.solve_button.handle_event(event):
+                                self.solve_it()
+                            elif self.pause_button.handle_event(event):
+                                self.toggle_pause()
+                            elif event.pos[1] > HEADER_HEIGHT:  # Only process clicks on grid below header
+                                self.handle_click(event.pos, event.button == 3)
+                        elif event.button == 3:
+                            self.handle_click(event.pos, right_click=True)
 
-                    elif event.button == 1:
-                        if self.new_game_button.handle_event(event):
+                    elif event.type == pygame.MOUSEBUTTONUP:
+                        if event.button == 1:
+                            self.left_click_held = False
+                        elif event.button == 3:
+                            self.right_click_held = False
+
+                    elif event.type == pygame.KEYDOWN:
+                        if event.key == pygame.K_r:
                             self.reset_game()
-                        elif self.restart_button.handle_event(event):
-                            self.reset_game(self.seed)
-                        elif self.quick_start_button.handle_event(event):
+                        elif event.key == pygame.K_q:
+                            self.reset_game()
                             self.quick_start()
-                        elif self.hint_button.handle_event(event):
+                            print("New game started and quick start invoked via 'Q' key.")
+                        elif event.key == pygame.K_h:
                             self.hint()
-                        elif self.solve_button.handle_event(event):
-                            self.solve_it()
-                        elif self.pause_button.handle_event(event):
-                            self.toggle_pause()
-                        elif event.pos[1] > HEADER_HEIGHT:  # Only process clicks on grid below header
-                            self.handle_click(event.pos, event.button == 3)
-                    elif event.button == 3:
-                        self.handle_click(event.pos, right_click=True)
-
-                elif event.type == pygame.MOUSEBUTTONUP:
-                    if event.button == 1:
-                        self.left_click_held = False
-                    elif event.button == 3:
-                        self.right_click_held = False
-
-                elif event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_r:
-                        self.reset_game()
-                    elif event.key == pygame.K_q:
-                        self.reset_game()
-                        self.quick_start()
-                        print("New game started and quick start invoked via 'Q' key.")
-                    elif event.key == pygame.K_h:
-                        self.hint()
-                        print("Hint invoked via 'H' key.")
-                    elif event.key == pygame.K_m:
-                        if self.mark_probable_mines():
-                            print("Marked cells with 100% mine probability.")
+                            print("Hint invoked via 'H' key.")
+                        elif event.key == pygame.K_m:
+                            if self.mark_probable_mines():
+                                print("Marked cells with 100% mine probability.")
+                            else:
+                                print("No cells with 100% mine probability found.")
+                        elif event.key == pygame.K_d:
+                            self.print_board()
                         else:
-                            print("No cells with 100% mine probability found.")
-                    elif event.key == pygame.K_d:
-                        self.print_board()
-                    else:
-                        seed_input = self.seed_input_box.handle_event(event)
-                        if seed_input is not None:
-                            self.reset_game(seed_input)
+                            seed_input = self.seed_input_box.handle_event(event)
+                            if seed_input is not None:
+                                self.reset_game(seed_input)
 
-            # Update timer only if the game is active
-            if not self.game_over:
-                self.elapsed_time = self.get_game_time()
-            self.draw()
-            pygame.display.flip()
-            self.clock.tick(60)
+                # Update timer only if the game is active
+                if not self.game_over:
+                    self.elapsed_time = self.get_game_time()
+                self.draw()
+                pygame.display.flip()
+                self.clock.tick(60)
+        except KeyboardInterrupt:
+            print("Ctrl+C pressed. Exiting gracefully...")
+        finally:
+            pygame.quit()
+            sys.exit()
 
         pygame.quit()
 
