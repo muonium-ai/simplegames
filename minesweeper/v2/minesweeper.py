@@ -51,6 +51,8 @@ class Minesweeper:
         self.is_paused = False
         self.pause_start_time = 0
         self.total_pause_time = 0
+        self.points = 0
+        self.clicks_made=0
 
         # Input box for seed and display for time, points, hints
         self.seed_input_box = InputBox(PADDING, HEADER_HEIGHT - 35, 100, 30)
@@ -109,6 +111,9 @@ class Minesweeper:
     def quick_start(self):
         if not self.first_click:
             return
+        # track before state
+        hidden_before = self.count_hidden()
+        mines_remaining_before = self.mines_remaining
         
         self.used_hint_or_quickplay = True
         # Place mines but keep the existing seed
@@ -125,6 +130,14 @@ class Minesweeper:
             self.reveal_cell(x, y)
             pos = (x * CELL_SIZE, y * CELL_SIZE + HEADER_HEIGHT)
             self.handle_click(pos)
+            
+        # Track after state 
+        hidden_after = self.count_hidden()
+        mines_remaining_after = self.mines_remaining
+
+        if hidden_before != hidden_after or mines_remaining_before != mines_remaining_after:
+            self.clicks_made += 5
+        
 
     def hint(self):
         """Reveal a random safe cell as a hint"""
@@ -135,6 +148,9 @@ class Minesweeper:
             if not self.grid[y][x].is_mine 
             and self.grid[y][x].state == CellState.HIDDEN
         ]
+        # track before state
+        hidden_before = self.count_hidden()
+        mines_remaining_before = self.mines_remaining
         
         if safe_hidden_cells:
             # Choose random safe cell
@@ -152,6 +168,13 @@ class Minesweeper:
             #self.update_probabilities()
             pos = (x * CELL_SIZE, y * CELL_SIZE + HEADER_HEIGHT)
             self.handle_click(pos)
+            
+        # Track after state 
+        hidden_after = self.count_hidden()
+        mines_remaining_after = self.mines_remaining
+
+        if hidden_before != hidden_after or mines_remaining_before != mines_remaining_after:
+            self.clicks_made += 1
             
             # Check for victory
             self.check_victory()
@@ -234,6 +257,9 @@ class Minesweeper:
             return
         x = pos[0] // CELL_SIZE
         y = (pos[1] - HEADER_HEIGHT) // CELL_SIZE  # Adjusted for header height
+        # track before state
+        hidden_before = self.count_hidden()
+        mines_remaining_before = self.mines_remaining
         if not (0 <= x < GRID_WIDTH and 0 <= y < GRID_HEIGHT):
             return
         cell = self.grid[y][x]
@@ -257,6 +283,14 @@ class Minesweeper:
         else:
             self.reveal_cell(x, y)
             self.check_victory()
+        
+        # Track after state 
+        hidden_after = self.count_hidden()
+        mines_remaining_after = self.mines_remaining
+
+        if hidden_before != hidden_after or mines_remaining_before != mines_remaining_after:
+            self.clicks_made += 1
+
         if not self.game_over:
             self.update_probabilities()
             self.print_board()
@@ -327,6 +361,7 @@ class Minesweeper:
         stats = [
             f"Time: {self.elapsed_time}s",
             f"Points: {self.points}",
+            f"Steps: {self.clicks_made}"
             f"Hints Used: {self.hints_used}",
             f"Total Moves: {self.total_moves}"
         ]
@@ -370,7 +405,7 @@ class Minesweeper:
         timer_text = self.font.render(f"Time: {self.elapsed_time}", True, RED)
         self.screen.blit(timer_text, (120 + PADDING, HEADER_HEIGHT - 35))
         
-        points_text = self.font.render(f"Points: {self.points}", True, RED)
+        points_text = self.font.render(f"Steps: {self.clicks_made}", True, RED)
         self.screen.blit(points_text, (250 + 2 * PADDING, HEADER_HEIGHT - 35))
 
         hints_text = self.font.render(f"Hints Used: {self.hints_used}", True, RED)
@@ -495,6 +530,9 @@ class Minesweeper:
 
         if not (0 <= x < GRID_WIDTH and 0 <= y < GRID_HEIGHT):
             return
+        # track before state
+        hidden_before = self.count_hidden()
+        mines_remaining_before = self.mines_remaining
 
         cell = self.grid[y][x]
         if cell.state != CellState.REVEALED or cell.is_mine:
@@ -527,6 +565,12 @@ class Minesweeper:
             for nx, ny in unflagged_neighbors:
                 self.reveal_cell(nx, ny)
         self.handle_click(pos)
+        # Track after state 
+        hidden_after = self.count_hidden()
+        mines_remaining_after = self.mines_remaining
+
+        if hidden_before != hidden_after or mines_remaining_before != mines_remaining_after:
+            self.clicks_made += 1
         #self.print_board
 
     def toggle_pause(self):
@@ -822,6 +866,10 @@ class Minesweeper:
         total_clicks_text = self.small_font.render(f"Total Clicks: {self.left_clicks + self.right_clicks + self.both_clicks}", True, BLACK)
         total_clicks_rect = total_clicks_text.get_rect(topleft=(PADDING, PADDING + 60))
         self.screen.blit(total_clicks_text, total_clicks_rect)
+
+        points_text = self.small_font.render(f"steps: {self.clicks_made}", True, BLACK)
+        points_rect = points_text.get_rect(topleft=(PADDING, PADDING + 80))
+        self.screen.blit(points_text, points_rect)
 
     def find_safe_cell(self):
         """Find a safe cell to reveal as a hint."""
