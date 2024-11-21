@@ -723,7 +723,7 @@ class Minesweeper:
                 if probabilities[y][x] >0.1:
                     print(probabilities[y][x],y,x)
                     self.handle_both_clicks((x,y))
-                if probabilities[y][x] >= 0.8:
+                if probabilities[y][x] >= 0.99:
                     if cell.state != CellState.FLAGGED:
                         cell.state = CellState.FLAGGED
                         self.mines_remaining -= 1
@@ -853,7 +853,9 @@ class Minesweeper:
                     if prob > 0.99999:
                         row_str.append('A')
                         # mark as mine
-                        cell.state = CellState.FLAGGED
+                        if cell.state != CellState.FLAGGED:
+                            cell.state = CellState.FLAGGED
+                            self.mines_remaining -= 1
                         print(f"Marked cell at ({cell.x}, {cell.y}) as mine (probability = {prob:.4f})")
                     elif prob > 0.5:
                         row_str.append('B')
