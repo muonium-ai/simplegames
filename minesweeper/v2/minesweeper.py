@@ -11,7 +11,7 @@ class Minesweeper:
     FLAG_IMAGE_PATH = "images/red-flag.png"
     MINE_IMAGE_PATH = "images/landmine.png"
 
-    def __init__(self):
+    def __init__(self, filename=None):
         pygame.init()
         self.screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
         #pygame.display.setCaption("Minesweeper")
@@ -58,7 +58,20 @@ class Minesweeper:
         self.seed_input_box = InputBox(PADDING, HEADER_HEIGHT - 35, 100, 30)
         self.seed = None
         self.hints_used = 0
-        self.reset_game()
+
+        # Add the debug_mode attribute
+        self.debug_mode = False  # Set to True to enable debug messages
+
+        self.left_clicks = 0
+        self.right_clicks = 0
+        self.both_clicks = 0
+        self.clicks_made = 0
+
+        # Load game configuration from file if provided
+        if filename:
+            self.load_game_from_file(filename)
+        else:
+            self.reset_game()
 
         # Load and scale images
         try:
@@ -79,13 +92,37 @@ class Minesweeper:
             print(f"Error loading images: {e}")
             self.images_loaded = False
 
-        # Add the debug_mode attribute
-        self.debug_mode = False  # Set to True to enable debug messages
-
-        self.left_clicks = 0
-        self.right_clicks = 0
-        self.both_clicks = 0
+    def load_game_from_file(self, filename):
+        """Load game configuration from a file."""
+        with open(filename, 'r') as file:
+            lines = file.readlines()
+        
+        self.grid = [[Cell(x, y) for x in range(GRID_WIDTH)] for y in range(GRID_HEIGHT)]
+        self.game_over = False
+        self.victory = False
+        self.mines_remaining = 0
+        self.unmarked_boxes = GRID_WIDTH * GRID_HEIGHT
+        self.start_time = pygame.time.get_ticks()
+        self.elapsed_time = 0
+        self.first_click = False
+        self.points = 0
         self.clicks_made = 0
+        self.used_hint_or_quickplay = False
+        self.hints_used = 0
+
+        for y, line in enumerate(lines):
+            for x, char in enumerate(line.strip()):
+                cell = self.grid[y][x]
+                if char == '*':
+                    cell.is_mine = True
+                    self.mines_remaining += 1
+                elif char.isdigit():
+                    cell.state = CellState.REVEALED
+                    cell.neighbor_mines = int(char)
+                else:
+                    cell.state = CellState.HIDDEN
+
+        self.update_probabilities()
 
     def reset_game(self, seed=None):
         self.grid = [[Cell(x, y) for x in range(GRID_WIDTH)] for y in range(GRID_HEIGHT)]
