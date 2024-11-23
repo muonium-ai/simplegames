@@ -67,6 +67,9 @@ class Minesweeper:
         self.both_clicks = 0
         self.clicks_made = 0
 
+        # Store the filename for reloading
+        self.filename = filename
+
         # Load game configuration from file if provided
         if filename:
             self.load_game_from_file(filename)
@@ -122,27 +125,33 @@ class Minesweeper:
 
         self.update_probabilities()
 
+        # Set the window title to the filename
+        pygame.display.set_caption(f"Minesweeper - {filename}")
+
     def reset_game(self, seed=None):
-        self.grid = [[Cell(x, y) for x in range(GRID_WIDTH)] for y in range(GRID_HEIGHT)]
-        self.game_over = False
-        self.victory = False
-        self.mines_remaining = MINE_COUNT
-        self.unmarked_boxes = GRID_WIDTH * GRID_HEIGHT
-        self.start_time = pygame.time.get_ticks()
-        self.elapsed_time = 0
-        self.first_click = True
-        self.points = 0
-        self.clicks_made=0
-        self.used_hint_or_quickplay = False
-        self.hints_used = 0  # Reset hint counter on new game
-        if seed is None:
-            self.seed = random.randint(0, 9999)
+        if self.filename:
+            self.load_game_from_file(self.filename)
         else:
-            self.seed = int(seed)
-        random.seed(self.seed)
-        self.seed_input_box.text = str(self.seed)
-        self.seed_input_box.txt_surface = self.font.render(str(self.seed), True, WHITE)
-        self.update_probabilities()
+            self.grid = [[Cell(x, y) for x in range(GRID_WIDTH)] for y in range(GRID_HEIGHT)]
+            self.game_over = False
+            self.victory = False
+            self.mines_remaining = MINE_COUNT
+            self.unmarked_boxes = GRID_WIDTH * GRID_HEIGHT
+            self.start_time = pygame.time.get_ticks()
+            self.elapsed_time = 0
+            self.first_click = True
+            self.points = 0
+            self.clicks_made=0
+            self.used_hint_or_quickplay = False
+            self.hints_used = 0  # Reset hint counter on new game
+            if seed is None:
+                self.seed = random.randint(0, 9999)
+            else:
+                self.seed = int(seed)
+            random.seed(self.seed)
+            self.seed_input_box.text = str(self.seed)
+            self.seed_input_box.txt_surface = self.font.render(str(self.seed), True, WHITE)
+            self.update_probabilities()
 
     def quick_start(self):
         if not self.first_click:
