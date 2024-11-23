@@ -104,7 +104,7 @@ class Minesweeper:
         self.unmarked_boxes = GRID_WIDTH * GRID_HEIGHT
         self.start_time = pygame.time.get_ticks()
         self.elapsed_time = 0
-        self.first_click = False
+        self.first_click = True
         self.points = 0
         self.clicks_made = 0
         self.used_hint_or_quickplay = False
@@ -117,10 +117,8 @@ class Minesweeper:
                     cell.is_mine = True
                     self.mines_remaining += 1
                 elif char.isdigit():
-                    cell.state = CellState.REVEALED
                     cell.neighbor_mines = int(char)
-                else:
-                    cell.state = CellState.HIDDEN
+                cell.state = CellState.HIDDEN  # Ensure all cells are hidden initially
 
         self.update_probabilities()
 
