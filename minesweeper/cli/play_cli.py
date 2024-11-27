@@ -42,6 +42,8 @@ def main():
     if game.game_over:
         print("Game over!")
         display_board(game)
+        print("Solution:")
+        game.print_solution()
 
 if __name__ == "__main__":
     main()

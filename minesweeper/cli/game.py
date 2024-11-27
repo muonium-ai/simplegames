@@ -97,3 +97,13 @@ class Minesweeper:
                 if cell.state == CellState.HIDDEN and not cell.is_mine:
                     return False
         return True
+    
+    def print_solution(self):
+        for row in self.grid:
+            line = []
+            for cell in row:
+                if cell.is_mine:
+                    line.append('*')
+                else:
+                    line.append(str(cell.neighbor_mines))
+            print(' '.join(line))
