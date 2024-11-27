@@ -64,6 +64,10 @@ class Minesweeper:
         Reveal a cell. If the cell is empty (0 neighboring mines),
         recursively reveal its neighbors.
         """
+        if self.first_click:
+            self.place_mines(x, y)
+            self.first_click = False
+
         if self.game_over or self.grid[y][x].state != CellState.HIDDEN:
             return
 

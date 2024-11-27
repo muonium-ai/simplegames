@@ -15,30 +15,33 @@ def display_board(game):
         print(' '.join(line))
 
 def main():
-    game = Minesweeper(10, 10, 10)
+    width, height, mine_count = 10, 10, 10
+    game = Minesweeper(width, height, mine_count)
 
     while not game.game_over:
         display_board(game)
-        command = input("Enter command (r x y / f x y): ")
-        parts = command.split()
-        if len(parts) != 3:
+        command = input("Enter command (r x y / f x y): ").strip().lower()
+        try:
+            action, x, y = command.split()
+            x, y = int(x), int(y)
+            if action == 'r':
+                game.reveal(x, y)
+            elif action == 'f':
+                game.flag(x, y)
+            else:
+                print("Invalid action!")
+        except ValueError:
             print("Invalid command!")
             continue
-        action, x, y = parts[0], int(parts[1]), int(parts[2])
-        if action == 'r':
-            game.reveal(x, y)
-        elif action == 'f':
-            game.flag(x, y)
-        else:
-            print("Invalid action!")
 
         if game.check_victory():
             print("You win!")
+            display_board(game)
             break
 
     if game.game_over:
         print("Game over!")
-    display_board(game)
+        display_board(game)
 
 if __name__ == "__main__":
     main()
