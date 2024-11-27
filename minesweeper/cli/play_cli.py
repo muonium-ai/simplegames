@@ -1,4 +1,5 @@
 from game import Minesweeper, CellState
+import sys
 
 def display_board(game):
     for row in game.grid:
@@ -14,8 +15,8 @@ def display_board(game):
                 line.append(str(cell.neighbor_mines))
         print(' '.join(line))
 
-def main():
-    width, height, mine_count = 10, 10, 10
+def main(width, height, mine_count):
+    #width, height, mine_count = 10, 10, 10
     game = Minesweeper(width, height, mine_count)
 
     while not game.game_over:
@@ -46,4 +47,9 @@ def main():
         game.print_solution()
 
 if __name__ == "__main__":
-    main()
+    if len(sys.argv) == 4:
+        width, height, mine_count = map(int, sys.argv[1:])
+    else:
+        width, height, mine_count = 10, 10, 10
+
+    main(width, height, mine_count)
