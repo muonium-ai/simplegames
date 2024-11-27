@@ -20,6 +20,7 @@ class Minesweeper:
         self.grid = [[Cell() for _ in range(width)] for _ in range(height)]
         self.game_over = False
         self.first_click = True
+        self.victory = False
 
     def place_mines(self, safe_x, safe_y):
         safe_cells = {(safe_x, safe_y)}

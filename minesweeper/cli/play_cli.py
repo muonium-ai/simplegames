@@ -1,5 +1,5 @@
-from game import Minesweeper, CellState
 import sys
+from game import Minesweeper, CellState
 
 def display_board(game):
     for row in game.grid:
@@ -18,39 +18,55 @@ def display_board(game):
 def main(width, height, mine_count):
     game = Minesweeper(width, height, mine_count)
 
-    while not game.game_over:
-        display_board(game)
-        command = input("Enter command (r x y / f x y): ").strip().lower()
-        try:
-            action, x, y = command.split()
-            x, y = int(x), int(y)
-
-            # Validate action
-            if action not in ['r', 'f']:
-                print("Invalid action! Use 'r' to reveal or 'f' to flag.")
+    try:
+        while not game.game_over:
+            display_board(game)
+            command = input("Enter command (r x y / f x y / quit / help): ").strip().lower()
+            
+            if command == 'quit':
+                print("Game exited.")
+                break
+            elif command == 'help':
+                print("Commands:")
+                print("  r x y - Reveal the cell at (x, y)")
+                print("  f x y - Flag the cell at (x, y)")
+                print("  quit  - Exit the game")
+                print("  help  - Display this help message")
                 continue
 
-            # Validate coordinates
-            if not (0 <= x < width and 0 <= y < height):
-                print(f"Invalid coordinates! x and y must be between 0 and {width-1} and 0 and {height-1} respectively.")
+            try:
+                action, x, y = command.split()
+                x, y = int(x), int(y)
+
+                # Validate action
+                if action not in ['r', 'f']:
+                    print("Invalid action! Use 'r' to reveal or 'f' to flag.")
+                    continue
+
+                # Validate coordinates
+                if not (0 <= x < width and 0 <= y < height):
+                    print(f"Invalid coordinates! x and y must be between 0 and {width-1} and 0 and {height-1} respectively.")
+                    continue
+
+                if action == 'r':
+                    game.reveal(x, y)
+                elif action == 'f':
+                    game.flag(x, y)
+
+            except ValueError:
+                print("Invalid command! Use the format 'r x y' or 'f x y'.")
                 continue
 
-            if action == 'r':
-                game.reveal(x, y)
-            elif action == 'f':
-                game.flag(x, y)
+            if game.check_victory():
+                print("Congratulations! You won the game.")
+                break
 
-        except ValueError:
-            print("Invalid command! Use the format 'r x y' or 'f x y'.")
-            continue
+            if not game.victory and game.game_over:
+                print("Mine clicked. Game over.")
+                game.print_solution()
 
-        if game.check_victory():
-            print("Congratulations! You won the game.")
-            break
-
-    if not game.victory:
-        print("Mine clicked. Game over.")
-        game.print_solution()
+    except KeyboardInterrupt:
+        print("\nGame interrupted. Exiting gracefully.")
 
 if __name__ == "__main__":
     if len(sys.argv) == 4:
