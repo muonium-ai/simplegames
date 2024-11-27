@@ -16,7 +16,6 @@ def display_board(game):
         print(' '.join(line))
 
 def main(width, height, mine_count):
-    #width, height, mine_count = 10, 10, 10
     game = Minesweeper(width, height, mine_count)
 
     while not game.game_over:
@@ -25,25 +24,32 @@ def main(width, height, mine_count):
         try:
             action, x, y = command.split()
             x, y = int(x), int(y)
+
+            # Validate action
+            if action not in ['r', 'f']:
+                print("Invalid action! Use 'r' to reveal or 'f' to flag.")
+                continue
+
+            # Validate coordinates
+            if not (0 <= x < width and 0 <= y < height):
+                print(f"Invalid coordinates! x and y must be between 0 and {width-1} and 0 and {height-1} respectively.")
+                continue
+
             if action == 'r':
                 game.reveal(x, y)
             elif action == 'f':
                 game.flag(x, y)
-            else:
-                print("Invalid action!")
+
         except ValueError:
-            print("Invalid command!")
+            print("Invalid command! Use the format 'r x y' or 'f x y'.")
             continue
 
         if game.check_victory():
-            print("You win!")
-            display_board(game)
+            print("Congratulations! You won the game.")
             break
 
-    if game.game_over:
-        print("Game over!")
-        display_board(game)
-        print("Solution:")
+    if not game.victory:
+        print("Mine clicked. Game over.")
         game.print_solution()
 
 if __name__ == "__main__":
