@@ -1,24 +1,30 @@
+from os import environ
+environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1' 
 import pygame
 from game import Minesweeper, CellState
+import sys
 
-CELL_SIZE = 30
-GRID_WIDTH = 10
-GRID_HEIGHT = 10
+
 
 class PygameMinesweeper:
-    def __init__(self, width, height, mines):
+    def __init__(self, width=10, height=10, mine_count=10):
         pygame.init()
-        self.screen = pygame.display.set_mode((GRID_WIDTH * CELL_SIZE, GRID_HEIGHT * CELL_SIZE))
+        pygame.display.set_caption("Minesweeper")
+        self.CELL_SIZE = 30
+        self.GRID_WIDTH = width
+        self.GRID_HEIGHT = height
+
+        self.screen = pygame.display.set_mode((self.GRID_WIDTH * self.CELL_SIZE, self.GRID_HEIGHT * self.CELL_SIZE))
         self.clock = pygame.time.Clock()
         self.font = pygame.font.Font(None, 36)
-        self.game = Minesweeper(width, height, mines)
+        self.game = Minesweeper(width=width, height=height, mine_count=mine_count)
 
     def draw(self):
         self.screen.fill((255, 255, 255))
-        for y in range(GRID_HEIGHT):
-            for x in range(GRID_WIDTH):
+        for y in range(self.GRID_HEIGHT):
+            for x in range(self.GRID_WIDTH):
                 cell = self.game.grid[y][x]
-                rect = pygame.Rect(x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE)
+                rect = pygame.Rect(x * self.CELL_SIZE, y * self.CELL_SIZE, self.CELL_SIZE, self.CELL_SIZE)
                 if cell.state == CellState.REVEALED:
                     pygame.draw.rect(self.screen, (200, 200, 200), rect)
                     if cell.neighbor_mines > 0:
@@ -38,7 +44,7 @@ class PygameMinesweeper:
                 if event.type == pygame.QUIT:
                     running = False
                 elif event.type == pygame.MOUSEBUTTONDOWN:
-                    x, y = event.pos[0] // CELL_SIZE, event.pos[1] // CELL_SIZE
+                    x, y = event.pos[0] // self.CELL_SIZE, event.pos[1] // self.CELL_SIZE
                     if event.button == 1:
                         self.game.reveal(x, y)
                     elif event.button == 3:
@@ -48,5 +54,21 @@ class PygameMinesweeper:
             pygame.display.flip()
             self.clock.tick(30)
 
+            if self.game.game_over:
+                if self.game.victory:
+                    print("Congratulations! You won the game.")
+                else:
+                    print("Mine clicked. Game over.")
+                    self.game.print_solution()
+                running = False
+
 if __name__ == "__main__":
-    PygameMinesweeper(10,10,10).run()
+    # argv get 3 arguments: width, height, mine_count, if not given assume 10,10,10
+    if len(sys.argv) == 4:
+        width, height, mine_count = map(int, sys.argv[1:])
+    else:
+        width, height, mine_count = 10, 10, 10
+
+    print(f"Starting Minesweeper game with width={width}, height={height}, mine_count={mine_count}")
+
+    PygameMinesweeper(width, height, mine_count).run()
