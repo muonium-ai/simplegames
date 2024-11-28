@@ -141,7 +141,9 @@ class Minesweeper:
             'hidden_remaining': self.hidden_remaining,
             'steps': self.steps,
             'game_over': self.game_over,
-            'victory': self.victory
+            'victory': self.victory,
+            'total_mines': self.mine_count,
+            'remaining_mines': self.mine_count - self.flags
         }
 
     def get_current_board_status(self):

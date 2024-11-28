@@ -82,23 +82,25 @@ class PygameMinesweeper:
         pygame.draw.rect(self.screen, (200, 200, 200), self.quickstart_button)
         pygame.draw.rect(self.screen, (0, 0, 0), self.quickstart_button, 2)
         quickstart_text = self.small_font.render("Quickstart", True, (0, 0, 0))
-        quickstart_text_rect = quickstart_text.get_rect(center=self.quickstart_button.center)
+        quickstart_text_rect = quickstart_text.get_rect(
+            center=self.quickstart_button.center)
         self.screen.blit(quickstart_text, quickstart_text_rect)
 
-        # Draw status text below the buttons
+        # Combine all status into one line
         status_text = self.small_font.render(
-            f"Steps: {status['steps']}  Reveals: {status['reveals']}  Flags: {status['flags']}  Remaining: {status['hidden_remaining']}",
+            f"Steps: {status['steps']}  Reveals: {status['reveals']}  "
+            f"Flags: {status['flags']}  Mines: {status['remaining_mines']}/{status['total_mines']}",
             True, (0, 0, 0)
         )
-        # Position the status text below the buttons
         status_text_rect = status_text.get_rect()
         status_text_rect.topleft = (10, 50)
         self.screen.blit(status_text, status_text_rect)
 
         # Draw game message if any
         if self.game_message:
-            message_text = self.small_font.render(self.game_message, True, (0, 0, 255))  # Blue color
-            # Position below status text
+            message_text = self.small_font.render(
+                self.game_message, True, (0, 0, 255)
+            )
             message_text_rect = message_text.get_rect()
             message_text_rect.topleft = (10, 70)
             self.screen.blit(message_text, message_text_rect)
