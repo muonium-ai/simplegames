@@ -220,3 +220,18 @@ class Minesweeper:
             x, y = random.choice(unmarked_non_mine_cells)
             print(f"Hint: Reveal cell at ({x}, {y})")
             self.reveal(x, y)
+
+    def automark(self, x, y):
+        cell = self.grid[y][x]
+        if cell.state == CellState.REVEALED and cell.neighbor_mines > 0:
+            flagged_neighbors = 0
+            unmarked_neighbors = []
+            for nx, ny in self.get_neighbors(x, y):
+                neighbor = self.grid[ny][nx]
+                if neighbor.state == CellState.FLAGGED:
+                    flagged_neighbors += 1
+                elif neighbor.state == CellState.HIDDEN:
+                    unmarked_neighbors.append((nx, ny))
+            if flagged_neighbors == cell.neighbor_mines:
+                for nx, ny in unmarked_neighbors:
+                    self.reveal(nx, ny)

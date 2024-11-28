@@ -111,13 +111,17 @@ class PygameMinesweeper:
                     running = False
                 elif event.type == pygame.MOUSEBUTTONDOWN:
                     if self.new_button.collidepoint(event.pos):
-                        self.game = Minesweeper(width=self.GRID_WIDTH, height=self.GRID_HEIGHT, mine_count=self.game.mine_count)
+                        self.game = Minesweeper(
+                            width=self.GRID_WIDTH, height=self.GRID_HEIGHT, mine_count=self.game.mine_count
+                        )
                         self.game_message = ''  # Clear game message
                     elif self.hint_button.collidepoint(event.pos):
                         if not self.game.game_over:
                             self.game.hint()
                     elif self.quickstart_button.collidepoint(event.pos):
-                        self.game = Minesweeper(width=self.GRID_WIDTH, height=self.GRID_HEIGHT, mine_count=self.game.mine_count)
+                        self.game = Minesweeper(
+                            width=self.GRID_WIDTH, height=self.GRID_HEIGHT, mine_count=self.game.mine_count
+                        )
                         self.game_message = ''  # Clear game message
                         for _ in range(5):
                             self.game.hint()
@@ -125,8 +129,12 @@ class PygameMinesweeper:
                         if not self.game.game_over:
                             x, y = event.pos[0] // self.CELL_SIZE, (event.pos[1] - self.MENU_HEIGHT) // self.CELL_SIZE
                             if 0 <= x < self.GRID_WIDTH and 0 <= y < self.GRID_HEIGHT:
+                                cell = self.game.grid[y][x]
                                 if event.button == 1:
-                                    self.game.reveal(x, y)
+                                    if cell.state == CellState.REVEALED and cell.neighbor_mines > 0:
+                                        self.game.automark(x, y)
+                                    else:
+                                        self.game.reveal(x, y)
                                 elif event.button == 3:
                                     self.game.flag(x, y)
 
