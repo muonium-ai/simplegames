@@ -8,15 +8,15 @@ class PygameMinesweeper:
     CELL_SIZE = 30
     GRID_WIDTH = 10
     GRID_HEIGHT = 10
-    MENU_HEIGHT = 60
+    MENU_HEIGHT = 60  # Increased to provide enough space for menu
 
     def __init__(self, width=10, height=10, mine_count=10):
         pygame.init()
         pygame.display.set_caption("Minesweeper")
-        self.CELL_SIZE = 30
         self.GRID_WIDTH = width
         self.GRID_HEIGHT = height
 
+        # Adjusted window height to include MENU_HEIGHT
         self.screen = pygame.display.set_mode((self.GRID_WIDTH * self.CELL_SIZE, self.GRID_HEIGHT * self.CELL_SIZE + self.MENU_HEIGHT))
         self.clock = pygame.time.Clock()
         self.font = pygame.font.Font(None, 36)
@@ -34,6 +34,7 @@ class PygameMinesweeper:
         for y in range(self.GRID_HEIGHT):
             for x in range(self.GRID_WIDTH):
                 cell = self.game.grid[y][x]
+                # Corrected y-coordinate to start drawing grid below the menu
                 rect = pygame.Rect(x * self.CELL_SIZE, y * self.CELL_SIZE + self.MENU_HEIGHT, self.CELL_SIZE, self.CELL_SIZE)
                 if cell.state == CellState.REVEALED:
                     pygame.draw.rect(self.screen, (200, 200, 200), rect)
@@ -45,9 +46,10 @@ class PygameMinesweeper:
                     pygame.draw.rect(self.screen, (255, 0, 0), rect)
                 else:
                     pygame.draw.rect(self.screen, (100, 100, 100), rect)
-                    prob_text = probabilities[y][x]
-                    if prob_text:
-                        text_surface = self.small_font.render(f"{int(prob_text)}", True, (255, 255, 255))
+                    prob = probabilities[y][x]
+                    if prob != ' ':
+                        # Ensure probability is used as integer without converting to float
+                        text_surface = self.small_font.render(f"{prob}", True, (255, 255, 255))
                         text_rect = text_surface.get_rect(center=rect.center)
                         self.screen.blit(text_surface, text_rect)
                 pygame.draw.rect(self.screen, (0, 0, 0), rect, 1)
@@ -60,25 +62,28 @@ class PygameMinesweeper:
         pygame.draw.rect(self.screen, (220, 220, 220), menu_rect)
         pygame.draw.rect(self.screen, (0, 0, 0), menu_rect, 2)
 
+        # Adjusted status text position to prevent overlapping
         status_text = self.small_font.render(
             f"Steps: {status['steps']}  Reveals: {status['reveals']}  Flags: {status['flags']}  Remaining: {status['hidden_remaining']}",
             True, (0, 0, 0)
         )
-
-        self.screen.blit(status_text, (10, 50))
+        self.screen.blit(status_text, (10, self.MENU_HEIGHT - 20))
 
         # Draw buttons
+        pygame.draw.rect(self.screen, (200, 200, 200), self.new_button)
         pygame.draw.rect(self.screen, (0, 0, 0), self.new_button, 2)
         new_text = self.small_font.render("New", True, (0, 0, 0))
-        self.screen.blit(new_text, (self.new_button.x + 10, self.new_button.y + 10))
+        self.screen.blit(new_text, (self.new_button.x + 15, self.new_button.y + 10))
 
+        pygame.draw.rect(self.screen, (200, 200, 200), self.hint_button)
         pygame.draw.rect(self.screen, (0, 0, 0), self.hint_button, 2)
         hint_text = self.small_font.render("Hint", True, (0, 0, 0))
-        self.screen.blit(hint_text, (self.hint_button.x + 10, self.hint_button.y + 10))
+        self.screen.blit(hint_text, (self.hint_button.x + 15, self.hint_button.y + 10))
 
+        pygame.draw.rect(self.screen, (200, 200, 200), self.quickstart_button)
         pygame.draw.rect(self.screen, (0, 0, 0), self.quickstart_button, 2)
         quickstart_text = self.small_font.render("Quickstart", True, (0, 0, 0))
-        self.screen.blit(quickstart_text, (self.quickstart_button.x + 10, self.quickstart_button.y + 10))
+        self.screen.blit(quickstart_text, (self.quickstart_button.x + 5, self.quickstart_button.y + 10))
 
     def run(self):
         running = True
@@ -102,11 +107,6 @@ class PygameMinesweeper:
                                 self.game.reveal(x, y)
                             elif event.button == 3:
                                 self.game.flag(x, y)
-
-                        # Refresh the screen after each reveal or flag action
-                        self.draw()
-                        pygame.display.flip()
-
             self.draw()
             pygame.display.flip()
             self.clock.tick(30)
