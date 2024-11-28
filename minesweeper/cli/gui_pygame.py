@@ -27,6 +27,7 @@ class PygameMinesweeper:
 
     def draw(self):
         self.screen.fill((255, 255, 255))
+        probabilities = self.game.get_mine_probabilities()
         for y in range(self.GRID_HEIGHT):
             for x in range(self.GRID_WIDTH):
                 cell = self.game.grid[y][x]
@@ -41,6 +42,11 @@ class PygameMinesweeper:
                     pygame.draw.rect(self.screen, (255, 0, 0), rect)
                 else:
                     pygame.draw.rect(self.screen, (100, 100, 100), rect)
+                    prob_text = probabilities[y][x]
+                    if prob_text.strip():
+                        text_surface = self.small_font.render(prob_text, True, (255, 255, 255))
+                        text_rect = text_surface.get_rect(center=rect.center)
+                        self.screen.blit(text_surface, text_rect)
                 pygame.draw.rect(self.screen, (0, 0, 0), rect, 1)
 
         self.draw_menu()
@@ -85,7 +91,6 @@ class PygameMinesweeper:
                 running = False
 
 if __name__ == "__main__":
-    # argv get 3 arguments: width, height, mine_count, if not given assume 10,10,10
     if len(sys.argv) == 4:
         width, height, mine_count = map(int, sys.argv[1:])
     else:
