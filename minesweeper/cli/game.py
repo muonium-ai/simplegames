@@ -13,8 +13,8 @@ class Cell:
         self.neighbor_mines = 0
         self.x = 0
         self.y = 0
-        self.simple_probability = 0.0
-        self.adjacent_probability = 0.0
+        self.simple_probability = 0
+        self.adjacent_probability = 0
 
 class Minesweeper:
     def __init__(self, width, height, mine_count):
@@ -156,7 +156,7 @@ class Minesweeper:
             for cell in row:
                 if cell.state == CellState.HIDDEN:
                     prob = cell.adjacent_probability if cell.adjacent_probability > 0 else cell.simple_probability
-                    line.append(f"{prob:.2f}")
+                    line.append(int(prob))
                 else:
                     line.append(' ')
             probabilities.append(line)
@@ -164,7 +164,7 @@ class Minesweeper:
 
     def calculate_simple_probability(self, cell):
         if cell.state != CellState.HIDDEN:
-            return 0.0
+            return 0
 
         unopened_neighbors = 0
         marked_neighbors = 0
@@ -176,7 +176,7 @@ class Minesweeper:
                 marked_neighbors += 1
 
         if unopened_neighbors == 0:
-            return 0.0
+            return 0
 
         remaining_mines = self.mine_count - self.flags
         probability = (remaining_mines - marked_neighbors) / unopened_neighbors
@@ -188,9 +188,9 @@ class Minesweeper:
 
     def calculate_adjacent_probability(self, cell):
         if cell.state != CellState.HIDDEN:
-            return 0.0
+            return 0
 
-        adjacent_probability = 0.0
+        adjacent_probability = 0
         for nx, ny in self.get_neighbors(cell.x, cell.y):
             neighbor = self.grid[ny][nx]
             if neighbor.state == CellState.REVEALED and neighbor.neighbor_mines > 0:

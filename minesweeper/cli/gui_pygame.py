@@ -41,8 +41,12 @@ class PygameMinesweeper:
                 else:
                     pygame.draw.rect(self.screen, (100, 100, 100), rect)
                     prob_text = probabilities[y][x]
-                    if prob_text.strip():
-                        text_surface = self.small_font.render(f"{float(prob_text):.1f}", True, (255, 255, 255))
+                    if prob_text:
+                        if prob_text==1:
+                            prob_text = "#"
+                            # flag the cell
+                            self.game.flag(x, y)
+                        text_surface = self.small_font.render(str(prob_text), True, (255, 255, 255))
                         text_rect = text_surface.get_rect(center=rect.center)
                         self.screen.blit(text_surface, text_rect)
                 pygame.draw.rect(self.screen, (0, 0, 0), rect, 1)
