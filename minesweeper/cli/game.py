@@ -154,7 +154,7 @@ class Minesweeper:
             for cell in row:
                 if cell.state == CellState.HIDDEN:
                     prob = self.calculate_mine_probability(cell)
-                    line.append(f"{prob:.2f}")
+                    line.append(f"{int(prob)}")
                 else:
                     line.append(' ')
             probabilities.append(line)
@@ -179,4 +179,7 @@ class Minesweeper:
         remaining_mines = self.mine_count - self.flags
         probability = (remaining_mines - marked_neighbors) / unopened_neighbors
 
-        return probability
+        # Convert to percentage and ensure it is between 1% and 99%
+        probability_percentage = round(probability)
+
+        return probability_percentage

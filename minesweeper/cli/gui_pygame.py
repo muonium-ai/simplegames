@@ -22,6 +22,8 @@ class PygameMinesweeper:
         self.font = pygame.font.Font(None, 36)
         self.small_font = pygame.font.Font(None, 24)
         self.game = Minesweeper(width=width, height=height, mine_count=mine_count)
+        self.debug()
+        
 
     def draw(self):
         self.screen.fill((255, 255, 255))
@@ -42,12 +44,19 @@ class PygameMinesweeper:
                     pygame.draw.rect(self.screen, (100, 100, 100), rect)
                     prob_text = probabilities[y][x]
                     if prob_text.strip():
-                        text_surface = self.small_font.render(f"{float(prob_text):.1f}", True, (255, 255, 255))
+                        text_surface = self.small_font.render(f"{int(prob_text)}", True, (255, 255, 255))
                         text_rect = text_surface.get_rect(center=rect.center)
                         self.screen.blit(text_surface, text_rect)
                 pygame.draw.rect(self.screen, (0, 0, 0), rect, 1)
 
         self.draw_menu()
+        
+
+    def debug(self):
+        print(self.game.print_solution())
+        print(self.game.get_mine_probabilities())
+        print(self.game.get_status())
+        print(self.game.get_current_board_status())
 
     def draw_menu(self):
         status = self.game.get_status()
@@ -79,6 +88,7 @@ class PygameMinesweeper:
                         # Refresh the screen after each reveal or flag action
                         self.draw()
                         pygame.display.flip()
+                        self.debug()
 
             self.draw()
             pygame.display.flip()
