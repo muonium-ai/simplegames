@@ -113,3 +113,37 @@ class Minesweeper:
             'game_over': self.game_over,
             'victory': self.victory
         }
+
+    def get_current_board_status(self):
+        board_status = []
+        for row in self.grid:
+            line = []
+            for cell in row:
+                if cell.state == CellState.HIDDEN:
+                    line.append('.')
+                elif cell.state == CellState.FLAGGED:
+                    line.append('F')
+                elif cell.is_mine:
+                    line.append('*')
+                else:
+                    line.append(str(cell.neighbor_mines))
+            board_status.append(' '.join(line))
+        return board_status
+
+    def get_mine_probabilities(self):
+        probabilities = []
+        for row in self.grid:
+            line = []
+            for cell in row:
+                if cell.state == CellState.HIDDEN:
+                    prob = self.calculate_mine_probability(cell)
+                    line.append(f"{prob:.2f}")
+                else:
+                    line.append(' ')
+            probabilities.append(' '.join(line))
+        return probabilities
+
+    def calculate_mine_probability(self, cell):
+        # Placeholder for actual probability calculation logic
+        # For now, return a dummy value
+        return 0.5
