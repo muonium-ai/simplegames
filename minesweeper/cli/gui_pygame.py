@@ -8,7 +8,7 @@ class PygameMinesweeper:
     CELL_SIZE = 30
     GRID_WIDTH = 10
     GRID_HEIGHT = 10
-    MENU_HEIGHT = 30
+    MENU_HEIGHT = 60
 
     def __init__(self, width=10, height=10, mine_count=10):
         pygame.init()
@@ -22,6 +22,11 @@ class PygameMinesweeper:
         self.font = pygame.font.Font(None, 36)
         self.small_font = pygame.font.Font(None, 24)
         self.game = Minesweeper(width=width, height=height, mine_count=mine_count)
+
+        # Create buttons
+        self.new_button = pygame.Rect(10, 10, 80, 40)
+        self.hint_button = pygame.Rect(100, 10, 80, 40)
+        self.quickstart_button = pygame.Rect(190, 10, 120, 40)
 
     def draw(self):
         self.screen.fill((255, 255, 255))
@@ -42,11 +47,7 @@ class PygameMinesweeper:
                     pygame.draw.rect(self.screen, (100, 100, 100), rect)
                     prob_text = probabilities[y][x]
                     if prob_text:
-                        if prob_text==1:
-                            prob_text = "#"
-                            # flag the cell
-                            self.game.flag(x, y)
-                        text_surface = self.small_font.render(str(prob_text), True, (255, 255, 255))
+                        text_surface = self.small_font.render(f"{int(prob_text)}", True, (255, 255, 255))
                         text_rect = text_surface.get_rect(center=rect.center)
                         self.screen.blit(text_surface, text_rect)
                 pygame.draw.rect(self.screen, (0, 0, 0), rect, 1)
@@ -64,7 +65,20 @@ class PygameMinesweeper:
             True, (0, 0, 0)
         )
 
-        self.screen.blit(status_text, (10, 5))
+        self.screen.blit(status_text, (10, 50))
+
+        # Draw buttons
+        pygame.draw.rect(self.screen, (0, 0, 0), self.new_button, 2)
+        new_text = self.small_font.render("New", True, (0, 0, 0))
+        self.screen.blit(new_text, (self.new_button.x + 10, self.new_button.y + 10))
+
+        pygame.draw.rect(self.screen, (0, 0, 0), self.hint_button, 2)
+        hint_text = self.small_font.render("Hint", True, (0, 0, 0))
+        self.screen.blit(hint_text, (self.hint_button.x + 10, self.hint_button.y + 10))
+
+        pygame.draw.rect(self.screen, (0, 0, 0), self.quickstart_button, 2)
+        quickstart_text = self.small_font.render("Quickstart", True, (0, 0, 0))
+        self.screen.blit(quickstart_text, (self.quickstart_button.x + 10, self.quickstart_button.y + 10))
 
     def run(self):
         running = True
@@ -73,17 +87,25 @@ class PygameMinesweeper:
                 if event.type == pygame.QUIT:
                     running = False
                 elif event.type == pygame.MOUSEBUTTONDOWN:
-                    x, y = event.pos[0] // self.CELL_SIZE, (event.pos[1] - self.MENU_HEIGHT) // self.CELL_SIZE
-                    if 0 <= x < self.GRID_WIDTH and 0 <= y < self.GRID_HEIGHT:
-                        if event.button == 1:
-                            self.game.reveal(x, y)
-                        elif event.button == 3:
-                            self.game.flag(x, y)
+                    if self.new_button.collidepoint(event.pos):
+                        self.game = Minesweeper(width=self.GRID_WIDTH, height=self.GRID_HEIGHT, mine_count=self.game.mine_count)
+                    elif self.hint_button.collidepoint(event.pos):
+                        self.game.hint()
+                    elif self.quickstart_button.collidepoint(event.pos):
+                        self.game = Minesweeper(width=self.GRID_WIDTH, height=self.GRID_HEIGHT, mine_count=self.game.mine_count)
+                        for _ in range(5):
+                            self.game.hint()
+                    else:
+                        x, y = event.pos[0] // self.CELL_SIZE, (event.pos[1] - self.MENU_HEIGHT) // self.CELL_SIZE
+                        if 0 <= x < self.GRID_WIDTH and 0 <= y < self.GRID_HEIGHT:
+                            if event.button == 1:
+                                self.game.reveal(x, y)
+                            elif event.button == 3:
+                                self.game.flag(x, y)
 
                         # Refresh the screen after each reveal or flag action
                         self.draw()
                         pygame.display.flip()
-                        self.debug()
 
             self.draw()
             pygame.display.flip()
@@ -95,15 +117,7 @@ class PygameMinesweeper:
                 else:
                     print("Mine clicked. Game over.")
                     self.game.print_solution()
-                running = False
-    
-    
-    def debug(self):
-        print(self.game.print_solution())
-        print(self.game.get_mine_probabilities())
-        print(self.game.get_status())
-        print(self.game.get_current_board_status())
-
+                self.game = Minesweeper(width=self.GRID_WIDTH, height=self.GRID_HEIGHT, mine_count=self.game.mine_count)
 
 if __name__ == "__main__":
     if len(sys.argv) == 4:
