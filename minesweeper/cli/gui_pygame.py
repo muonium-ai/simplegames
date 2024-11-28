@@ -8,7 +8,7 @@ class PygameMinesweeper:
     CELL_SIZE = 30
     GRID_WIDTH = 10
     GRID_HEIGHT = 10
-    MENU_HEIGHT = 60  # Increased to provide enough space for menu
+    MENU_HEIGHT = 90  # Increased from 60 to 90 to provide more space
 
     def __init__(self, width=10, height=10, mine_count=10):
         pygame.init()
@@ -16,7 +16,7 @@ class PygameMinesweeper:
         self.GRID_WIDTH = width
         self.GRID_HEIGHT = height
 
-        # Adjusted window height to include MENU_HEIGHT
+        # Adjusted window height to include new MENU_HEIGHT
         self.screen = pygame.display.set_mode((self.GRID_WIDTH * self.CELL_SIZE, self.GRID_HEIGHT * self.CELL_SIZE + self.MENU_HEIGHT))
         self.clock = pygame.time.Clock()
         self.font = pygame.font.Font(None, 36)
@@ -24,9 +24,9 @@ class PygameMinesweeper:
         self.game = Minesweeper(width=width, height=height, mine_count=mine_count)
 
         # Create buttons
-        self.new_button = pygame.Rect(10, 10, 80, 40)
-        self.hint_button = pygame.Rect(100, 10, 80, 40)
-        self.quickstart_button = pygame.Rect(190, 10, 120, 40)
+        self.new_button = pygame.Rect(10, 10, 80, 30)
+        self.hint_button = pygame.Rect(100, 10, 80, 30)
+        self.quickstart_button = pygame.Rect(190, 10, 120, 30)
 
     def draw(self):
         self.screen.fill((255, 255, 255))
@@ -62,28 +62,34 @@ class PygameMinesweeper:
         pygame.draw.rect(self.screen, (220, 220, 220), menu_rect)
         pygame.draw.rect(self.screen, (0, 0, 0), menu_rect, 2)
 
-        # Adjusted status text position to prevent overlapping
-        status_text = self.small_font.render(
-            f"Steps: {status['steps']}  Reveals: {status['reveals']}  Flags: {status['flags']}  Remaining: {status['hidden_remaining']}",
-            True, (0, 0, 0)
-        )
-        self.screen.blit(status_text, (10, self.MENU_HEIGHT - 20))
-
         # Draw buttons
         pygame.draw.rect(self.screen, (200, 200, 200), self.new_button)
         pygame.draw.rect(self.screen, (0, 0, 0), self.new_button, 2)
         new_text = self.small_font.render("New", True, (0, 0, 0))
-        self.screen.blit(new_text, (self.new_button.x + 15, self.new_button.y + 10))
+        new_text_rect = new_text.get_rect(center=self.new_button.center)
+        self.screen.blit(new_text, new_text_rect)
 
         pygame.draw.rect(self.screen, (200, 200, 200), self.hint_button)
         pygame.draw.rect(self.screen, (0, 0, 0), self.hint_button, 2)
         hint_text = self.small_font.render("Hint", True, (0, 0, 0))
-        self.screen.blit(hint_text, (self.hint_button.x + 15, self.hint_button.y + 10))
+        hint_text_rect = hint_text.get_rect(center=self.hint_button.center)
+        self.screen.blit(hint_text, hint_text_rect)
 
         pygame.draw.rect(self.screen, (200, 200, 200), self.quickstart_button)
         pygame.draw.rect(self.screen, (0, 0, 0), self.quickstart_button, 2)
         quickstart_text = self.small_font.render("Quickstart", True, (0, 0, 0))
-        self.screen.blit(quickstart_text, (self.quickstart_button.x + 5, self.quickstart_button.y + 10))
+        quickstart_text_rect = quickstart_text.get_rect(center=self.quickstart_button.center)
+        self.screen.blit(quickstart_text, quickstart_text_rect)
+
+        # Draw status text below the buttons
+        status_text = self.small_font.render(
+            f"Steps: {status['steps']}  Reveals: {status['reveals']}  Flags: {status['flags']}  Remaining: {status['hidden_remaining']}",
+            True, (0, 0, 0)
+        )
+        # Position the status text below the buttons
+        status_text_rect = status_text.get_rect()
+        status_text_rect.topleft = (10, 50)
+        self.screen.blit(status_text, status_text_rect)
 
     def run(self):
         running = True
