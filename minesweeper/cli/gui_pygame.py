@@ -22,6 +22,7 @@ class PygameMinesweeper:
         self.font = pygame.font.Font(None, 36)
         self.small_font = pygame.font.Font(None, 24)
         self.game = Minesweeper(width=width, height=height, mine_count=mine_count)
+        self.game_message = ''  # Message to display when game is over
 
         # Create buttons
         self.new_button = pygame.Rect(10, 10, 80, 30)
@@ -91,6 +92,14 @@ class PygameMinesweeper:
         status_text_rect.topleft = (10, 50)
         self.screen.blit(status_text, status_text_rect)
 
+        # Draw game message if any
+        if self.game_message:
+            message_text = self.small_font.render(self.game_message, True, (0, 0, 255))  # Blue color
+            # Position below status text
+            message_text_rect = message_text.get_rect()
+            message_text_rect.topleft = (10, 70)
+            self.screen.blit(message_text, message_text_rect)
+
     def run(self):
         running = True
         while running:
@@ -100,30 +109,34 @@ class PygameMinesweeper:
                 elif event.type == pygame.MOUSEBUTTONDOWN:
                     if self.new_button.collidepoint(event.pos):
                         self.game = Minesweeper(width=self.GRID_WIDTH, height=self.GRID_HEIGHT, mine_count=self.game.mine_count)
+                        self.game_message = ''  # Clear game message
                     elif self.hint_button.collidepoint(event.pos):
-                        self.game.hint()
+                        if not self.game.game_over:
+                            self.game.hint()
                     elif self.quickstart_button.collidepoint(event.pos):
                         self.game = Minesweeper(width=self.GRID_WIDTH, height=self.GRID_HEIGHT, mine_count=self.game.mine_count)
+                        self.game_message = ''  # Clear game message
                         for _ in range(5):
                             self.game.hint()
                     else:
-                        x, y = event.pos[0] // self.CELL_SIZE, (event.pos[1] - self.MENU_HEIGHT) // self.CELL_SIZE
-                        if 0 <= x < self.GRID_WIDTH and 0 <= y < self.GRID_HEIGHT:
-                            if event.button == 1:
-                                self.game.reveal(x, y)
-                            elif event.button == 3:
-                                self.game.flag(x, y)
+                        if not self.game.game_over:
+                            x, y = event.pos[0] // self.CELL_SIZE, (event.pos[1] - self.MENU_HEIGHT) // self.CELL_SIZE
+                            if 0 <= x < self.GRID_WIDTH and 0 <= y < self.GRID_HEIGHT:
+                                if event.button == 1:
+                                    self.game.reveal(x, y)
+                                elif event.button == 3:
+                                    self.game.flag(x, y)
+
+            if self.game.game_over and not self.game_message:
+                if self.game.victory:
+                    self.game_message = "Congratulations! You won the game."
+                else:
+                    self.game_message = "Mine clicked. Game over."
+                self.game.print_solution()
+
             self.draw()
             pygame.display.flip()
             self.clock.tick(30)
-
-            if self.game.game_over:
-                if self.game.victory:
-                    print("Congratulations! You won the game.")
-                else:
-                    print("Mine clicked. Game over.")
-                    self.game.print_solution()
-                self.game = Minesweeper(width=self.GRID_WIDTH, height=self.GRID_HEIGHT, mine_count=self.game.mine_count)
 
 if __name__ == "__main__":
     if len(sys.argv) == 4:
