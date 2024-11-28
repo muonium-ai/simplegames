@@ -11,6 +11,8 @@ class Cell:
         self.is_mine = is_mine
         self.state = CellState.HIDDEN
         self.neighbor_mines = 0
+        self.x = 0
+        self.y = 0
 
 class Minesweeper:
     def __init__(self, width, height, mine_count):
@@ -25,6 +27,12 @@ class Minesweeper:
         self.flags = 0
         self.hidden_remaining = width * height
         self.steps = 0
+        self.initial_probability = mine_count / (width * height)
+
+        for y in range(height):
+            for x in range(width):
+                self.grid[y][x].x = x
+                self.grid[y][x].y = y
 
     def place_mines(self, safe_x, safe_y):
         safe_cells = {(safe_x, safe_y)}
@@ -140,10 +148,29 @@ class Minesweeper:
                     line.append(f"{prob:.2f}")
                 else:
                     line.append(' ')
-            probabilities.append(' '.join(line))
+            probabilities.append(line)
         return probabilities
 
     def calculate_mine_probability(self, cell):
-        # Placeholder for actual probability calculation logic
-        # For now, return a dummy value
-        return 0.5
+        if cell.state != CellState.HIDDEN:
+            return 0.0
+
+        unopened_neighbors = 0
+        marked_neighbors = 0
+        for nx, ny in self.get_neighbors(cell.x, cell.y):
+            neighbor = self.grid[ny][nx]
+            if neighbor.state == CellState.HIDDEN:
+                unopened_neighbors += 1
+            elif neighbor.state == CellState.FLAGGED:
+                marked_neighbors += 1
+
+        if unopened_neighbors == 0:
+            return 0.0
+
+        remaining_mines = self.mine_count - self.flags
+        probability = remaining_mines / self.hidden_remaining
+
+        if cell.state == CellState.HIDDEN:
+            return probability
+        else:
+            return 0.0
