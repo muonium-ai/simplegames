@@ -7,6 +7,11 @@ import sys
 
 
 class PygameMinesweeper:
+    CELL_SIZE = 30
+    GRID_WIDTH = 10
+    GRID_HEIGHT = 10
+    MENU_HEIGHT = 30
+
     def __init__(self, width=10, height=10, mine_count=10):
         pygame.init()
         pygame.display.set_caption("Minesweeper")
@@ -14,7 +19,7 @@ class PygameMinesweeper:
         self.GRID_WIDTH = width
         self.GRID_HEIGHT = height
 
-        self.screen = pygame.display.set_mode((self.GRID_WIDTH * self.CELL_SIZE, self.GRID_HEIGHT * self.CELL_SIZE))
+        self.screen = pygame.display.set_mode((self.GRID_WIDTH * self.CELL_SIZE, self.GRID_HEIGHT * self.CELL_SIZE + self.MENU_HEIGHT))
         self.clock = pygame.time.Clock()
         self.font = pygame.font.Font(None, 36)
         self.small_font = pygame.font.Font(None, 24)
@@ -25,7 +30,7 @@ class PygameMinesweeper:
         for y in range(self.GRID_HEIGHT):
             for x in range(self.GRID_WIDTH):
                 cell = self.game.grid[y][x]
-                rect = pygame.Rect(x * self.CELL_SIZE, y * self.CELL_SIZE, self.CELL_SIZE, self.CELL_SIZE)
+                rect = pygame.Rect(x * self.CELL_SIZE, y * self.CELL_SIZE + self.MENU_HEIGHT, self.CELL_SIZE, self.CELL_SIZE)
                 if cell.state == CellState.REVEALED:
                     pygame.draw.rect(self.screen, (200, 200, 200), rect)
                     if cell.neighbor_mines > 0:
@@ -42,19 +47,16 @@ class PygameMinesweeper:
 
     def draw_menu(self):
         status = self.game.get_status()
-        menu_rect = pygame.Rect(0, 0, self.GRID_WIDTH * self.CELL_SIZE, 100)
+        menu_rect = pygame.Rect(0, 0, self.GRID_WIDTH * self.CELL_SIZE, self.MENU_HEIGHT)
         pygame.draw.rect(self.screen, (220, 220, 220), menu_rect)
         pygame.draw.rect(self.screen, (0, 0, 0), menu_rect, 2)
 
-        steps_text = self.small_font.render(f"Steps: {status['steps']}", True, (0, 0, 0))
-        reveals_text = self.small_font.render(f"Reveals: {status['reveals']}", True, (0, 0, 0))
-        flags_text = self.small_font.render(f"Flags: {status['flags']}", True, (0, 0, 0))
-        remaining_text = self.small_font.render(f"Remaining: {status['hidden_remaining']}", True, (0, 0, 0))
+        status_text = self.small_font.render(
+            f"Steps: {status['steps']}  Reveals: {status['reveals']}  Flags: {status['flags']}  Remaining: {status['hidden_remaining']}",
+            True, (0, 0, 0)
+        )
 
-        self.screen.blit(steps_text, (10, 10))
-        self.screen.blit(reveals_text, (10, 40))
-        self.screen.blit(flags_text, (200, 10))
-        self.screen.blit(remaining_text, (200, 40))
+        self.screen.blit(status_text, (10, 5))
 
     def run(self):
         running = True
@@ -63,7 +65,7 @@ class PygameMinesweeper:
                 if event.type == pygame.QUIT:
                     running = False
                 elif event.type == pygame.MOUSEBUTTONDOWN:
-                    x, y = event.pos[0] // self.CELL_SIZE, (event.pos[1] - 100) // self.CELL_SIZE  # Adjusted for menu
+                    x, y = event.pos[0] // self.CELL_SIZE, (event.pos[1] - self.MENU_HEIGHT) // self.CELL_SIZE
                     if 0 <= x < self.GRID_WIDTH and 0 <= y < self.GRID_HEIGHT:
                         if event.button == 1:
                             self.game.reveal(x, y)
