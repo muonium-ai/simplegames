@@ -13,6 +13,7 @@ class Cell:
         self.neighbor_mines = 0
         self.x = 0
         self.y = 0
+        self.probability = 0.0
 
 class Minesweeper:
     def __init__(self, width, height, mine_count):
@@ -82,6 +83,7 @@ class Minesweeper:
                             if 0 <= nx < self.width and 0 <= ny < self.height:
                                 self.reveal(nx, ny)
                 self.check_victory()
+            self.update_probabilities()
 
     def flag(self, x, y):
         cell = self.grid[y][x]
@@ -93,6 +95,13 @@ class Minesweeper:
             cell.state = CellState.HIDDEN
             self.flags -= 1
             self.steps += 1
+        self.update_probabilities()
+
+    def update_probabilities(self):
+        for row in self.grid:
+            for cell in row:
+                if cell.state == CellState.HIDDEN:
+                    cell.probability = self.calculate_mine_probability(cell)
 
     def check_victory(self):
         for row in self.grid:

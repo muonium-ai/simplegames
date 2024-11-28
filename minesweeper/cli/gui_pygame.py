@@ -44,7 +44,7 @@ class PygameMinesweeper:
                     pygame.draw.rect(self.screen, (100, 100, 100), rect)
                     prob_text = probabilities[y][x]
                     if prob_text.strip():
-                        text_surface = self.small_font.render(prob_text, True, (255, 255, 255))
+                        text_surface = self.small_font.render(f"{float(prob_text):.1f}", True, (255, 255, 255))
                         text_rect = text_surface.get_rect(center=rect.center)
                         self.screen.blit(text_surface, text_rect)
                 pygame.draw.rect(self.screen, (0, 0, 0), rect, 1)
@@ -77,6 +77,10 @@ class PygameMinesweeper:
                             self.game.reveal(x, y)
                         elif event.button == 3:
                             self.game.flag(x, y)
+
+                        # Refresh the screen after each reveal or flag action
+                        self.draw()
+                        pygame.display.flip()
 
             self.draw()
             pygame.display.flip()
