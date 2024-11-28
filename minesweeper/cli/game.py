@@ -58,6 +58,8 @@ class Minesweeper:
     def get_neighbors(self, x, y):
         for dx in [-1, 0, 1]:
             for dy in [-1, 0, 1]:
+                if dx == 0 and dy == 0:
+                    continue
                 nx, ny = x + dx, y + dy
                 if 0 <= nx < self.width and 0 <= ny < self.height:
                     yield nx, ny
@@ -78,31 +80,40 @@ class Minesweeper:
                 self.victory = False
             else:
                 if cell.neighbor_mines == 0:
-                    for dx in [-1, 0, 1]:
-                        for dy in [-1, 0, 1]:
-                            nx, ny = x + dx, y + dy
-                            if 0 <= nx < self.width and 0 <= ny < self.height:
-                                self.reveal(nx, ny)
+                    for nx, ny in self.get_neighbors(x, y):
+                        self.reveal(nx, ny)
                 self.check_victory()
             self.update_probabilities()
 
     def flag(self, x, y):
         cell = self.grid[y][x]
         if cell.state == CellState.HIDDEN:
-            cell.state = CellState.FLAGGED
-            self.flags += 1
-            self.steps += 1
+            if self.flags < self.mine_count:
+                cell.state = CellState.FLAGGED
+                self.flags += 1
+                self.steps += 1
+                self.hidden_remaining -= 1
+                self.update_probabilities()
         elif cell.state == CellState.FLAGGED:
             cell.state = CellState.HIDDEN
             self.flags -= 1
             self.steps += 1
-        self.update_probabilities()
+            self.hidden_remaining += 1
+            self.update_probabilities()
 
     def update_probabilities(self):
+        remaining_mines = self.mine_count - self.flags
+        total_hidden_cells = sum(cell.state == CellState.HIDDEN for row in self.grid for cell in row)
+
+        if total_hidden_cells == 0:
+            base_probability = 0
+        else:
+            base_probability = remaining_mines / total_hidden_cells
+
         for row in self.grid:
             for cell in row:
                 if cell.state == CellState.HIDDEN:
-                    cell.simple_probability = self.calculate_simple_probability(cell)
+                    cell.simple_probability = max(0, min(99, int(base_probability * 100)))
                     cell.adjacent_probability = self.calculate_adjacent_probability(cell)
 
     def check_victory(self):
@@ -155,7 +166,7 @@ class Minesweeper:
             line = []
             for cell in row:
                 if cell.state == CellState.HIDDEN:
-                    prob = cell.adjacent_probability if cell.adjacent_probability > 0 else cell.simple_probability
+                    prob = max(0, cell.adjacent_probability if cell.adjacent_probability > 0 else cell.simple_probability)
                     line.append(int(prob))
                 else:
                     line.append(' ')
@@ -167,22 +178,22 @@ class Minesweeper:
             return 0
 
         unopened_neighbors = 0
-        marked_neighbors = 0
         for nx, ny in self.get_neighbors(cell.x, cell.y):
             neighbor = self.grid[ny][nx]
             if neighbor.state == CellState.HIDDEN:
                 unopened_neighbors += 1
-            elif neighbor.state == CellState.FLAGGED:
-                marked_neighbors += 1
 
         if unopened_neighbors == 0:
             return 0
 
         remaining_mines = self.mine_count - self.flags
-        probability = (remaining_mines - marked_neighbors) / unopened_neighbors
+        probability = remaining_mines / unopened_neighbors
 
-        # Convert to percentage and ensure it is between 1% and 99%
-        probability_percentage = int(probability)  #max(1, min(99, int(probability * 100)))
+        # Ensure probability is not negative
+        probability = max(0, probability)
+
+        # Convert to percentage and ensure it is between 0% and 99%
+        probability_percentage = max(0, min(99, int(probability * 100)))
 
         return probability_percentage
 
@@ -190,35 +201,38 @@ class Minesweeper:
         if cell.state != CellState.HIDDEN:
             return 0
 
-        adjacent_probability = 0
+        max_probability = 0
         for nx, ny in self.get_neighbors(cell.x, cell.y):
             neighbor = self.grid[ny][nx]
             if neighbor.state == CellState.REVEALED and neighbor.neighbor_mines > 0:
-                unopened_neighbors = 0
-                marked_neighbors = 0
+                flagged_neighbors = 0
+                hidden_neighbors = 0
                 for nnx, nny in self.get_neighbors(neighbor.x, neighbor.y):
-                    n_neighbor = self.grid[nny][nnx]
-                    if n_neighbor.state == CellState.HIDDEN:
-                        unopened_neighbors += 1
-                    elif n_neighbor.state == CellState.FLAGGED:
-                        marked_neighbors += 1
+                    n_cell = self.grid[nny][nnx]
+                    if n_cell.state == CellState.FLAGGED:
+                        flagged_neighbors += 1
+                    elif n_cell.state == CellState.HIDDEN:
+                        hidden_neighbors += 1
+                remaining_mines = neighbor.neighbor_mines - flagged_neighbors
 
-                if unopened_neighbors > 0:
-                    remaining_mines = neighbor.neighbor_mines - marked_neighbors
-                    probability = remaining_mines / unopened_neighbors
-                    adjacent_probability = max(adjacent_probability, probability)
+                # Ensure remaining mines and hidden neighbors are not negative
+                remaining_mines = max(0, remaining_mines)
+                hidden_neighbors = max(1, hidden_neighbors)  # Avoid division by zero
 
-        # Convert to percentage and ensure it is between 1% and 99%
-        probability_percentage = int(adjacent_probability) #max(1, min(99, int(adjacent_probability * 100)))
+                probability = remaining_mines / hidden_neighbors
 
-        return probability_percentage
+                # Ensure probability is not negative
+                probability = max(0, probability)
+
+                probability_percentage = max(0, min(99, int(probability * 100)))
+                max_probability = max(max_probability, probability_percentage)
+        return max_probability
     
     def hint(self):
         unmarked_non_mine_cells = [(x, y) for y in range(self.height) for x in range(self.width)
                                    if self.grid[y][x].state == CellState.HIDDEN and not self.grid[y][x].is_mine]
         if unmarked_non_mine_cells:
             x, y = random.choice(unmarked_non_mine_cells)
-            print(f"Hint: Reveal cell at ({x}, {y})")
             self.reveal(x, y)
 
     def automark(self, x, y):

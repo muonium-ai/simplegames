@@ -49,7 +49,7 @@ class PygameMinesweeper:
                     pygame.draw.rect(self.screen, (100, 100, 100), rect)
                     prob = probabilities[y][x]
                     if prob:
-                        if prob ==1:
+                        if prob == 1 or prob >= 90:
                             self.game.flag(x, y)
 
                         # Ensure probability is used as integer without converting to float
