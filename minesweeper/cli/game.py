@@ -177,9 +177,6 @@ class Minesweeper:
             return 0.0
 
         remaining_mines = self.mine_count - self.flags
-        probability = remaining_mines / self.hidden_remaining
+        probability = (remaining_mines - marked_neighbors) / unopened_neighbors
 
-        if cell.state == CellState.HIDDEN:
-            return probability
-        else:
-            return 0.0
+        return probability

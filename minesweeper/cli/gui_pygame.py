@@ -4,8 +4,6 @@ import pygame
 from game import Minesweeper, CellState
 import sys
 
-
-
 class PygameMinesweeper:
     CELL_SIZE = 30
     GRID_WIDTH = 10
