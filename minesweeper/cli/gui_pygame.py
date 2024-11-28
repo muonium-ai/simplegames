@@ -17,6 +17,7 @@ class PygameMinesweeper:
         self.screen = pygame.display.set_mode((self.GRID_WIDTH * self.CELL_SIZE, self.GRID_HEIGHT * self.CELL_SIZE))
         self.clock = pygame.time.Clock()
         self.font = pygame.font.Font(None, 36)
+        self.small_font = pygame.font.Font(None, 24)
         self.game = Minesweeper(width=width, height=height, mine_count=mine_count)
 
     def draw(self):
@@ -37,6 +38,24 @@ class PygameMinesweeper:
                     pygame.draw.rect(self.screen, (100, 100, 100), rect)
                 pygame.draw.rect(self.screen, (0, 0, 0), rect, 1)
 
+        self.draw_menu()
+
+    def draw_menu(self):
+        status = self.game.get_status()
+        menu_rect = pygame.Rect(0, 0, self.GRID_WIDTH * self.CELL_SIZE, 100)
+        pygame.draw.rect(self.screen, (220, 220, 220), menu_rect)
+        pygame.draw.rect(self.screen, (0, 0, 0), menu_rect, 2)
+
+        steps_text = self.small_font.render(f"Steps: {status['steps']}", True, (0, 0, 0))
+        reveals_text = self.small_font.render(f"Reveals: {status['reveals']}", True, (0, 0, 0))
+        flags_text = self.small_font.render(f"Flags: {status['flags']}", True, (0, 0, 0))
+        remaining_text = self.small_font.render(f"Remaining: {status['hidden_remaining']}", True, (0, 0, 0))
+
+        self.screen.blit(steps_text, (10, 10))
+        self.screen.blit(reveals_text, (10, 40))
+        self.screen.blit(flags_text, (200, 10))
+        self.screen.blit(remaining_text, (200, 40))
+
     def run(self):
         running = True
         while running:
@@ -44,11 +63,12 @@ class PygameMinesweeper:
                 if event.type == pygame.QUIT:
                     running = False
                 elif event.type == pygame.MOUSEBUTTONDOWN:
-                    x, y = event.pos[0] // self.CELL_SIZE, event.pos[1] // self.CELL_SIZE
-                    if event.button == 1:
-                        self.game.reveal(x, y)
-                    elif event.button == 3:
-                        self.game.flag(x, y)
+                    x, y = event.pos[0] // self.CELL_SIZE, (event.pos[1] - 100) // self.CELL_SIZE  # Adjusted for menu
+                    if 0 <= x < self.GRID_WIDTH and 0 <= y < self.GRID_HEIGHT:
+                        if event.button == 1:
+                            self.game.reveal(x, y)
+                        elif event.button == 3:
+                            self.game.flag(x, y)
 
             self.draw()
             pygame.display.flip()
