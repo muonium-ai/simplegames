@@ -19,8 +19,12 @@ class Minesweeper:
         self.mine_count = mine_count
         self.grid = [[Cell() for _ in range(width)] for _ in range(height)]
         self.game_over = False
-        self.first_click = True
         self.victory = False
+        self.first_click = True
+        self.reveals = 0
+        self.flags = 0
+        self.hidden_remaining = width * height
+        self.steps = 0
 
     def place_mines(self, safe_x, safe_y):
         safe_cells = {(safe_x, safe_y)}
@@ -56,6 +60,9 @@ class Minesweeper:
         cell = self.grid[y][x]
         if cell.state == CellState.HIDDEN:
             cell.state = CellState.REVEALED
+            self.reveals += 1
+            self.hidden_remaining -= 1
+            self.steps += 1
             if cell.is_mine:
                 self.game_over = True
                 self.victory = False
@@ -72,8 +79,12 @@ class Minesweeper:
         cell = self.grid[y][x]
         if cell.state == CellState.HIDDEN:
             cell.state = CellState.FLAGGED
+            self.flags += 1
+            self.steps += 1
         elif cell.state == CellState.FLAGGED:
             cell.state = CellState.HIDDEN
+            self.flags -= 1
+            self.steps += 1
 
     def check_victory(self):
         for row in self.grid:
@@ -92,3 +103,13 @@ class Minesweeper:
                 else:
                     line.append(str(cell.neighbor_mines))
             print(' '.join(line))
+
+    def get_status(self):
+        return {
+            'reveals': self.reveals,
+            'flags': self.flags,
+            'hidden_remaining': self.hidden_remaining,
+            'steps': self.steps,
+            'game_over': self.game_over,
+            'victory': self.victory
+        }
