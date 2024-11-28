@@ -48,7 +48,10 @@ class PygameMinesweeper:
                 else:
                     pygame.draw.rect(self.screen, (100, 100, 100), rect)
                     prob = probabilities[y][x]
-                    if prob != ' ':
+                    if prob:
+                        if prob ==1:
+                            self.game.flag(x, y)
+
                         # Ensure probability is used as integer without converting to float
                         text_surface = self.small_font.render(f"{prob}", True, (255, 255, 255))
                         text_rect = text_surface.get_rect(center=rect.center)
