@@ -13,7 +13,8 @@ class Cell:
         self.neighbor_mines = 0
         self.x = 0
         self.y = 0
-        self.probability = 0.0
+        self.simple_probability = 0.0
+        self.adjacent_probability = 0.0
 
 class Minesweeper:
     def __init__(self, width, height, mine_count):
@@ -101,7 +102,8 @@ class Minesweeper:
         for row in self.grid:
             for cell in row:
                 if cell.state == CellState.HIDDEN:
-                    cell.probability = self.calculate_mine_probability(cell)
+                    cell.simple_probability = self.calculate_simple_probability(cell)
+                    cell.adjacent_probability = self.calculate_adjacent_probability(cell)
 
     def check_victory(self):
         for row in self.grid:
@@ -144,7 +146,7 @@ class Minesweeper:
                     line.append('*')
                 else:
                     line.append(str(cell.neighbor_mines))
-            board_status.append(' '.join(line))
+            board_status.append(line)
         return board_status
 
     def get_mine_probabilities(self):
@@ -153,14 +155,14 @@ class Minesweeper:
             line = []
             for cell in row:
                 if cell.state == CellState.HIDDEN:
-                    prob = self.calculate_mine_probability(cell)
-                    line.append(f"{int(prob)}")
+                    prob = cell.adjacent_probability if cell.adjacent_probability > 0 else cell.simple_probability
+                    line.append(f"{prob:.2f}")
                 else:
                     line.append(' ')
             probabilities.append(line)
         return probabilities
 
-    def calculate_mine_probability(self, cell):
+    def calculate_simple_probability(self, cell):
         if cell.state != CellState.HIDDEN:
             return 0.0
 
@@ -180,6 +182,33 @@ class Minesweeper:
         probability = (remaining_mines - marked_neighbors) / unopened_neighbors
 
         # Convert to percentage and ensure it is between 1% and 99%
-        probability_percentage = round(probability)
+        probability_percentage = int(probability)  #max(1, min(99, int(probability * 100)))
+
+        return probability_percentage
+
+    def calculate_adjacent_probability(self, cell):
+        if cell.state != CellState.HIDDEN:
+            return 0.0
+
+        adjacent_probability = 0.0
+        for nx, ny in self.get_neighbors(cell.x, cell.y):
+            neighbor = self.grid[ny][nx]
+            if neighbor.state == CellState.REVEALED and neighbor.neighbor_mines > 0:
+                unopened_neighbors = 0
+                marked_neighbors = 0
+                for nnx, nny in self.get_neighbors(neighbor.x, neighbor.y):
+                    n_neighbor = self.grid[nny][nnx]
+                    if n_neighbor.state == CellState.HIDDEN:
+                        unopened_neighbors += 1
+                    elif n_neighbor.state == CellState.FLAGGED:
+                        marked_neighbors += 1
+
+                if unopened_neighbors > 0:
+                    remaining_mines = neighbor.neighbor_mines - marked_neighbors
+                    probability = remaining_mines / unopened_neighbors
+                    adjacent_probability = max(adjacent_probability, probability)
+
+        # Convert to percentage and ensure it is between 1% and 99%
+        probability_percentage = int(adjacent_probability) #max(1, min(99, int(adjacent_probability * 100)))
 
         return probability_percentage
