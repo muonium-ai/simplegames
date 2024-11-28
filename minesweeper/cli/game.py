@@ -212,3 +212,11 @@ class Minesweeper:
         probability_percentage = int(adjacent_probability) #max(1, min(99, int(adjacent_probability * 100)))
 
         return probability_percentage
+    
+    def hint(self):
+        unmarked_non_mine_cells = [(x, y) for y in range(self.height) for x in range(self.width)
+                                   if self.grid[y][x].state == CellState.HIDDEN and not self.grid[y][x].is_mine]
+        if unmarked_non_mine_cells:
+            x, y = random.choice(unmarked_non_mine_cells)
+            print(f"Hint: Reveal cell at ({x}, {y})")
+            self.reveal(x, y)
