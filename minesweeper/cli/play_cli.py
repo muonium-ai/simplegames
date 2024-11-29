@@ -1,6 +1,17 @@
 import sys
 from game import Minesweeper, CellState
 
+def apply_hint(game):
+    x, y = game.hint()
+    print(f"Hint: Reveal cell at ({x}, {y})")
+    # Check for victory after using a hint
+    if game.check_victory():
+        print("Congratulations! You won the game.")
+        return True
+
+    return False
+
+
 def display_board(game):
     for row in game.grid:
         line = []
@@ -36,15 +47,12 @@ def main(width, height, mine_count):
                 print("  help  - Display this help message")
                 continue
             elif command == 'h':
-                if not game.game_over:
-                    game.hint()
-                else:
-                    print("Game over! Start a new game with  'quit'.")
+                apply_hint(game)
                 continue
             elif command == 'q':
                 game = Minesweeper(width, height, mine_count)
                 for _ in range(5):
-                    game.hint()
+                    apply_hint(game)
                 continue
 
             try:
