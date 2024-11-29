@@ -21,7 +21,7 @@ def main(width, height, mine_count):
     try:
         while not game.game_over:
             display_board(game)
-            command = input("Enter command (r x y / f x y / quit / help): ").strip().lower()
+            command = input("Enter command (r x y / f x y / h / q / quit / help): ").strip().lower()
             
             if command == 'quit':
                 print("Game exited.")
@@ -30,8 +30,21 @@ def main(width, height, mine_count):
                 print("Commands:")
                 print("  r x y - Reveal the cell at (x, y)")
                 print("  f x y - Flag the cell at (x, y)")
+                print("  h     - Get a hint")
+                print("  q     - quickstart the game(5 hints)")
                 print("  quit  - Exit the game")
                 print("  help  - Display this help message")
+                continue
+            elif command == 'h':
+                if not game.game_over:
+                    game.hint()
+                else:
+                    print("Game over! Start a new game with  'quit'.")
+                continue
+            elif command == 'q':
+                game = Minesweeper(width, height, mine_count)
+                for _ in range(5):
+                    game.hint()
                 continue
 
             try:
