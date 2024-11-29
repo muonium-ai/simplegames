@@ -239,6 +239,8 @@ class Minesweeper:
             x, y = random.choice(unmarked_non_mine_cells)
             self.reveal(x, y)
             self.hints += 1
+        self.check_victory()
+        return x, y
 
     def automark(self, x, y):
         cell = self.grid[y][x]
