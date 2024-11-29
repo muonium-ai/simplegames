@@ -89,7 +89,7 @@ class PygameMinesweeper:
         # Combine all status into one line
         status_text = self.small_font.render(
             f"Steps: {status['steps']}  Reveals: {status['reveals']}  "
-            f"Flags: {status['flags']}  Mines: {status['remaining_mines']}/{status['total_mines']}",
+            f"Flags: {status['flags']}  Hints: {status['hints']}  Mines: {status['remaining_mines']}/{status['total_mines']}",
             True, (0, 0, 0)
         )
         status_text_rect = status_text.get_rect()
@@ -145,7 +145,7 @@ class PygameMinesweeper:
                     self.game_message = "Congratulations! You won the game."
                 else:
                     self.game_message = "Mine clicked. Game over."
-                self.game.print_solution()
+                    self.game.print_solution()
 
             self.draw()
             pygame.display.flip()

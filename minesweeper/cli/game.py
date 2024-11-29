@@ -29,6 +29,7 @@ class Minesweeper:
         self.flags = 0
         self.hidden_remaining = width * height
         self.steps = 0
+        self.hints = 0  # Initialize hints count
         self.initial_probability = mine_count / (width * height)
 
         for y in range(height):
@@ -143,7 +144,8 @@ class Minesweeper:
             'game_over': self.game_over,
             'victory': self.victory,
             'total_mines': self.mine_count,
-            'remaining_mines': self.mine_count - self.flags
+            'remaining_mines': self.mine_count - self.flags,
+            'hints': self.hints  # Include hints count
         }
 
     def get_current_board_status(self):
@@ -236,6 +238,7 @@ class Minesweeper:
         if unmarked_non_mine_cells:
             x, y = random.choice(unmarked_non_mine_cells)
             self.reveal(x, y)
+            self.hints += 1
 
     def automark(self, x, y):
         cell = self.grid[y][x]
