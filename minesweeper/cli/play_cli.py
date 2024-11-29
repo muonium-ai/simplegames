@@ -4,12 +4,12 @@ from game import Minesweeper, CellState
 def apply_hint(game):
     x, y = game.hint()
     print(f"Hint: Reveal cell at ({x}, {y})")
+    display_board(game)
     # Check for victory after using a hint
     if game.check_victory():
-        print("Congratulations! You won the game.")
-        return True
-
-    return False
+        print("Congratulations! You won the game.") 
+        #return True
+    #return False
 
 
 def display_board(game):
@@ -71,8 +71,10 @@ def main(width, height, mine_count):
 
                 if action == 'r':
                     game.reveal(x, y)
+                    display_board(game)
                 elif action == 'f':
                     game.flag(x, y)
+                    display_board(game)
 
             except ValueError:
                 print("Invalid command! Use the format 'r x y' or 'f x y'.")
