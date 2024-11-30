@@ -28,6 +28,7 @@ class PygameMinesweeper:
         self.new_button = pygame.Rect(10, 10, 80, 30)
         self.hint_button = pygame.Rect(100, 10, 80, 30)
         self.quickstart_button = pygame.Rect(190, 10, 120, 30)
+        self.pattern_button = pygame.Rect(320, 10, 160, 30)  # New Pattern Recognition button
 
     def draw(self):
         self.screen.fill((255, 255, 255))
@@ -67,24 +68,18 @@ class PygameMinesweeper:
         pygame.draw.rect(self.screen, (0, 0, 0), menu_rect, 2)
 
         # Draw buttons
-        pygame.draw.rect(self.screen, (200, 200, 200), self.new_button)
-        pygame.draw.rect(self.screen, (0, 0, 0), self.new_button, 2)
-        new_text = self.small_font.render("New", True, (0, 0, 0))
-        new_text_rect = new_text.get_rect(center=self.new_button.center)
-        self.screen.blit(new_text, new_text_rect)
-
-        pygame.draw.rect(self.screen, (200, 200, 200), self.hint_button)
-        pygame.draw.rect(self.screen, (0, 0, 0), self.hint_button, 2)
-        hint_text = self.small_font.render("Hint", True, (0, 0, 0))
-        hint_text_rect = hint_text.get_rect(center=self.hint_button.center)
-        self.screen.blit(hint_text, hint_text_rect)
-
-        pygame.draw.rect(self.screen, (200, 200, 200), self.quickstart_button)
-        pygame.draw.rect(self.screen, (0, 0, 0), self.quickstart_button, 2)
-        quickstart_text = self.small_font.render("Quickstart", True, (0, 0, 0))
-        quickstart_text_rect = quickstart_text.get_rect(
-            center=self.quickstart_button.center)
-        self.screen.blit(quickstart_text, quickstart_text_rect)
+        buttons = [
+            (self.new_button, "New"),
+            (self.hint_button, "Hint"),
+            (self.quickstart_button, "Quickstart"),
+            (self.pattern_button, "Pattern Recognition")
+        ]
+        for button_rect, text in buttons:
+            pygame.draw.rect(self.screen, (200, 200, 200), button_rect)
+            pygame.draw.rect(self.screen, (0, 0, 0), button_rect, 2)
+            button_text = self.small_font.render(text, True, (0, 0, 0))
+            button_text_rect = button_text.get_rect(center=button_rect.center)
+            self.screen.blit(button_text, button_text_rect)
 
         # Combine all status into one line
         status_text = self.small_font.render(
@@ -127,6 +122,9 @@ class PygameMinesweeper:
                         self.game_message = ''  # Clear game message
                         for _ in range(5):
                             self.game.hint()
+                    elif self.pattern_button.collidepoint(event.pos):
+                        if not self.game.game_over:
+                            self.game.pattern_recognition()
                     else:
                         if not self.game.game_over:
                             x, y = event.pos[0] // self.CELL_SIZE, (event.pos[1] - self.MENU_HEIGHT) // self.CELL_SIZE

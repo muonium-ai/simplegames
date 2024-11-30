@@ -256,3 +256,56 @@ class Minesweeper:
             if flagged_neighbors == cell.neighbor_mines:
                 for nx, ny in unmarked_neighbors:
                     self.reveal(nx, ny)
+
+    def pattern_recognition(self):
+        print("Pattern recognition")
+        for y in range(self.height):
+            for x in range(self.width):
+                cell = self.grid[y][x]
+                if cell.state == CellState.REVEALED and cell.neighbor_mines == 2:
+                    # Check horizontal "121" pattern
+                    if x > 0 and x < self.width - 1:
+                        left_cell = self.grid[y][x - 1]
+                        right_cell = self.grid[y][x + 1]
+                        if (left_cell.state == CellState.REVEALED and left_cell.neighbor_mines == 1 and
+                            right_cell.state == CellState.REVEALED and right_cell.neighbor_mines == 1):
+                            # Collect hidden neighbors of left, middle, and right cells
+                            left_hidden = [(nx, ny) for nx, ny in self.get_neighbors(left_cell.x, left_cell.y)
+                                           if self.grid[ny][nx].state == CellState.HIDDEN]
+                            middle_hidden = [(nx, ny) for nx, ny in self.get_neighbors(cell.x, cell.y)
+                                             if self.grid[ny][nx].state == CellState.HIDDEN]
+                            right_hidden = [(nx, ny) for nx, ny in self.get_neighbors(right_cell.x, right_cell.y)
+                                            if self.grid[ny][nx].state == CellState.HIDDEN]
+                            # Check if pattern matches: middle cell has one hidden neighbor, sides have one each
+                            if len(left_hidden) == 1 and len(middle_hidden) == 1 and len(right_hidden) == 1:
+                                # Flag outer hidden cells (mines)
+                                lx, ly = left_hidden[0]
+                                rx, ry = right_hidden[0]
+                                self.flag(lx, ly)
+                                self.flag(rx, ry)
+                                # Reveal middle hidden cell (safe)
+                                mx, my = middle_hidden[0]
+                                self.reveal(mx, my)
+                    # Check vertical "121" pattern
+                    if y > 0 and y < self.height - 1:
+                        top_cell = self.grid[y - 1][x]
+                        bottom_cell = self.grid[y + 1][x]
+                        if (top_cell.state == CellState.REVEALED and top_cell.neighbor_mines == 1 and
+                            bottom_cell.state == CellState.REVEALED and bottom_cell.neighbor_mines == 1):
+                            # Collect hidden neighbors of top, middle, and bottom cells
+                            top_hidden = [(nx, ny) for nx, ny in self.get_neighbors(top_cell.x, top_cell.y)
+                                          if self.grid[ny][nx].state == CellState.HIDDEN]
+                            middle_hidden = [(nx, ny) for nx, ny in self.get_neighbors(cell.x, cell.y)
+                                             if self.grid[ny][nx].state == CellState.HIDDEN]
+                            bottom_hidden = [(nx, ny) for nx, ny in self.get_neighbors(bottom_cell.x, bottom_cell.y)
+                                             if self.grid[ny][nx].state == CellState.HIDDEN]
+                            # Check if pattern matches: middle cell has one hidden neighbor, sides have one each
+                            if len(top_hidden) == 1 and len(middle_hidden) == 1 and len(bottom_hidden) == 1:
+                                # Flag outer hidden cells (mines)
+                                tx, ty = top_hidden[0]
+                                bx, by = bottom_hidden[0]
+                                self.flag(tx, ty)
+                                self.flag(bx, by)
+                                # Reveal middle hidden cell (safe)
+                                mx, my = middle_hidden[0]
+                                self.reveal(mx, my)
