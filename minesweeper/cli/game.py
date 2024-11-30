@@ -266,81 +266,89 @@ class Minesweeper:
             for x in range(self.width):
                 cell = self.grid[y][x]
 
-                # Ensure the cell is revealed and has neighbor_mines == 2
-                if cell.state == CellState.REVEALED and cell.neighbor_mines == 2:
-                    # Check horizontal "1-2-1" pattern
-                    if 0 < x < self.width - 1:
-                        left_cell = self.grid[y][x - 1]
-                        right_cell = self.grid[y][x + 1]
+                # Check vertical "1-2-1" pattern
+                if 0 < y < self.height - 1:
+                    top_cell = self.grid[y - 1][x]
+                    middle_cell = cell
+                    bottom_cell = self.grid[y + 1][x]
 
-                        if (left_cell.state == CellState.REVEALED and left_cell.neighbor_mines == 1 and
-                            right_cell.state == CellState.REVEALED and right_cell.neighbor_mines == 1):
+                    if (top_cell.state == CellState.REVEALED and top_cell.neighbor_mines == 1 and
+                        middle_cell.state == CellState.REVEALED and middle_cell.neighbor_mines == 2 and
+                        bottom_cell.state == CellState.REVEALED and bottom_cell.neighbor_mines == 1):
 
-                            # Get hidden neighbors
-                            left_hidden = set(self.get_hidden_neighbors(x - 1, y))
-                            middle_hidden = set(self.get_hidden_neighbors(x, y))
-                            right_hidden = set(self.get_hidden_neighbors(x + 1, y))
+                        top_hidden = set(self.get_hidden_neighbors(x, y - 1))
+                        middle_hidden = set(self.get_hidden_neighbors(x, y))
+                        bottom_hidden = set(self.get_hidden_neighbors(x, y + 1))
 
-                            # Hidden cells that are mines (adjacent to both middle and side cells)
-                            overlapping_hidden = (left_hidden & middle_hidden) | (right_hidden & middle_hidden)
+                        # Mines are hidden cells common between middle and side cells
+                        mines_to_flag = (top_hidden & middle_hidden) | (bottom_hidden & middle_hidden)
+                        safe_cells = middle_hidden - (top_hidden | bottom_hidden)
 
-                            # Hidden cells that are safe (adjacent only to the middle cell)
-                            exclusive_middle_hidden = middle_hidden - (left_hidden | right_hidden)
+                        if mines_to_flag or safe_cells:
+                            pattern_found = True
+                            print(f"121 pattern found vertically at ({x}, {y})")
+                            print(f"Top hidden: {top_hidden}")
+                            print(f"Middle hidden: {middle_hidden}")
+                            print(f"Bottom hidden: {bottom_hidden}")
+                            print(f"Mines to flag: {mines_to_flag}")
+                            print(f"Safe cells to reveal: {safe_cells}")
 
-                            if overlapping_hidden or exclusive_middle_hidden:
-                                pattern_found = True
-                                print(f"121 pattern found horizontally at ({x}, {y})")
+                            # Flag mines
+                            if mines_to_flag:
+                                for mx, my in mines_to_flag:
+                                    self.flag(mx, my)
+                                    print(f"Flagging cell at ({mx}, {my})")
 
-                                if overlapping_hidden:
-                                    print(f"Flagging mines at: {overlapping_hidden}")
-                                    for mx, my in overlapping_hidden:
-                                        self.flag(mx, my)
-                                        print(f"Flagging cell at ({mx}, {my})")
+                            # Reveal safe cells
+                            if safe_cells:
+                                for sx, sy in safe_cells:
+                                    self.reveal(sx, sy)
+                                    print(f"Revealing cell at ({sx}, {sy})")
 
-                                if exclusive_middle_hidden:
-                                    print(f"Revealing safe cells at: {exclusive_middle_hidden}")
-                                    for sx, sy in exclusive_middle_hidden:
-                                        self.reveal(sx, sy)
-                                        print(f"Revealing cell at ({sx}, {sy})")
+                # Check horizontal "1-2-1" pattern
+                if 0 < x < self.width - 1:
+                    left_cell = self.grid[y][x - 1]
+                    middle_cell = cell
+                    right_cell = self.grid[y][x + 1]
 
-                    # Check vertical "1-2-1" pattern
-                    if 0 < y < self.height - 1:
-                        top_cell = self.grid[y - 1][x]
-                        bottom_cell = self.grid[y + 1][x]
+                    if (left_cell.state == CellState.REVEALED and left_cell.neighbor_mines == 1 and
+                        middle_cell.state == CellState.REVEALED and middle_cell.neighbor_mines == 2 and
+                        right_cell.state == CellState.REVEALED and right_cell.neighbor_mines == 1):
 
-                        if (top_cell.state == CellState.REVEALED and top_cell.neighbor_mines == 1 and
-                            bottom_cell.state == CellState.REVEALED and bottom_cell.neighbor_mines == 1):
+                        left_hidden = set(self.get_hidden_neighbors(x - 1, y))
+                        middle_hidden = set(self.get_hidden_neighbors(x, y))
+                        right_hidden = set(self.get_hidden_neighbors(x + 1, y))
 
-                            # Get hidden neighbors
-                            top_hidden = set(self.get_hidden_neighbors(x, y - 1))
-                            middle_hidden = set(self.get_hidden_neighbors(x, y))
-                            bottom_hidden = set(self.get_hidden_neighbors(x, y + 1))
+                        # Mines are hidden cells common between middle and side cells
+                        mines_to_flag = (left_hidden & middle_hidden) | (right_hidden & middle_hidden)
+                        safe_cells = middle_hidden - (left_hidden | right_hidden)
 
-                            # Hidden cells that are mines (adjacent to both middle and side cells)
-                            overlapping_hidden = (top_hidden & middle_hidden) | (bottom_hidden & middle_hidden)
+                        if mines_to_flag or safe_cells:
+                            pattern_found = True
+                            print(f"121 pattern found horizontally at ({x}, {y})")
+                            print(f"Left hidden: {left_hidden}")
+                            print(f"Middle hidden: {middle_hidden}")
+                            print(f"Right hidden: {right_hidden}")
+                            print(f"Mines to flag: {mines_to_flag}")
+                            print(f"Safe cells to reveal: {safe_cells}")
 
-                            # Hidden cells that are safe (adjacent only to the middle cell)
-                            exclusive_middle_hidden = middle_hidden - (top_hidden | bottom_hidden)
+                            # Flag mines
+                            if mines_to_flag:
+                                for mx, my in mines_to_flag:
+                                    self.flag(mx, my)
+                                    print(f"Flagging cell at ({mx}, {my})")
 
-                            if overlapping_hidden or exclusive_middle_hidden:
-                                pattern_found = True
-                                print(f"121 pattern found vertically at ({x}, {y})")
-
-                                if overlapping_hidden:
-                                    print(f"Flagging mines at: {overlapping_hidden}")
-                                    for mx, my in overlapping_hidden:
-                                        self.flag(mx, my)
-                                        print(f"Flagging cell at ({mx}, {my})")
-
-                                if exclusive_middle_hidden:
-                                    print(f"Revealing safe cells at: {exclusive_middle_hidden}")
-                                    for sx, sy in exclusive_middle_hidden:
-                                        self.reveal(sx, sy)
-                                        print(f"Revealing cell at ({sx}, {sy})")
+                            # Reveal safe cells
+                            if safe_cells:
+                                for sx, sy in safe_cells:
+                                    self.reveal(sx, sy)
+                                    print(f"Revealing cell at ({sx}, {sy})")
 
         if not pattern_found:
             print("No 121 patterns found.")
 
     def get_hidden_neighbors(self, x, y):
-        return [(nx, ny) for nx, ny in self.get_neighbors(x, y)
-                if self.grid[ny][nx].state == CellState.HIDDEN]
+        return [
+            (nx, ny) for nx, ny in self.get_neighbors(x, y)
+            if self.grid[ny][nx].state == CellState.HIDDEN
+        ]
