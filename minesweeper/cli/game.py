@@ -17,14 +17,14 @@ class Cell:
         self.adjacent_probability = 0
 
 class Minesweeper:
-    def __init__(self, width, height, mine_count):
+    def __init__(self, width, height, mine_count, quickstart=False):
         self.width = width
         self.height = height
         self.mine_count = mine_count
         self.grid = [[Cell() for _ in range(width)] for _ in range(height)]
         self.game_over = False
         self.victory = False
-        self.first_click = True
+        self.first_click = not quickstart  # If quickstart is True, we won't wait for first click to place mines
         self.reveals = 0
         self.flags = 0
         self.hidden_remaining = width * height
@@ -36,6 +36,23 @@ class Minesweeper:
             for x in range(width):
                 self.grid[y][x].x = x
                 self.grid[y][x].y = y
+
+        # If quickstart is True, place mines now
+        if quickstart:
+            self.place_mines_random()
+            self.complexity_score()  # Compute complexity immediately
+
+    def place_mines_random(self):
+        all_positions = [(x, y) for x in range(self.width) for y in range(self.height)]
+        mine_positions = random.sample(all_positions, self.mine_count)
+
+        for x, y in mine_positions:
+            self.grid[y][x].is_mine = True
+
+        # Update neighbor counts
+        for x, y in mine_positions:
+            for nx, ny in self.get_neighbors(x, y):
+                self.grid[ny][nx].neighbor_mines += 1
 
     def place_mines(self, safe_x, safe_y):
         safe_cells = {(safe_x, safe_y)}
@@ -56,6 +73,37 @@ class Minesweeper:
             for nx, ny in self.get_neighbors(x, y):
                 self.grid[ny][nx].neighbor_mines += 1
 
+        # After placing mines, compute complexity
+        self.complexity_score()
+
+
+    def factorial(self,n):
+        if n < 0:
+            raise ValueError("Factorial is not defined for negative numbers.")
+        if n == 0 or n == 1:
+            return 1
+        return n * self.factorial(n - 1)
+
+    def complexity_score(self):
+        """
+        Calculate and print a complexity score based on the distribution of neighbor_mines counts.
+        Currently all multipliers are set to 1.
+        """
+        counts = {i: 0 for i in range(9)}  # counts for 0 through 8
+        for row in self.grid:
+            for cell in row:
+                if not cell.is_mine:
+                    if 0 <= cell.neighbor_mines <= 8:
+                        counts[cell.neighbor_mines] += 1
+
+        # Currently multiplier is 1 for all
+        score = sum(counts[i] * self.factorial(i) for i in range(9))
+
+        # Print counts for debugging
+        print("Complexity Counts:", counts)
+        print("Complexity Score:", score)
+        return score
+
     def get_neighbors(self, x, y):
         for dx in [-1, 0, 1]:
             for dy in [-1, 0, 1]:
@@ -66,6 +114,7 @@ class Minesweeper:
                     yield nx, ny
 
     def reveal(self, x, y):
+        # If not quickstart, place mines on first click ensuring safe cell
         if self.first_click:
             self.place_mines(x, y)
             self.first_click = False
@@ -183,7 +232,7 @@ class Minesweeper:
 
         unopened_neighbors = 0
         for nx, ny in self.get_neighbors(cell.x, cell.y):
-            neighbor = self.grid[ny][nx]
+            neighbor = self.grid[nny][nnx]
             if neighbor.state == CellState.HIDDEN:
                 unopened_neighbors += 1
 
@@ -195,10 +244,7 @@ class Minesweeper:
 
         # Ensure probability is not negative
         probability = max(0, probability)
-
-        # Convert to percentage and ensure it is between 0% and 99%
         probability_percentage = max(0, min(99, int(probability * 100)))
-
         return probability_percentage
 
     def calculate_adjacent_probability(self, cell):
@@ -219,15 +265,11 @@ class Minesweeper:
                         hidden_neighbors += 1
                 remaining_mines = neighbor.neighbor_mines - flagged_neighbors
 
-                # Ensure remaining mines and hidden neighbors are not negative
                 remaining_mines = max(0, remaining_mines)
                 hidden_neighbors = max(1, hidden_neighbors)  # Avoid division by zero
 
                 probability = remaining_mines / hidden_neighbors
-
-                # Ensure probability is not negative
                 probability = max(0, probability)
-
                 probability_percentage = max(0, min(99, int(probability * 100)))
                 max_probability = max(max_probability, probability_percentage)
         return max_probability
@@ -259,10 +301,8 @@ class Minesweeper:
 
     def pattern_recognition(self):
         print("Starting pattern recognition...")
-        pattern_found = False
         self.print_solution()  # Do not remove, for debugging
         print("not implemented yet")
-
 
     def get_hidden_neighbors(self, x, y):
         return [
