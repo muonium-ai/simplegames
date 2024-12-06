@@ -155,7 +155,7 @@ if __name__ == "__main__":
     if len(sys.argv) == 4:
         width, height, mine_count = map(int, sys.argv[1:])
     else:
-        width, height, mine_count = 10, 10, 10
+        width, height, mine_count = 30, 16, 99
 
     if len(sys.argv) == 2 and sys.argv[1] in ('-h', '--help', 'help'):
         print("Usage: python -m gui_pygame.py [width] [height] [mine_count]")
