@@ -81,10 +81,11 @@ class PygameMinesweeper:
             button_text_rect = button_text.get_rect(center=button_rect.center)
             self.screen.blit(button_text, button_text_rect)
 
-        # Combine all status into one line
+        # Draw status text
         status_text = self.small_font.render(
             f"Steps: {status['steps']}  Reveals: {status['reveals']}  "
-            f"Flags: {status['flags']}  Hints: {status['hints']}  Mines: {status['remaining_mines']}/{status['total_mines']}",
+            f"Flags: {status['flags']}  Hints: {status['hints']}  "
+            f"Mines: {status['remaining_mines']}/{status['total_mines']}",
             True, (0, 0, 0)
         )
         status_text_rect = status_text.get_rect()
@@ -102,54 +103,85 @@ class PygameMinesweeper:
 
     def run(self):
         running = True
+        try:
+            while running:
+                for event in pygame.event.get():
+                    if event.type == pygame.QUIT:
+                        running = False
+                    elif event.type == pygame.MOUSEBUTTONDOWN:
+                        if self.new_button.collidepoint(event.pos):
+                            self.game = Minesweeper(
+                                width=self.GRID_WIDTH,
+                                height=self.GRID_HEIGHT,
+                                mine_count=self.game.mine_count
+                            )
+                            self.game_message = ''  # Clear game message
+                        elif self.hint_button.collidepoint(event.pos):
+                            if not self.game.game_over:
+                                self.game.hint()
+                        elif self.quickstart_button.collidepoint(event.pos):
+                            self.game = Minesweeper(
+                                width=self.GRID_WIDTH,
+                                height=self.GRID_HEIGHT,
+                                mine_count=self.game.mine_count
+                            )
+                            self.game_message = ''  # Clear game message
+                            for _ in range(5):
+                                self.game.hint()
+                        elif self.pattern_button.collidepoint(event.pos):
+                            if not self.game.game_over:
+                                self.game.pattern_recognition()
+                        else:
+                            if not self.game.game_over:
+                                x, y = event.pos[0] // self.CELL_SIZE, (
+                                    event.pos[1] - self.MENU_HEIGHT
+                                ) // self.CELL_SIZE
+                                if 0 <= x < self.GRID_WIDTH and 0 <= y < self.GRID_HEIGHT:
+                                    cell = self.game.grid[y][x]
+                                    if event.button == 1:
+                                        if cell.state == CellState.REVEALED and cell.neighbor_mines > 0:
+                                            self.game.automark(x, y)
+                                        else:
+                                            self.game.reveal(x, y)
+                                    elif event.button == 3:
+                                        self.game.flag(x, y)
+                    elif event.type == pygame.KEYDOWN:
+                        if event.key == pygame.K_q and pygame.key.get_mods() & pygame.KMOD_CTRL:
+                            running = False
+                        elif event.key == pygame.K_q:
+                            self.game = Minesweeper(
+                                width=self.GRID_WIDTH,
+                                height=self.GRID_HEIGHT,
+                                mine_count=self.game.mine_count
+                            )
+                            self.game_message = ''  # Clear game message
+                            for _ in range(5):
+                                self.game.hint()
+                        elif event.key == pygame.K_h:
+                            if not self.game.game_over:
+                                self.game.hint()
+                        elif event.key == pygame.K_n:
+                            self.game = Minesweeper(
+                                width=self.GRID_WIDTH,
+                                height=self.GRID_HEIGHT,
+                                mine_count=self.game.mine_count
+                            )
+                            self.game_message = ''  # Clear game message
 
-        while running:
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    running = False
-                elif event.type == pygame.MOUSEBUTTONDOWN:
-                    if self.new_button.collidepoint(event.pos):
-                        self.game = Minesweeper(
-                            width=self.GRID_WIDTH, height=self.GRID_HEIGHT, mine_count=self.game.mine_count
-                        )
-                        self.game_message = ''  # Clear game message
-                    elif self.hint_button.collidepoint(event.pos):
-                        if not self.game.game_over:
-                            self.game.hint()
-                    elif self.quickstart_button.collidepoint(event.pos):
-                        self.game = Minesweeper(
-                            width=self.GRID_WIDTH, height=self.GRID_HEIGHT, mine_count=self.game.mine_count
-                        )
-                        self.game_message = ''  # Clear game message
-                        for _ in range(5):
-                            self.game.hint()
-                    elif self.pattern_button.collidepoint(event.pos):
-                        if not self.game.game_over:
-                            self.game.pattern_recognition()
+                if self.game.game_over and not self.game_message:
+                    if self.game.victory:
+                        self.game_message = "Congratulations! You won the game."
                     else:
-                        if not self.game.game_over:
-                            x, y = event.pos[0] // self.CELL_SIZE, (event.pos[1] - self.MENU_HEIGHT) // self.CELL_SIZE
-                            if 0 <= x < self.GRID_WIDTH and 0 <= y < self.GRID_HEIGHT:
-                                cell = self.game.grid[y][x]
-                                if event.button == 1:
-                                    if cell.state == CellState.REVEALED and cell.neighbor_mines > 0:
-                                        self.game.automark(x, y)
-                                    else:
-                                        self.game.reveal(x, y)
-                                elif event.button == 3:
-                                    self.game.flag(x, y)
-
-            if self.game.game_over and not self.game_message:
-                if self.game.victory:
-                    self.game_message = "Congratulations! You won the game."
-                else:
-                    self.game_message = "Mine clicked. Game over."
+                        self.game_message = "Mine clicked. Game over."
                     self.game.print_solution()
 
-            self.draw()
-            pygame.display.flip()
-            self.clock.tick(30)
-            
+                self.draw()
+                pygame.display.flip()
+                self.clock.tick(30)
+        except KeyboardInterrupt:
+            print("Game interrupted by user. Exiting...")
+        finally:
+            pygame.quit()
 
 if __name__ == "__main__":
     if len(sys.argv) == 4:
@@ -157,30 +189,6 @@ if __name__ == "__main__":
     else:
         width, height, mine_count = 30, 16, 99
 
-    if len(sys.argv) == 2 and sys.argv[1] in ('-h', '--help', 'help'):
-        print("Usage: python -m gui_pygame.py [width] [height] [mine_count]")
-        print("Example: python -m gui_pygame.py simple/ medium / hard")
-        print("alernatively you can give only one argument to display this help message.")
-        print("Press Ctrl+C to exit the game.")
-        print
-        sys.exit(0)
-    elif len(sys.argv) == 2:
-        case = sys.argv[1].lower()
-        if case == 'simple' or case == 'easy' or case == 'beginner' or case =='basic' or case == 'b' or case == 's':
-            width, height, mine_count = 10, 10, 10
-        elif case == 'medium' or case == 'intermediate' or case == 'i' or case == 'm':
-            width, height, mine_count = 16, 16, 40
-        elif case == 'hard' or case == 'expert' or case == 'e' or case == 'h':
-            width, height, mine_count = 30, 16, 99
-        else:
-            print("Invalid arguments. Run 'python -m gui_pygame.py -h' for help.")
-            sys.exit(1)
-
     print(f"Starting Minesweeper game with width={width}, height={height}, mine_count={mine_count}")
-    try:
-        PygameMinesweeper(width, height, mine_count).run()
-    except KeyboardInterrupt:
-        print("\nGame terminated by user.")
-        pygame.quit()
-        sys.exit(0)
-    
+
+    PygameMinesweeper(width, height, mine_count).run()
