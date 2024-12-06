@@ -102,6 +102,7 @@ class PygameMinesweeper:
 
     def run(self):
         running = True
+
         while running:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
@@ -148,6 +149,7 @@ class PygameMinesweeper:
             self.draw()
             pygame.display.flip()
             self.clock.tick(30)
+            
 
 if __name__ == "__main__":
     if len(sys.argv) == 4:
@@ -155,6 +157,30 @@ if __name__ == "__main__":
     else:
         width, height, mine_count = 10, 10, 10
 
-    print(f"Starting Minesweeper game with width={width}, height={height}, mine_count={mine_count}")
+    if len(sys.argv) == 2 and sys.argv[1] in ('-h', '--help', 'help'):
+        print("Usage: python -m gui_pygame.py [width] [height] [mine_count]")
+        print("Example: python -m gui_pygame.py simple/ medium / hard")
+        print("alernatively you can give only one argument to display this help message.")
+        print("Press Ctrl+C to exit the game.")
+        print
+        sys.exit(0)
+    elif len(sys.argv) == 2:
+        case = sys.argv[1].lower()
+        if case == 'simple' or case == 'easy' or case == 'beginner' or case =='basic' or case == 'b' or case == 's':
+            width, height, mine_count = 10, 10, 10
+        elif case == 'medium' or case == 'intermediate' or case == 'i' or case == 'm':
+            width, height, mine_count = 16, 16, 40
+        elif case == 'hard' or case == 'expert' or case == 'e' or case == 'h':
+            width, height, mine_count = 30, 16, 99
+        else:
+            print("Invalid arguments. Run 'python -m gui_pygame.py -h' for help.")
+            sys.exit(1)
 
-    PygameMinesweeper(width, height, mine_count).run()
+    print(f"Starting Minesweeper game with width={width}, height={height}, mine_count={mine_count}")
+    try:
+        PygameMinesweeper(width, height, mine_count).run()
+    except KeyboardInterrupt:
+        print("\nGame terminated by user.")
+        pygame.quit()
+        sys.exit(0)
+    
