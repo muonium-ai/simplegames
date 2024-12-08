@@ -54,15 +54,23 @@ class MinesweeperFormat:
 
     @staticmethod
     def encode_board(board):
-        """Encode a binary board into a Base62 string."""
+        def to_base62(num):
+            chars = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+            base = len(chars)
+            result = []
+            while num > 0:
+                result.append(chars[num % base])
+                num //= base
+            return ''.join(reversed(result)) or '0'
+
         # Flatten the board and convert to a binary string
-        binary_string = ''.join(str(cell) for row in board for cell in row)
+        binary_string = ''.join('1' if cell else '0' for row in board for cell in row)
 
         # Split the binary string into chunks of 6 bits
         chunks = [binary_string[i:i+6] for i in range(0, len(binary_string), 6)]
 
-        # Convert each chunk to an integer and then to Base62
-        base62_encoded = ''.join(MinesweeperFormat.to_base62(int(chunk, 2)) for chunk in chunks)
+        # Convert each chunk to an integer and then to base62
+        base62_encoded = ''.join(to_base62(int(chunk, 2)) for chunk in chunks)
 
         return base62_encoded
 
@@ -78,10 +86,10 @@ class MinesweeperFormat:
         return board
 
     @staticmethod
-    def encode_game(rows, columns, mines, board):
+    def encode_game(rows, columns, mines,complexity, board):
         """Encode the game configuration as a compact string."""
         encoded = MinesweeperFormat.encode_board(board)
-        encoded_game = f"{rows}/{columns}/{mines}/{encoded}"
+        encoded_game = f"{rows}/{columns}/{mines}/{complexity}/{encoded}"
         return encoded_game
 
     @staticmethod
@@ -183,19 +191,14 @@ class Minesweeper:
         print("Complexity Counts:", counts)
         print("Complexity Score:", score)
         self.complexity = score
-        # game_id 
-        # board as array of 0 and 1
-        #
-        board_list = []
-        for row in self.grid:
-            for cell in row:
-                if cell.is_mine:
-                    board_list.append(1)
-                else:
-                    board_list.append(0)
-    
-        self.game_id = MinesweeperFormat.encode_game(self.width, self.height, self.mine_count, board_list)
+        # game_id computation
+
+        # Convert the grid to a list of lists for encoding
+        board_list = [[cell.is_mine for cell in row] for row in self.grid]
+        
+        self.game_id = MinesweeperFormat.encode_game(self.width, self.height, self.mine_count,self.complexity, board_list)
         print("Game ID:", self.game_id)
+
         return score
 
     def get_neighbors(self, x, y):
