@@ -17,6 +17,82 @@ class Cell:
         self.adjacent_probability = 0
         self.solved = False # dont increase hint count if cell is solved
 
+
+import string
+import random
+
+class MinesweeperFormat:
+    BASE62_CHARS = string.digits + string.ascii_lowercase + string.ascii_uppercase
+
+    @staticmethod
+    def place_mines_random(rows, columns, mines):
+        """Place mines randomly on the board."""
+        board = [[0 for _ in range(columns)] for _ in range(rows)]
+        mine_positions = random.sample([(x, y) for x in range(columns) for y in range(rows)], mines)
+        for x, y in mine_positions:
+            board[y][x] = 1
+        return board
+
+    @staticmethod
+    def to_base62(num):
+        """Convert an integer to a Base62 string."""
+        if num == 0:
+            return MinesweeperFormat.BASE62_CHARS[0]
+        base62 = []
+        while num > 0:
+            num, rem = divmod(num, 62)
+            base62.append(MinesweeperFormat.BASE62_CHARS[rem])
+        return ''.join(reversed(base62))
+
+    @staticmethod
+    def from_base62(base62_str):
+        """Convert a Base62 string to an integer."""
+        num = 0
+        for char in base62_str:
+            num = num * 62 + MinesweeperFormat.BASE62_CHARS.index(char)
+        return num
+
+    @staticmethod
+    def encode_board(board):
+        """Encode a binary board into a Base62 string."""
+        # Flatten the board and convert to a binary string
+        binary_string = ''.join(str(cell) for row in board for cell in row)
+
+        # Split the binary string into chunks of 6 bits
+        chunks = [binary_string[i:i+6] for i in range(0, len(binary_string), 6)]
+
+        # Convert each chunk to an integer and then to Base62
+        base62_encoded = ''.join(MinesweeperFormat.to_base62(int(chunk, 2)) for chunk in chunks)
+
+        return base62_encoded
+
+    @staticmethod
+    def decode_board(encoded, rows=16, columns=30):
+        """Decode a Base62 string back to the original binary board."""
+        # Convert Base62 string back to binary string
+        binary_string = ''.join(f"{MinesweeperFormat.from_base62(char):06b}" for char in encoded)
+
+        # Convert binary string back to 2D board
+        board = [[int(binary_string[i * columns + j]) for j in range(columns)] for i in range(rows)]
+
+        return board
+
+    @staticmethod
+    def encode_game(rows, columns, mines, board):
+        """Encode the game configuration as a compact string."""
+        encoded = MinesweeperFormat.encode_board(board)
+        encoded_game = f"{rows}/{columns}/{mines}/{encoded}"
+        return encoded_game
+
+    @staticmethod
+    def decode_game(encoded_game):
+        """Decode the compact game configuration string back to its components."""
+        rows, columns, mines, encoded = encoded_game.split("/")
+        board = MinesweeperFormat.decode_board(encoded, int(rows), int(columns))
+        return int(rows), int(columns), int(mines), board
+
+
+
 class Minesweeper:
     def __init__(self, width, height, mine_count, quickstart=False):
         self.width = width
@@ -34,6 +110,7 @@ class Minesweeper:
         self.initial_probability = mine_count / (width * height)
         self.mine_positions = []
         self.complexity = 0
+        self.game_id = ''
 
         for y in range(height):
             for x in range(width):
@@ -106,6 +183,19 @@ class Minesweeper:
         print("Complexity Counts:", counts)
         print("Complexity Score:", score)
         self.complexity = score
+        # game_id 
+        # board as array of 0 and 1
+        #
+        board_list = []
+        for row in self.grid:
+            for cell in row:
+                if cell.is_mine:
+                    board_list.append(1)
+                else:
+                    board_list.append(0)
+    
+        self.game_id = MinesweeperFormat.encode_game(self.width, self.height, self.mine_count, board_list)
+        print("Game ID:", self.game_id)
         return score
 
     def get_neighbors(self, x, y):
