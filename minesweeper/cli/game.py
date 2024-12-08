@@ -283,6 +283,21 @@ class Minesweeper:
             self.hints += 1
         self.check_victory()
         return x, y
+    
+    def solve(self, x, y):
+        cell = self.grid[y][x]
+        #print(f"Solving cell ({x}, {y})")
+        if cell.is_mine:
+            self.flag(x, y)
+            print(f"Flagged cell ({x}, {y})")
+        else:
+            #print(f"Cell state before reveal: {cell.state}")
+            self.reveal(x, y)
+            print(f"Revealed cell ({x}, {y})")
+            #print(f"Cell state after reveal: {cell.state}")
+        self.hints += 1
+        self.check_victory()
+        return x, y
 
     def automark(self, x, y):
         cell = self.grid[y][x]

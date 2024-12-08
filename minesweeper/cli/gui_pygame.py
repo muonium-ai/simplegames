@@ -131,6 +131,15 @@ class PygameMinesweeper:
                         elif self.pattern_button.collidepoint(event.pos):
                             if not self.game.game_over:
                                 self.game.pattern_recognition()
+                        elif pygame.key.get_mods() & pygame.KMOD_CTRL:
+                            mouse_x, mouse_y = event.pos
+                            # Adjust for the menu offset
+                            adjusted_mouse_y = mouse_y - self.MENU_HEIGHT
+                            if adjusted_mouse_y >= 0:  # Ensure the click is within the game grid area
+                                cell_x = mouse_x // self.CELL_SIZE
+                                cell_y = adjusted_mouse_y // self.CELL_SIZE
+                                print(f"Ctrl+Click at ({cell_x}, {cell_y})")
+                                self.game.solve(cell_x, cell_y)
                         else:
                             if not self.game.game_over:
                                 x, y = event.pos[0] // self.CELL_SIZE, (
