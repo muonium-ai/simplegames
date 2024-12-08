@@ -33,6 +33,7 @@ class Minesweeper:
         self.hints = 0  # Initialize hints count
         self.initial_probability = mine_count / (width * height)
         self.mine_positions = []
+        self.complexity = 0
 
         for y in range(height):
             for x in range(width):
@@ -42,7 +43,7 @@ class Minesweeper:
         # If quickstart is True, place mines now
         if quickstart:
             self.place_mines_random()
-            self.complexity_score()  # Compute complexity immediately
+            self.complexity = self.complexity_score()  # Compute complexity immediately
 
     def place_mines_random(self):
         all_positions = [(x, y) for x in range(self.width) for y in range(self.height)]
@@ -76,7 +77,7 @@ class Minesweeper:
                 self.grid[ny][nx].neighbor_mines += 1
 
         # After placing mines, compute complexity
-        self.complexity_score()
+        self.complexity =self.complexity_score()
 
 
     def factorial(self,n):
@@ -104,6 +105,7 @@ class Minesweeper:
         # Print counts for debugging
         print("Complexity Counts:", counts)
         print("Complexity Score:", score)
+        self.complexity = score
         return score
 
     def get_neighbors(self, x, y):
@@ -199,7 +201,8 @@ class Minesweeper:
             'victory': self.victory,
             'total_mines': self.mine_count,
             'remaining_mines': self.mine_count - self.flags,
-            'hints': self.hints  # Include hints count
+            'hints': self.hints,  # Include hints count
+            'complexity_score': self.complexity #  # Include complexity score
         }
 
     def get_current_board_status(self):

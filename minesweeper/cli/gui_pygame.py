@@ -85,7 +85,8 @@ class PygameMinesweeper:
         status_text = self.small_font.render(
             f"Steps: {status['steps']}  Reveals: {status['reveals']}  "
             f"Flags: {status['flags']}  Hints: {status['hints']}  "
-            f"Mines: {status['remaining_mines']}/{status['total_mines']}",
+            f"Mines: {status['remaining_mines']}/{status['total_mines']}  "
+            f"Complexity: {self.game.complexity}",
             True, (0, 0, 0)
         )
         status_text_rect = status_text.get_rect()
