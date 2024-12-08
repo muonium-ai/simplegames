@@ -101,6 +101,16 @@ class PygameMinesweeper:
             message_text_rect = message_text.get_rect()
             message_text_rect.topleft = (10, 70)
             self.screen.blit(message_text, message_text_rect)
+            
+        """
+        # Draw game ID
+        game_id_text = self.small_font.render(
+            f"Game ID: {self.game.game_id}", True, (0, 0, 0)
+        )
+        game_id_text_rect = game_id_text.get_rect()
+        game_id_text_rect.topleft = (10, 70)
+        self.screen.blit(game_id_text, game_id_text_rect)
+        """
 
     def run(self):
         running = True
