@@ -15,6 +15,7 @@ class Cell:
         self.y = 0
         self.simple_probability = 0
         self.adjacent_probability = 0
+        self.solved = False # dont increase hint count if cell is solved
 
 class Minesweeper:
     def __init__(self, width, height, mine_count, quickstart=False):
@@ -122,6 +123,7 @@ class Minesweeper:
         cell = self.grid[y][x]
         if cell.state == CellState.HIDDEN:
             cell.state = CellState.REVEALED
+            cell.solved = True
             self.reveals += 1
             self.hidden_remaining -= 1
             self.steps += 1
@@ -140,12 +142,14 @@ class Minesweeper:
         if cell.state == CellState.HIDDEN:
             if self.flags < self.mine_count:
                 cell.state = CellState.FLAGGED
+                cell.solved = True
                 self.flags += 1
                 self.steps += 1
                 self.hidden_remaining -= 1
                 self.update_probabilities()
         elif cell.state == CellState.FLAGGED:
             cell.state = CellState.HIDDEN
+            cell.solved = False
             self.flags -= 1
             self.steps += 1
             self.hidden_remaining += 1
@@ -285,7 +289,10 @@ class Minesweeper:
         return x, y
     
     def solve(self, x, y):
+        
         cell = self.grid[y][x]
+        if cell.solved:
+            return x, y
         #print(f"Solving cell ({x}, {y})")
         if cell.is_mine:
             self.flag(x, y)
@@ -295,6 +302,7 @@ class Minesweeper:
             self.reveal(x, y)
             print(f"Revealed cell ({x}, {y})")
             #print(f"Cell state after reveal: {cell.state}")
+        cell.solved = True
         self.hints += 1
         self.check_victory()
         return x, y
