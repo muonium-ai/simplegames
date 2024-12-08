@@ -32,6 +32,7 @@ class Minesweeper:
         self.steps = 0
         self.hints = 0  # Initialize hints count
         self.initial_probability = mine_count / (width * height)
+        self.mine_positions = []
 
         for y in range(height):
             for x in range(width):
@@ -45,13 +46,13 @@ class Minesweeper:
 
     def place_mines_random(self):
         all_positions = [(x, y) for x in range(self.width) for y in range(self.height)]
-        mine_positions = random.sample(all_positions, self.mine_count)
+        self.mine_positions = random.sample(all_positions, self.mine_count)
 
-        for x, y in mine_positions:
+        for x, y in self.mine_positions:
             self.grid[y][x].is_mine = True
 
         # Update neighbor counts
-        for x, y in mine_positions:
+        for x, y in self.mine_positions:
             for nx, ny in self.get_neighbors(x, y):
                 self.grid[ny][nx].neighbor_mines += 1
 
@@ -65,12 +66,12 @@ class Minesweeper:
 
         all_positions = [(x, y) for x in range(self.width) for y in range(self.height)]
         possible_mine_positions = [pos for pos in all_positions if pos not in safe_cells]
-        mine_positions = random.sample(possible_mine_positions, self.mine_count)
+        self.mine_positions = random.sample(possible_mine_positions, self.mine_count)
 
-        for x, y in mine_positions:
+        for x, y in self.mine_positions:
             self.grid[y][x].is_mine = True
 
-        for x, y in mine_positions:
+        for x, y in self.mine_positions:
             for nx, ny in self.get_neighbors(x, y):
                 self.grid[ny][nx].neighbor_mines += 1
 
@@ -332,3 +333,18 @@ class Minesweeper:
             (nx, ny) for nx, ny in self.get_neighbors(x, y)
             if self.grid[ny][nx].state == CellState.HIDDEN
         ]
+
+    def solve_game(self):
+        print("Starting game solver...")
+        self.print_solution()  # Do not remove, for debugging
+        """
+        for y in range(self.height):
+            for x in range(self.width):
+                if self.grid[y][x].state == CellState.HIDDEN:
+                    self.solve(x, y)
+        """
+        # iterate self.mine_positions and reveal all mines
+        print("Revealing all mines...")
+        print(self.mine_positions)
+        for x, y in self.mine_positions:
+            self.flag(x, y)

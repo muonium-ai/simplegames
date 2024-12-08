@@ -28,7 +28,7 @@ class PygameMinesweeper:
         self.new_button = pygame.Rect(10, 10, 80, 30)
         self.hint_button = pygame.Rect(100, 10, 80, 30)
         self.quickstart_button = pygame.Rect(190, 10, 120, 30)
-        self.pattern_button = pygame.Rect(320, 10, 160, 30)  # New Pattern Recognition button
+        self.solve_button = pygame.Rect(320, 10, 160, 30)  # Solve button
 
     def draw(self):
         self.screen.fill((255, 255, 255))
@@ -72,7 +72,7 @@ class PygameMinesweeper:
             (self.new_button, "New"),
             (self.hint_button, "Hint"),
             (self.quickstart_button, "Quickstart"),
-            (self.pattern_button, "Pattern Recognition")
+            (self.solve_button, "Solve Game")  # Added Solve Game button
         ]
         for button_rect, text in buttons:
             pygame.draw.rect(self.screen, (200, 200, 200), button_rect)
@@ -128,9 +128,9 @@ class PygameMinesweeper:
                             self.game_message = ''  # Clear game message
                             for _ in range(5):
                                 self.game.hint()
-                        elif self.pattern_button.collidepoint(event.pos):
+                        elif self.solve_button.collidepoint(event.pos):
                             if not self.game.game_over:
-                                self.game.pattern_recognition()
+                                self.game.solve_game()
                         elif pygame.key.get_mods() & pygame.KMOD_CTRL:
                             mouse_x, mouse_y = event.pos
                             # Adjust for the menu offset
