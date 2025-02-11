@@ -1,3 +1,5 @@
+from os import environ
+environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'  # Hide pygame support prompt
 import pygame
 import random
 import heapq
@@ -54,7 +56,40 @@ class Player:
 
 player = Player()
 
-def draw_maze(game_won=False):
+def a_star_search(start, goal):
+    def heuristic(a, b):
+        return abs(a[0] - b[0]) + abs(a[1] - b[1])
+
+    open_set = []
+    heapq.heappush(open_set, (0, start))
+    came_from = {}
+    g_score = {start: 0}
+    f_score = {start: heuristic(start, goal)}
+
+    while open_set:
+        _, current = heapq.heappop(open_set)
+
+        if current == goal:
+            path = []
+            while current in came_from:
+                path.append(current)
+                current = came_from[current]
+            path.reverse()
+            return path
+
+        for direction in DIRECTIONS.values():
+            neighbor = (current[0] + direction[0], current[1] + direction[1])
+            if 0 <= neighbor[0] < COLS and 0 <= neighbor[1] < ROWS and maze[neighbor[1]][neighbor[0]] == 0:
+                tentative_g_score = g_score[current] + 1
+                if neighbor not in g_score or tentative_g_score < g_score[neighbor]:
+                    came_from[neighbor] = current
+                    g_score[neighbor] = tentative_g_score
+                    f_score[neighbor] = tentative_g_score + heuristic(neighbor, goal)
+                    heapq.heappush(open_set, (f_score[neighbor], neighbor))
+
+    return []
+
+def draw_maze(game_won=False, show_modal=False):
     screen.fill(WHITE)
     for y in range(ROWS):
         for x in range(COLS):
@@ -70,12 +105,21 @@ def draw_maze(game_won=False):
     screen.blit(text, (WIDTH//2 - 25, HEIGHT + 15))
     distance_text = font.render(f"Distance: {distance_traveled}", True, BLACK)
     screen.blit(distance_text, (10, HEIGHT + 15))
-    if game_won:
-        won_text = font.render("Game Won!", True, BLACK)
-        screen.blit(won_text, (WIDTH//2 - 50, HEIGHT//2 - 20))
+    if game_won or show_modal:
+        modal_bg = pygame.Surface((WIDTH, HEIGHT))
+        modal_bg.set_alpha(128)
+        modal_bg.fill(BLACK)
+        screen.blit(modal_bg, (0, 0))
+        won_text = font.render("Game Won!" if game_won else "Game Paused", True, WHITE)
+        screen.blit(won_text, (WIDTH//2 - 50, HEIGHT//2 - 60))
+        pygame.draw.rect(screen, BLACK, (WIDTH//2 - 50, HEIGHT//2 - 20, 100, 30))
+        pygame.draw.rect(screen, WHITE, (WIDTH//2 - 50, HEIGHT//2 - 20, 100, 30))
+        restart_text = font.render("Restart", True, BLACK)
+        screen.blit(restart_text, (WIDTH//2 - 35, HEIGHT//2 - 15))
         pygame.draw.rect(screen, BLACK, (WIDTH//2 - 50, HEIGHT//2 + 20, 100, 30))
-        restart_text = font.render("Restart", True, WHITE)
-        screen.blit(restart_text, (WIDTH//2 - 35, HEIGHT//2 + 25))
+        pygame.draw.rect(screen, WHITE, (WIDTH//2 - 50, HEIGHT//2 + 20, 100, 30))
+        new_game_text = font.render("New Game", True, BLACK)
+        screen.blit(new_game_text, (WIDTH//2 - 45, HEIGHT//2 + 25))
 
 def main():
     running = True
@@ -85,6 +129,19 @@ def main():
     acceleration = 1.1
     speed = 1
     game_won = False
+    show_modal = False
+
+    def reset_game(new_maze=False):
+        global distance_traveled
+        player.__init__()
+        distance_traveled = 0
+        if new_maze:
+            global maze, visited
+            maze = [[1 for _ in range(COLS)] for _ in range(ROWS)]
+            visited = [[False for _ in range(COLS)] for _ in range(ROWS)]
+            generate_maze(0, 0)
+            maze[ROWS-1][COLS-2] = 0
+            maze[ROWS-1][COLS-1] = 0
 
     while running:
         current_time = pygame.time.get_ticks()
@@ -95,15 +152,28 @@ def main():
                 if event.key in (pygame.K_UP, pygame.K_DOWN, pygame.K_LEFT, pygame.K_RIGHT):
                     move_time = current_time
                     speed = 1
-            elif event.type == pygame.MOUSEBUTTONDOWN and game_won:
+                elif event.key == pygame.K_s:
+                    path = a_star_search((player.x, player.y), (COLS-1, ROWS-1))
+                    if path:
+                        player.path = path
+                        player.x, player.y = path[-1]
+                        global distance_traveled
+                        distance_traveled = len(path) - 1
+            elif event.type == pygame.MOUSEBUTTONDOWN:
                 mouse_x, mouse_y = event.pos
-                if WIDTH//2 - 50 <= mouse_x <= WIDTH//2 + 50 and HEIGHT//2 + 20 <= mouse_y <= HEIGHT//2 + 50:
-                    player.__init__()
-                    global distance_traveled
-                    distance_traveled = 0
-                    game_won = False
+                if game_won or show_modal:
+                    if WIDTH//2 - 50 <= mouse_x <= WIDTH//2 + 50 and HEIGHT//2 - 20 <= mouse_y <= HEIGHT//2 + 10:
+                        reset_game()
+                        game_won = False
+                        show_modal = False
+                    elif WIDTH//2 - 50 <= mouse_x <= WIDTH//2 + 50 and HEIGHT//2 + 20 <= mouse_y <= HEIGHT//2 + 50:
+                        reset_game(new_maze=True)
+                        game_won = False
+                        show_modal = False
+                elif WIDTH//2 - 50 <= mouse_x <= WIDTH//2 + 50 and HEIGHT + 10 <= mouse_y <= HEIGHT + 40:
+                    show_modal = True
 
-        if not game_won:
+        if not game_won and not show_modal:
             keys = pygame.key.get_pressed()
             if current_time - move_time >= move_delay / speed:
                 if keys[pygame.K_UP]:
@@ -126,7 +196,7 @@ def main():
             if player.x == COLS-1 and player.y == ROWS-1:
                 game_won = True
 
-        draw_maze(game_won)
+        draw_maze(game_won, show_modal)
         pygame.display.flip()
         clock.tick(60)
     
