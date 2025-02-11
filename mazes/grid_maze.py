@@ -54,7 +54,7 @@ class Player:
 
 player = Player()
 
-def draw_maze():
+def draw_maze(game_won=False):
     screen.fill(WHITE)
     for y in range(ROWS):
         for x in range(COLS):
@@ -70,6 +70,12 @@ def draw_maze():
     screen.blit(text, (WIDTH//2 - 25, HEIGHT + 15))
     distance_text = font.render(f"Distance: {distance_traveled}", True, BLACK)
     screen.blit(distance_text, (10, HEIGHT + 15))
+    if game_won:
+        won_text = font.render("Game Won!", True, BLACK)
+        screen.blit(won_text, (WIDTH//2 - 50, HEIGHT//2 - 20))
+        pygame.draw.rect(screen, BLACK, (WIDTH//2 - 50, HEIGHT//2 + 20, 100, 30))
+        restart_text = font.render("Restart", True, WHITE)
+        screen.blit(restart_text, (WIDTH//2 - 35, HEIGHT//2 + 25))
 
 def main():
     running = True
@@ -78,6 +84,7 @@ def main():
     move_time = 0
     acceleration = 1.1
     speed = 1
+    game_won = False
 
     while running:
         current_time = pygame.time.get_ticks()
@@ -88,33 +95,40 @@ def main():
                 if event.key in (pygame.K_UP, pygame.K_DOWN, pygame.K_LEFT, pygame.K_RIGHT):
                     move_time = current_time
                     speed = 1
+            elif event.type == pygame.MOUSEBUTTONDOWN and game_won:
+                mouse_x, mouse_y = event.pos
+                if WIDTH//2 - 50 <= mouse_x <= WIDTH//2 + 50 and HEIGHT//2 + 20 <= mouse_y <= HEIGHT//2 + 50:
+                    player.__init__()
+                    global distance_traveled
+                    distance_traveled = 0
+                    game_won = False
 
-        keys = pygame.key.get_pressed()
-        if current_time - move_time >= move_delay / speed:
-            if keys[pygame.K_UP]:
-                player.move(0, -1)
-                move_time = current_time
-                speed *= acceleration
-            elif keys[pygame.K_DOWN]:
-                player.move(0, 1)
-                move_time = current_time
-                speed *= acceleration
-            elif keys[pygame.K_LEFT]:
-                player.move(-1, 0)
-                move_time = current_time
-                speed *= acceleration
-            elif keys[pygame.K_RIGHT]:
-                player.move(1, 0)
-                move_time = current_time
-                speed *= acceleration
+        if not game_won:
+            keys = pygame.key.get_pressed()
+            if current_time - move_time >= move_delay / speed:
+                if keys[pygame.K_UP]:
+                    player.move(0, -1)
+                    move_time = current_time
+                    speed *= acceleration
+                elif keys[pygame.K_DOWN]:
+                    player.move(0, 1)
+                    move_time = current_time
+                    speed *= acceleration
+                elif keys[pygame.K_LEFT]:
+                    player.move(-1, 0)
+                    move_time = current_time
+                    speed *= acceleration
+                elif keys[pygame.K_RIGHT]:
+                    player.move(1, 0)
+                    move_time = current_time
+                    speed *= acceleration
 
-        draw_maze()
+            if player.x == COLS-1 and player.y == ROWS-1:
+                game_won = True
+
+        draw_maze(game_won)
         pygame.display.flip()
         clock.tick(60)
-        
-        if player.x == COLS-1 and player.y == ROWS-1:
-            print("You reached the goal!")
-            running = False
     
     pygame.quit()
 
