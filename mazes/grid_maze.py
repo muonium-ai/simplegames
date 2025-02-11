@@ -73,22 +73,44 @@ def draw_maze():
 
 def main():
     running = True
+    clock = pygame.time.Clock()
+    move_delay = 100  # milliseconds
+    move_time = 0
+    acceleration = 1.1
+    speed = 1
+
     while running:
+        current_time = pygame.time.get_ticks()
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
             elif event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_UP:
-                    player.move(0, -1)
-                elif event.key == pygame.K_DOWN:
-                    player.move(0, 1)
-                elif event.key == pygame.K_LEFT:
-                    player.move(-1, 0)
-                elif event.key == pygame.K_RIGHT:
-                    player.move(1, 0)
-        
+                if event.key in (pygame.K_UP, pygame.K_DOWN, pygame.K_LEFT, pygame.K_RIGHT):
+                    move_time = current_time
+                    speed = 1
+
+        keys = pygame.key.get_pressed()
+        if current_time - move_time >= move_delay / speed:
+            if keys[pygame.K_UP]:
+                player.move(0, -1)
+                move_time = current_time
+                speed *= acceleration
+            elif keys[pygame.K_DOWN]:
+                player.move(0, 1)
+                move_time = current_time
+                speed *= acceleration
+            elif keys[pygame.K_LEFT]:
+                player.move(-1, 0)
+                move_time = current_time
+                speed *= acceleration
+            elif keys[pygame.K_RIGHT]:
+                player.move(1, 0)
+                move_time = current_time
+                speed *= acceleration
+
         draw_maze()
         pygame.display.flip()
+        clock.tick(60)
         
         if player.x == COLS-1 and player.y == ROWS-1:
             print("You reached the goal!")
