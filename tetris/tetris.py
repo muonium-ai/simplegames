@@ -4,19 +4,21 @@ import random
 
 pygame.init()
 
-# Updated window dimensions (bigger width and height)
+# Make the window bigger/taller
 WIN_WIDTH = 600
 WIN_HEIGHT = 800
 
-# Keep the playing area same but position it at the top so the current piece is more visible
+# Increase the top box height to show a full 4-block Tetromino
+TOP_BOX_HEIGHT = 120
+
+# Keep the grid the same size, but draw it lower on the screen
 PLAY_WIDTH = 200   # 10 columns * 20 px
 PLAY_HEIGHT = 400  # 20 rows * 20 px
 BLOCK_SIZE = 20
 GRID_COLS = 10
 GRID_ROWS = 20
 
-# Adjust the sidebar offset to give space on the right
-SIDE_OFFSET = 320  # increased from 220
+SIDE_OFFSET = 320
 
 BLACK = (0, 0, 0)
 GRAY = (50, 50, 50)
@@ -32,11 +34,22 @@ YELLOW = (255, 255, 0)
 SHAPES = {
     'I': [[1, 5, 9, 13]],
     'O': [[0, 1, 4, 5]],
-    'T': [[1, 4, 5, 6], [1, 5, 6, 9], [4, 5, 6, 9], [1, 4, 5, 9]],
-    'S': [[1, 2, 4, 5], [1, 5, 6, 10]],
-    'Z': [[0, 1, 5, 6], [2, 5, 6, 9]],
-    'J': [[1, 5, 9, 8], [0, 1, 2, 6], [1, 0, 4, 8], [0, 4, 5, 6]],
-    'L': [[1, 5, 9, 10], [2, 6, 4, 5], [0, 1, 5, 9], [0, 1, 2, 4]]
+    'T': [[1, 4, 5, 6],
+           [1, 5, 6, 9],
+           [4, 5, 6, 9],
+           [1, 4, 5, 9]],
+    'S': [[1, 2, 4, 5],
+           [1, 5, 6, 10]],
+    'Z': [[0, 1, 5, 6],
+           [2, 5, 6, 9]],
+    'J': [[1, 5, 9, 8],
+           [0, 1, 2, 6],
+           [1, 0, 4, 8],
+           [0, 4, 5, 6]],
+    'L': [[1, 5, 9, 10],
+           [2, 6, 4, 5],
+           [0, 1, 5, 9],
+           [0, 1, 2, 4]]
 }
 
 SHAPE_COLORS = {
@@ -63,7 +76,7 @@ class Piece:
         self.shape_key = shape_key
         self.color = SHAPE_COLORS[shape_key]
         self.rotation = 0
-        # spawn in middle top
+        # Starting near the top middle
         self.x = 3
         self.y = 0
         self.shape = SHAPES[shape_key]
@@ -125,21 +138,20 @@ def get_new_piece():
     return Piece(random.choice(list(SHAPES.keys())))
 
 def draw_grid_lines(surface):
-    # Shift the grid drawing so it's centered horizontally
+    # Draw grid lines with vertical offset TOP_BOX_HEIGHT
     for i in range(GRID_ROWS + 1):
         pygame.draw.line(surface, GRAY,
-                         (0, i * BLOCK_SIZE),
-                         (GRID_COLS * BLOCK_SIZE, i * BLOCK_SIZE), 1)
+                         (0, i * BLOCK_SIZE + TOP_BOX_HEIGHT),
+                         (GRID_COLS * BLOCK_SIZE, i * BLOCK_SIZE + TOP_BOX_HEIGHT), 1)
     for j in range(GRID_COLS + 1):
         pygame.draw.line(surface, GRAY,
-                         (j * BLOCK_SIZE, 0),
-                         (j * BLOCK_SIZE, GRID_ROWS * BLOCK_SIZE), 1)
+                         (j * BLOCK_SIZE, TOP_BOX_HEIGHT),
+                         (j * BLOCK_SIZE, GRID_ROWS * BLOCK_SIZE + TOP_BOX_HEIGHT), 1)
 
 def draw_next_piece(surface, next_piece, font):
     label = font.render("Next:", True, WHITE)
     surface.blit(label, (SIDE_OFFSET, 50))
 
-    # Draw next piece in a small area
     format_positions = next_piece.current_positions()
     offset_x, offset_y = 0, 3
     for (r, c) in format_positions:
@@ -147,28 +159,40 @@ def draw_next_piece(surface, next_piece, font):
         y = 100 + (r - next_piece.y + offset_y) * BLOCK_SIZE
         pygame.draw.rect(surface, next_piece.color, (x, y, BLOCK_SIZE, BLOCK_SIZE))
 
-def draw_current_piece_info(surface, current_piece, font):
-    label = font.render("Current:", True, WHITE)
-    surface.blit(label, (SIDE_OFFSET, 180))
+def draw_current_piece_top(surface, current_piece):
+    # Draw a bounding box above the main grid
+    pygame.draw.rect(surface, WHITE, (0, 0, PLAY_WIDTH, TOP_BOX_HEIGHT), 2)
 
-    # Visualize the current piece in the sidebar as well
-    format_positions = current_piece.current_positions()
-    offset_x, offset_y = 0, 3
-    for (r, c) in format_positions:
-        x = SIDE_OFFSET + (c - current_piece.x + offset_x) * BLOCK_SIZE
-        y = 230 + (r - current_piece.y + offset_y) * BLOCK_SIZE
-        pygame.draw.rect(surface, current_piece.color, (x, y, BLOCK_SIZE, BLOCK_SIZE))
+    font = pygame.font.SysFont('Arial', 18)
+    info = font.render("Current Piece Movement:", True, WHITE)
+    surface.blit(info, (10, 5))
+
+    # We'll place the piece squares in this top area
+    offset_y = 40  # a bit lower to fit 4-block height
+    for (r, c) in current_piece.current_positions():
+        draw_x = c * BLOCK_SIZE
+        draw_y = offset_y  # ignoring piece.y for vertical
+        # For each row, shift downward
+        draw_y += (r * BLOCK_SIZE // 2)
+        pygame.draw.rect(surface,
+                         current_piece.color,
+                         (draw_x, draw_y, BLOCK_SIZE, BLOCK_SIZE))
 
 def draw_window(surface, grid, locked_positions, score, level, current_piece, next_piece):
     surface.fill(BLACK)
+    # Draw the top area showing the current piece
+    draw_current_piece_top(surface, current_piece)
 
-    # Draw placed blocks
+    # Draw placed blocks in the main grid area, offset by TOP_BOX_HEIGHT
     for r in range(GRID_ROWS):
         for c in range(GRID_COLS):
             if grid[r][c]:
                 pygame.draw.rect(surface,
                                  grid[r][c],
-                                 (c * BLOCK_SIZE, r * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE))
+                                 (c * BLOCK_SIZE,
+                                  r * BLOCK_SIZE + TOP_BOX_HEIGHT,
+                                  BLOCK_SIZE,
+                                  BLOCK_SIZE))
 
     draw_grid_lines(surface)
 
@@ -178,10 +202,10 @@ def draw_window(surface, grid, locked_positions, score, level, current_piece, ne
     surface.blit(score_label, (SIDE_OFFSET, 10))
     surface.blit(level_label, (SIDE_OFFSET, 30))
 
+    # Draw the next piece
     draw_next_piece(surface, next_piece, font)
-    draw_current_piece_info(surface, current_piece, font)
 
-    # Draw rectangle around sidebar
+    # Draw the sidebar outline
     pygame.draw.rect(surface, WHITE, (PLAY_WIDTH, 0, WIN_WIDTH - PLAY_WIDTH, WIN_HEIGHT), 2)
 
     pygame.display.update()
@@ -247,13 +271,12 @@ def main():
                         # hard drop
                         while move_piece(current_piece, 0, 1, grid):
                             score += 2
-                        pass
 
         if paused or game_over:
             draw_window(surface, grid, locked_positions, score, level, current_piece, next_piece)
             continue
 
-        # handle falling
+        # Gravity
         if fall_time >= fall_speed:
             fall_time = 0
             if not move_piece(current_piece, 0, 1, grid):
@@ -269,7 +292,6 @@ def main():
                     score += 800
                 lines_cleared_total += cleared
 
-                # level up every 10 lines
                 if lines_cleared_total >= level * 10:
                     level += 1
                     fall_speed = max(0.05, fall_speed * 0.9)
@@ -285,9 +307,8 @@ def main():
     font = pygame.font.SysFont('Arial', 48, bold=True)
     surface.fill(BLACK)
     go_text = font.render("GAME OVER", True, WHITE)
-    surface.blit(go_text,
-                 (WIN_WIDTH // 2 - go_text.get_width() // 2,
-                  WIN_HEIGHT // 2 - go_text.get_height() // 2))
+    surface.blit(go_text, (WIN_WIDTH // 2 - go_text.get_width() // 2,
+                           WIN_HEIGHT // 2 - go_text.get_height() // 2))
     pygame.display.update()
     pygame.time.wait(3000)
 
