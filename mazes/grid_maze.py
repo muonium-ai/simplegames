@@ -9,6 +9,7 @@ WIDTH, HEIGHT = 600, 600
 ROWS, COLS = 20, 20
 CELL_SIZE = WIDTH // COLS
 WHITE, BLACK, BLUE, GREEN, RED, CYAN, YELLOW = (255, 255, 255), (0, 0, 0), (0, 0, 255), (0, 255, 0), (255, 0, 0), (0, 255, 255), (255, 255, 0)
+LIGHT_BLUE = (173, 216, 230)
 
 # Directions
 DIRECTIONS = {'UP': (0, -1), 'DOWN': (0, 1), 'LEFT': (-1, 0), 'RIGHT': (1, 0)}
@@ -89,12 +90,34 @@ def a_star_search(start, goal):
 
     return []
 
-def draw_maze(game_won=False, show_modal=False):
+def bfs_solve(start, goal):
+    queue = [start]
+    came_from = {start: None}
+    while queue:
+        current = queue.pop(0)
+        if current == goal:
+            path = []
+            while current:
+                path.append(current)
+                current = came_from[current]
+            path.reverse()
+            return path
+        for direction in DIRECTIONS.values():
+            neighbor = (current[0] + direction[0], current[1] + direction[1])
+            if 0 <= neighbor[0] < COLS and 0 <= neighbor[1] < ROWS and maze[neighbor[1]][neighbor[0]] == 0 and neighbor not in came_from:
+                queue.append(neighbor)
+                came_from[neighbor] = current
+    return []
+
+def draw_maze(game_won=False, show_modal=False, ai_path=None):
     screen.fill(WHITE)
     for y in range(ROWS):
         for x in range(COLS):
             color = BLACK if maze[y][x] == 1 else WHITE
             pygame.draw.rect(screen, color, (x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE))
+    if ai_path:
+        for x, y in ai_path:
+            pygame.draw.rect(screen, LIGHT_BLUE, (x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE))
     for x, y in player.path:
         pygame.draw.rect(screen, YELLOW, (x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE))
     pygame.draw.rect(screen, GREEN, (0, 0, CELL_SIZE, CELL_SIZE))  # Start
@@ -130,11 +153,15 @@ def main():
     speed = 1
     game_won = False
     show_modal = False
+    ai_path = None
+    solving = False
 
     def reset_game(new_maze=False):
-        global distance_traveled
+        global distance_traveled, ai_path, solving
         player.__init__()
         distance_traveled = 0
+        ai_path = None
+        solving = False
         if new_maze:
             global maze, visited
             maze = [[1 for _ in range(COLS)] for _ in range(ROWS)]
@@ -152,13 +179,12 @@ def main():
                 if event.key in (pygame.K_UP, pygame.K_DOWN, pygame.K_LEFT, pygame.K_RIGHT):
                     move_time = current_time
                     speed = 1
-                elif event.key == pygame.K_s:
-                    path = a_star_search((player.x, player.y), (COLS-1, ROWS-1))
-                    if path:
-                        player.path = path
-                        player.x, player.y = path[-1]
-                        global distance_traveled
-                        distance_traveled = len(path) - 1
+                elif event.key == pygame.K_s and not solving:
+                    ai_path = bfs_solve((0, 0), (COLS-1, ROWS-1))
+                    if ai_path:
+                        player.path = [(0, 0)]
+                        player.x, player.y = 0, 0
+                        solving = True
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 mouse_x, mouse_y = event.pos
                 if game_won or show_modal:
@@ -174,29 +200,37 @@ def main():
                     show_modal = True
 
         if not game_won and not show_modal:
-            keys = pygame.key.get_pressed()
-            if current_time - move_time >= move_delay / speed:
-                if keys[pygame.K_UP]:
-                    player.move(0, -1)
-                    move_time = current_time
-                    speed *= acceleration
-                elif keys[pygame.K_DOWN]:
-                    player.move(0, 1)
-                    move_time = current_time
-                    speed *= acceleration
-                elif keys[pygame.K_LEFT]:
-                    player.move(-1, 0)
-                    move_time = current_time
-                    speed *= acceleration
-                elif keys[pygame.K_RIGHT]:
-                    player.move(1, 0)
-                    move_time = current_time
-                    speed *= acceleration
+            if solving and ai_path:
+                if player.path[-1] != (COLS-1, ROWS-1):
+                    next_step = ai_path[len(player.path)]
+                    player.move(next_step[0] - player.x, next_step[1] - player.y)
+                else:
+                    solving = False
+                    game_won = True
+            else:
+                keys = pygame.key.get_pressed()
+                if current_time - move_time >= move_delay / speed:
+                    if keys[pygame.K_UP]:
+                        player.move(0, -1)
+                        move_time = current_time
+                        speed *= acceleration
+                    elif keys[pygame.K_DOWN]:
+                        player.move(0, 1)
+                        move_time = current_time
+                        speed *= acceleration
+                    elif keys[pygame.K_LEFT]:
+                        player.move(-1, 0)
+                        move_time = current_time
+                        speed *= acceleration
+                    elif keys[pygame.K_RIGHT]:
+                        player.move(1, 0)
+                        move_time = current_time
+                        speed *= acceleration
 
-            if player.x == COLS-1 and player.y == ROWS-1:
-                game_won = True
+                if player.x == COLS-1 and player.y == ROWS-1:
+                    game_won = True
 
-        draw_maze(game_won, show_modal)
+        draw_maze(game_won, show_modal, ai_path)
         pygame.display.flip()
         clock.tick(60)
     
