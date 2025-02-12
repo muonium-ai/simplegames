@@ -145,7 +145,7 @@ while running:
                 reset_game()
 
     if started and not game_over:
-        # Improved autoplay logic with gap boundary awareness
+        # Refined autoplay logic with smoother transitions
         if auto_play and pipes:
             next_pipe = None
             for pipe in pipes:
@@ -159,30 +159,25 @@ while running:
                 gap_center = (gap_top + gap_bottom) / 2
                 dx = next_pipe['top'].x - bird_x
                 
-                # Calculate safe zone within the gap
-                safe_margin = 30
-                safe_top = gap_top + safe_margin
-                safe_bottom = gap_bottom - safe_margin
-                
-                # Jump decisions based on position relative to safe zone
-                if dx < 200:  # Look ahead distance
-                    if bird_y > safe_bottom or (bird_y > gap_center and bird_vel > 2):
-                        # Jump if too low or falling too fast
+                # Adjusted jump logic with waiting period after crossing
+                if dx < 160:  # Reduced look-ahead distance
+                    # Only jump if significantly below center or falling fast
+                    if bird_y > gap_center + 25 or (bird_y > gap_center and bird_vel > 2):
                         bird_vel = JUMP_STRENGTH
-                    elif bird_y < safe_top:
-                        # Let gravity pull down if too high
-                        bird_vel = max(bird_vel, 1)
+                    # Wait a bit after passing pipe before next jump
+                    elif dx < PIPE_WIDTH and bird_vel < 0:
+                        bird_vel = 1  # Gentle fall after passing pipe
 
         # Update bird physics
         bird_vel += GRAVITY
         bird_y += bird_vel
 
-        # For autoplay, enforce staying within screen bounds
+        # Simplified boundary protection for autoplay
         if auto_play:
-            if bird_y - BIRD_RADIUS <= 5:  # Near ceiling
-                bird_vel = 2  # Force stronger downward movement
-            elif bird_y + BIRD_RADIUS >= HEIGHT - 5:  # Near floor
-                bird_vel = JUMP_STRENGTH  # Force upward movement
+            if bird_y - BIRD_RADIUS <= 5:
+                bird_vel = 1  # Gentle downward movement
+            elif bird_y + BIRD_RADIUS >= HEIGHT - 5:
+                bird_vel = JUMP_STRENGTH
         else:
             # Normal boundary checking for manual play
             if bird_y - BIRD_RADIUS <= 0 or bird_y + BIRD_RADIUS >= HEIGHT:
