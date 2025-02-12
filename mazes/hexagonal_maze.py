@@ -58,6 +58,7 @@ class Player:
         self.r = hex_grid.size
         self.path = [(self.q, self.r)]
         self.hex_grid = hex_grid
+        self.moves = 0  # Add move counter
 
     def move(self, dq, dr):
         new_q = self.q + dq
@@ -66,6 +67,7 @@ class Player:
             self.q = new_q
             self.r = new_r
             self.path.append((self.q, self.r))
+            self.moves += 1  # Increment move counter
             return True
         return False
 
@@ -182,6 +184,59 @@ class ControlGuide:
                 return (dq, dr)
         return None
 
+def draw_maze(hex_grid, player, game_won=False, show_modal=False):
+    # Draw maze
+    for (q, r), value in hex_grid.grid.items():
+        color = WHITE if value == 0 else BLACK
+        hex_grid.draw_hexagon(q, r, color)
+
+    # Draw player path
+    for q, r in player.path:
+        hex_grid.draw_hexagon(q, r, YELLOW)
+
+    # Draw player
+    hex_grid.draw_hexagon(player.q, player.r, BLUE)
+
+    # Draw start and end
+    hex_grid.draw_hexagon(-hex_grid.size, hex_grid.size, GREEN)
+    hex_grid.draw_hexagon(hex_grid.size, -hex_grid.size, RED)
+
+    # Draw move counter
+    moves_text = font.render(f"Moves: {player.moves}", True, BLACK)
+    screen.blit(moves_text, (10, HEIGHT + 15))
+
+    # Draw victory screen
+    if game_won:
+        # Semi-transparent overlay
+        modal_bg = pygame.Surface((WIDTH, HEIGHT))
+        modal_bg.set_alpha(128)
+        modal_bg.fill(BLACK)
+        screen.blit(modal_bg, (0, 0))
+
+        # Game Won text
+        won_text = font.render("Game Won!", True, WHITE)
+        screen.blit(won_text, (WIDTH//2 - 50, HEIGHT//2 - 80))
+        
+        # Restart button
+        pygame.draw.rect(screen, BLACK, (WIDTH//2 - 70, HEIGHT//2 - 20, 140, 40))
+        pygame.draw.rect(screen, WHITE, (WIDTH//2 - 70, HEIGHT//2 - 20, 140, 40))
+        restart_text = font.render("Restart", True, BLACK)
+        text_width = restart_text.get_width()
+        screen.blit(restart_text, (WIDTH//2 - text_width//2, HEIGHT//2 - 15))
+        
+        # New Game button
+        pygame.draw.rect(screen, BLACK, (WIDTH//2 - 70, HEIGHT//2 + 30, 140, 40))
+        pygame.draw.rect(screen, WHITE, (WIDTH//2 - 70, HEIGHT//2 + 30, 140, 40))
+        new_game_text = font.render("New Game", True, BLACK)
+        text_width = new_game_text.get_width()
+        screen.blit(new_game_text, (WIDTH//2 - text_width//2, HEIGHT//2 + 35))
+
+def reset_game(hex_grid, new_maze=False):
+    if new_maze:
+        hex_grid = HexGrid(7)
+        generate_maze(hex_grid)
+    return Player(hex_grid), hex_grid
+
 def main():
     hex_grid = HexGrid(7)  # Smaller size for testing
     generate_maze(hex_grid)
@@ -189,47 +244,50 @@ def main():
     control_guide = ControlGuide(WIDTH - 150, HEIGHT - 150)  # Position in bottom-right corner
     running = True
     clock = pygame.time.Clock()
+    game_won = False
 
     while running:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
-            elif event.type == pygame.KEYDOWN:
-                # Updated keyboard controls to match new direction sequence
-                if event.key == pygame.K_d:     # Top
-                    player.move(0, -1)
-                elif event.key == pygame.K_s:    # Top-right
-                    player.move(1, -1)
-                elif event.key == pygame.K_e:    # Right
-                    player.move(1, 0)
-                elif event.key == pygame.K_w:    # Bottom
-                    player.move(0, 1)
-                elif event.key == pygame.K_a:    # Bottom-left
-                    player.move(-1, 1)
-                elif event.key == pygame.K_q:    # Left
-                    player.move(-1, 0)
-            elif event.type == pygame.MOUSEBUTTONDOWN:
-                movement = control_guide.check_click(event.pos)
-                if movement:
-                    player.move(*movement)
+            elif event.type == pygame.MOUSEBUTTONDOWN and game_won:
+                mouse_x, mouse_y = event.pos
+                if WIDTH//2 - 70 <= mouse_x <= WIDTH//2 + 70:
+                    if HEIGHT//2 - 20 <= mouse_y <= HEIGHT//2 + 20:  # Restart button
+                        player, hex_grid = reset_game(hex_grid)
+                        game_won = False
+                    elif HEIGHT//2 + 30 <= mouse_y <= HEIGHT//2 + 70:  # New Game button
+                        player, hex_grid = reset_game(hex_grid, True)
+                        game_won = False
+            elif not game_won:  # Only process movement if game is not won
+                if event.type == pygame.KEYDOWN:
+                    # Updated keyboard controls to match new direction sequence
+                    if event.key == pygame.K_d:     # Top
+                        player.move(0, -1)
+                    elif event.key == pygame.K_s:    # Top-right
+                        player.move(1, -1)
+                    elif event.key == pygame.K_e:    # Right
+                        player.move(1, 0)
+                    elif event.key == pygame.K_w:    # Bottom
+                        player.move(0, 1)
+                    elif event.key == pygame.K_a:    # Bottom-left
+                        player.move(-1, 1)
+                    elif event.key == pygame.K_q:    # Left
+                        player.move(-1, 0)
+                elif event.type == pygame.MOUSEBUTTONDOWN:
+                    movement = control_guide.check_click(event.pos)
+                    if movement:
+                        player.move(*movement)
+
+        if not game_won:
+            # Check for victory condition
+            if player.q == hex_grid.size and player.r == -hex_grid.size:
+                game_won = True
 
         screen.fill(WHITE)
         
         # Draw maze
-        for (q, r), value in hex_grid.grid.items():
-            color = WHITE if value == 0 else BLACK
-            hex_grid.draw_hexagon(q, r, color)
-
-        # Draw player path
-        for q, r in player.path:
-            hex_grid.draw_hexagon(q, r, YELLOW)
-
-        # Draw player
-        hex_grid.draw_hexagon(player.q, player.r, BLUE)
-
-        # Draw start and end
-        hex_grid.draw_hexagon(-hex_grid.size, hex_grid.size, GREEN)
-        hex_grid.draw_hexagon(hex_grid.size, -hex_grid.size, RED)
+        draw_maze(hex_grid, player, game_won)
 
         # Draw control guide
         control_guide.draw()
