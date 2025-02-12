@@ -45,6 +45,12 @@ game_over = False
 # New global flag for auto-play
 auto_play = False
 
+# New global flag for game start
+started = False
+
+# Cooldown for auto-jump
+auto_jump_cooldown = 0
+
 def reset_game():
     global bird_y, bird_vel, pipes, score, game_over, current_level
     bird_y = HEIGHT // 2
@@ -57,24 +63,32 @@ def reset_game():
 
 def draw():
     screen.fill((135, 206, 235))  # sky blue background
-    # Draw bird
-    pygame.draw.circle(screen, (255, 255, 0), (bird_x, int(bird_y)), BIRD_RADIUS)
-    # Draw pipes
-    for pipe in pipes:
-        pygame.draw.rect(screen, (34, 139, 34), pipe['top'])
-        pygame.draw.rect(screen, (34, 139, 34), pipe['bottom'])
-    # Draw score
-    score_text = font.render(f"Score: {score}", True, (0, 0, 0))
-    screen.blit(score_text, (10, 10))
-    # Draw "Autoplay" button (updated dimensions for longer text)
-    autoplay_button = pygame.Rect(WIDTH - 140, 10, 120, 40)
-    pygame.draw.rect(screen, (50, 205, 50), autoplay_button)  # green button
-    autoplay_text = font.render("Autoplay", True, (255, 255, 255))
-    autoplay_rect = autoplay_text.get_rect(center=autoplay_button.center)
-    screen.blit(autoplay_text, autoplay_rect)
-    if game_over:
-        over_text = font.render("Game Over! Press Space to restart", True, (255, 0, 0))
-        screen.blit(over_text, (20, HEIGHT // 2))
+    # Draw "Start" button if game not started
+    if not started:
+        start_button = pygame.Rect(WIDTH//2 - 60, HEIGHT//2 - 20, 120, 40)
+        pygame.draw.rect(screen, (50, 205, 50), start_button)
+        start_text = font.render("Start", True, (255, 255, 255))
+        start_rect = start_text.get_rect(center=start_button.center)
+        screen.blit(start_text, start_rect)
+    else:
+        # Draw bird
+        pygame.draw.circle(screen, (255, 255, 0), (bird_x, int(bird_y)), BIRD_RADIUS)
+        # Draw pipes
+        for pipe in pipes:
+            pygame.draw.rect(screen, (34, 139, 34), pipe['top'])
+            pygame.draw.rect(screen, (34, 139, 34), pipe['bottom'])
+        # Draw score
+        score_text = font.render(f"Score: {score}", True, (0, 0, 0))
+        screen.blit(score_text, (10, 10))
+        # Draw "Autoplay" button (updated dimensions for longer text)
+        autoplay_button = pygame.Rect(WIDTH - 140, 10, 120, 40)
+        pygame.draw.rect(screen, (50, 205, 50), autoplay_button)  # green button
+        autoplay_text = font.render("Autoplay", True, (255, 255, 255))
+        autoplay_rect = autoplay_text.get_rect(center=autoplay_button.center)
+        screen.blit(autoplay_text, autoplay_rect)
+        if game_over:
+            over_text = font.render("Game Over! Press Space to restart", True, (255, 0, 0))
+            screen.blit(over_text, (20, HEIGHT // 2))
     pygame.display.flip()
 
 running = True
@@ -83,12 +97,17 @@ while running:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
+        elif not started and event.type == pygame.MOUSEBUTTONDOWN:
+            # Check if "Start" button clicked
+            mx, my = event.pos
+            if WIDTH//2 - 60 <= mx <= WIDTH//2 + 60 and HEIGHT//2 - 20 <= my <= HEIGHT//2 + 20:
+                started = True
         # Activate autoplay if "Autoplay" button is clicked
-        elif event.type == pygame.MOUSEBUTTONDOWN:
+        elif started and event.type == pygame.MOUSEBUTTONDOWN:
             mx, my = event.pos
             if WIDTH - 140 <= mx <= WIDTH - 20 and 10 <= my <= 50:
                 auto_play = True
-        if not game_over:
+        if started and not game_over:
             if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
                 bird_vel = JUMP_STRENGTH
             if event.type == SPAWN_PIPE:
@@ -100,9 +119,10 @@ while running:
             if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
                 reset_game()
 
-    if not game_over:
-        # Auto-play logic: if enabled, decide to jump based on obstacle analysis
-        if auto_play and pipes:
+    if started and not game_over:
+        auto_jump_cooldown = max(0, auto_jump_cooldown - 1)
+        # Auto-play logic: jump if the bird is below gap center, but respect cooldown
+        if auto_play and pipes and auto_jump_cooldown == 0:
             next_pipe = None
             for pipe in pipes:
                 if pipe['top'].x + PIPE_WIDTH > bird_x:
@@ -113,11 +133,10 @@ while running:
                 gap_bottom = gap_top + PIPE_GAP
                 gap_center = (gap_top + gap_bottom) / 2
                 dx = next_pipe['top'].x - bird_x
-                safe_margin = 10
-                # If close to the obstacle and bird is below the gap center by a margin, jump.
-                if dx < 150 and bird_y > (gap_center + safe_margin):
+                if dx < 150 and bird_y < gap_center:
                     bird_vel = JUMP_STRENGTH
-                    
+                    auto_jump_cooldown = 15  # frames of cooldown before jumping again
+
         # Update bird physics
         bird_vel += GRAVITY
         bird_y += bird_vel
