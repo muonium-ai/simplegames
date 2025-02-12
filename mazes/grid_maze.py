@@ -197,7 +197,14 @@ def main():
                         game_won = False
                         show_modal = False
                 elif WIDTH//2 - 50 <= mouse_x <= WIDTH//2 + 50 and HEIGHT + 10 <= mouse_y <= HEIGHT + 40:
-                    show_modal = True
+                    if not solving:
+                        ai_path = bfs_solve((0, 0), (COLS-1, ROWS-1))
+                        if ai_path:
+                            player.path = [(0, 0)]
+                            player.x, player.y = 0, 0
+                            solving = True
+                    else:
+                        show_modal = True
 
         if not game_won and not show_modal:
             if solving and ai_path:
