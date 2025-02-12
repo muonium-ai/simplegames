@@ -1,3 +1,6 @@
+from os import environ
+environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'  # Hide pygame support prompt
+
 import pygame
 import random
 
@@ -49,27 +52,42 @@ auto_play = False
 started = False
 
 # Cooldown for auto-jump
-auto_jump_cooldown = 0
+auto_jump_cooldown = 0  # remove or set to 0 for immediate jump
 
 def reset_game():
-    global bird_y, bird_vel, pipes, score, game_over, current_level
+    global bird_y, bird_vel, pipes, score, game_over, current_level, started, auto_play
     bird_y = HEIGHT // 2
     bird_vel = 0
     pipes = []
     score = 0
     game_over = False
+    started = False  # Reset started state
+    auto_play = False  # Reset autoplay state
     current_level = 1
     play_music(LEVEL1_MUSIC)
 
 def draw():
     screen.fill((135, 206, 235))  # sky blue background
-    # Draw "Start" button if game not started
-    if not started:
-        start_button = pygame.Rect(WIDTH//2 - 60, HEIGHT//2 - 20, 120, 40)
+    # Draw start buttons if game not started or game is over
+    if not started or game_over:  # Modified condition
+        # Regular Start button (left side)
+        start_button = pygame.Rect(WIDTH//2 - 130, HEIGHT//2 - 20, 120, 40)
         pygame.draw.rect(screen, (50, 205, 50), start_button)
         start_text = font.render("Start", True, (255, 255, 255))
         start_rect = start_text.get_rect(center=start_button.center)
         screen.blit(start_text, start_rect)
+
+        # Autoplay Start button (right side)
+        auto_start_button = pygame.Rect(WIDTH//2 + 10, HEIGHT//2 - 20, 120, 40)
+        pygame.draw.rect(screen, (50, 205, 50), auto_start_button)
+        auto_text = font.render("Auto Start", True, (255, 255, 255))
+        auto_rect = auto_text.get_rect(center=auto_start_button.center)
+        screen.blit(auto_text, auto_rect)
+
+        # Show score if game over
+        if game_over:
+            score_text = font.render(f"Final Score: {score}", True, (255, 0, 0))
+            screen.blit(score_text, (WIDTH//2 - 70, HEIGHT//2 - 80))
     else:
         # Draw bird
         pygame.draw.circle(screen, (255, 255, 0), (bird_x, int(bird_y)), BIRD_RADIUS)
@@ -97,19 +115,26 @@ while running:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
-        elif not started and event.type == pygame.MOUSEBUTTONDOWN:
-            # Check if "Start" button clicked
+        elif (not started or game_over) and event.type == pygame.MOUSEBUTTONDOWN:  # Modified condition
             mx, my = event.pos
-            if WIDTH//2 - 60 <= mx <= WIDTH//2 + 60 and HEIGHT//2 - 20 <= my <= HEIGHT//2 + 20:
-                started = True
+            if HEIGHT//2 - 20 <= my <= HEIGHT//2 + 20:
+                if WIDTH//2 - 130 <= mx <= WIDTH//2 - 10:  # Regular Start
+                    reset_game()
+                    started = True
+                elif WIDTH//2 + 10 <= mx <= WIDTH//2 + 130:  # Autoplay Start
+                    reset_game()
+                    started = True
+                    auto_play = True
         # Activate autoplay if "Autoplay" button is clicked
         elif started and event.type == pygame.MOUSEBUTTONDOWN:
             mx, my = event.pos
             if WIDTH - 140 <= mx <= WIDTH - 20 and 10 <= my <= 50:
                 auto_play = True
         if started and not game_over:
+            # Always allow SPACE events but let autoplay override
             if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
-                bird_vel = JUMP_STRENGTH
+                if not auto_play:
+                    bird_vel = JUMP_STRENGTH
             if event.type == SPAWN_PIPE:
                 pipe_height = random.randint(50, HEIGHT - PIPE_GAP - 50)
                 top_pipe = pygame.Rect(WIDTH, 0, PIPE_WIDTH, pipe_height)
@@ -120,28 +145,48 @@ while running:
                 reset_game()
 
     if started and not game_over:
-        auto_jump_cooldown = max(0, auto_jump_cooldown - 1)
-        # Auto-play logic: jump if the bird is below gap center, but respect cooldown
-        if auto_play and pipes and auto_jump_cooldown == 0:
+        # Improved autoplay logic with gap boundary awareness
+        if auto_play and pipes:
             next_pipe = None
             for pipe in pipes:
                 if pipe['top'].x + PIPE_WIDTH > bird_x:
                     next_pipe = pipe
                     break
+
             if next_pipe:
                 gap_top = next_pipe['top'].height
                 gap_bottom = gap_top + PIPE_GAP
                 gap_center = (gap_top + gap_bottom) / 2
                 dx = next_pipe['top'].x - bird_x
-                if dx < 150 and bird_y < gap_center:
-                    bird_vel = JUMP_STRENGTH
-                    auto_jump_cooldown = 15  # frames of cooldown before jumping again
+                
+                # Calculate safe zone within the gap
+                safe_margin = 30
+                safe_top = gap_top + safe_margin
+                safe_bottom = gap_bottom - safe_margin
+                
+                # Jump decisions based on position relative to safe zone
+                if dx < 200:  # Look ahead distance
+                    if bird_y > safe_bottom or (bird_y > gap_center and bird_vel > 2):
+                        # Jump if too low or falling too fast
+                        bird_vel = JUMP_STRENGTH
+                    elif bird_y < safe_top:
+                        # Let gravity pull down if too high
+                        bird_vel = max(bird_vel, 1)
 
         # Update bird physics
         bird_vel += GRAVITY
         bird_y += bird_vel
-        if bird_y - BIRD_RADIUS <= 0 or bird_y + BIRD_RADIUS >= HEIGHT:
-            game_over = True
+
+        # For autoplay, enforce staying within screen bounds
+        if auto_play:
+            if bird_y - BIRD_RADIUS <= 5:  # Near ceiling
+                bird_vel = 2  # Force stronger downward movement
+            elif bird_y + BIRD_RADIUS >= HEIGHT - 5:  # Near floor
+                bird_vel = JUMP_STRENGTH  # Force upward movement
+        else:
+            # Normal boundary checking for manual play
+            if bird_y - BIRD_RADIUS <= 0 or bird_y + BIRD_RADIUS >= HEIGHT:
+                game_over = True
 
         # Move pipes and check for off-screen removal
         for pipe in pipes:
