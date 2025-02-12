@@ -134,15 +134,39 @@ def draw_maze(game_won=False, show_modal=False, ai_path=None):
         modal_bg.fill(BLACK)
         screen.blit(modal_bg, (0, 0))
         won_text = font.render("Game Won!" if game_won else "Game Paused", True, WHITE)
-        screen.blit(won_text, (WIDTH//2 - 50, HEIGHT//2 - 60))
-        pygame.draw.rect(screen, BLACK, (WIDTH//2 - 50, HEIGHT//2 - 20, 100, 30))
-        pygame.draw.rect(screen, WHITE, (WIDTH//2 - 50, HEIGHT//2 - 20, 100, 30))
+        screen.blit(won_text, (WIDTH//2 - 50, HEIGHT//2 - 80))
+        
+        # Wider restart button with centered text
+        pygame.draw.rect(screen, BLACK, (WIDTH//2 - 70, HEIGHT//2 - 20, 140, 40))
+        pygame.draw.rect(screen, WHITE, (WIDTH//2 - 70, HEIGHT//2 - 20, 140, 40))
         restart_text = font.render("Restart", True, BLACK)
-        screen.blit(restart_text, (WIDTH//2 - 35, HEIGHT//2 - 15))
-        pygame.draw.rect(screen, BLACK, (WIDTH//2 - 50, HEIGHT//2 + 20, 100, 30))
-        pygame.draw.rect(screen, WHITE, (WIDTH//2 - 50, HEIGHT//2 + 20, 100, 30))
+        text_width = restart_text.get_width()
+        screen.blit(restart_text, (WIDTH//2 - text_width//2, HEIGHT//2 - 15))
+        
+        # Wider new game button with centered text
+        pygame.draw.rect(screen, BLACK, (WIDTH//2 - 70, HEIGHT//2 + 30, 140, 40))
+        pygame.draw.rect(screen, WHITE, (WIDTH//2 - 70, HEIGHT//2 + 30, 140, 40))
         new_game_text = font.render("New Game", True, BLACK)
-        screen.blit(new_game_text, (WIDTH//2 - 45, HEIGHT//2 + 25))
+        text_width = new_game_text.get_width()
+        screen.blit(new_game_text, (WIDTH//2 - text_width//2, HEIGHT//2 + 35))
+
+def reset_game(new_maze=False):
+    global distance_traveled, ai_path, solving, player
+    # Create a new player instance instead of just reinitializing
+    player = Player()
+    distance_traveled = 0
+    ai_path = None
+    solving = False
+    # Clear the screen completely
+    screen.fill(WHITE)
+    pygame.display.flip()
+    if new_maze:
+        global maze, visited
+        maze = [[1 for _ in range(COLS)] for _ in range(ROWS)]
+        visited = [[False for _ in range(COLS)] for _ in range(ROWS)]
+        generate_maze(0, 0)
+        maze[ROWS-1][COLS-2] = 0
+        maze[ROWS-1][COLS-1] = 0
 
 def main():
     running = True
@@ -155,20 +179,6 @@ def main():
     show_modal = False
     ai_path = None
     solving = False
-
-    def reset_game(new_maze=False):
-        global distance_traveled, ai_path, solving
-        player.__init__()
-        distance_traveled = 0
-        ai_path = None
-        solving = False
-        if new_maze:
-            global maze, visited
-            maze = [[1 for _ in range(COLS)] for _ in range(ROWS)]
-            visited = [[False for _ in range(COLS)] for _ in range(ROWS)]
-            generate_maze(0, 0)
-            maze[ROWS-1][COLS-2] = 0
-            maze[ROWS-1][COLS-1] = 0
 
     while running:
         current_time = pygame.time.get_ticks()
@@ -188,14 +198,20 @@ def main():
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 mouse_x, mouse_y = event.pos
                 if game_won or show_modal:
-                    if WIDTH//2 - 50 <= mouse_x <= WIDTH//2 + 50 and HEIGHT//2 - 20 <= mouse_y <= HEIGHT//2 + 10:
-                        reset_game()
-                        game_won = False
-                        show_modal = False
-                    elif WIDTH//2 - 50 <= mouse_x <= WIDTH//2 + 50 and HEIGHT//2 + 20 <= mouse_y <= HEIGHT//2 + 50:
-                        reset_game(new_maze=True)
-                        game_won = False
-                        show_modal = False
+                    # Update click detection for wider buttons
+                    if WIDTH//2 - 70 <= mouse_x <= WIDTH//2 + 70:
+                        if HEIGHT//2 - 20 <= mouse_y <= HEIGHT//2 + 20:  # Restart button
+                            reset_game()
+                            game_won = False
+                            show_modal = False
+                            ai_path = None
+                            player.path = [(0, 0)]
+                        elif HEIGHT//2 + 30 <= mouse_y <= HEIGHT//2 + 70:  # New Game button
+                            reset_game(new_maze=True)
+                            game_won = False
+                            show_modal = False
+                            ai_path = None
+                            player.path = [(0, 0)]
                 elif WIDTH//2 - 50 <= mouse_x <= WIDTH//2 + 50 and HEIGHT + 10 <= mouse_y <= HEIGHT + 40:
                     if not solving:
                         ai_path = bfs_solve((0, 0), (COLS-1, ROWS-1))
