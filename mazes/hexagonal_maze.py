@@ -103,13 +103,14 @@ class ControlGuide:
         self.center_y = y
         self.hex_size = 30
         self.button_size = 40
+        # Rearranged sequence: D,S,E,W,A,Q with proper opposites
         self.directions = {
-            'Q': (-1, 0, 150),    # Top-left
-            'W': (1, -1, 90),     # Top
-            'E': (1, 0, 30),      # Top-right
-            'A': (-1, 1, 210),    # Bottom-left
-            'S': (0, 1, 270),     # Bottom
-            'D': (0, -1, 330)     # Bottom-right
+            'D': (0, -1, 270),      # Top
+            'S': (1, -1, 330),      # Top-right
+            'E': (1, 0, 30),        # Right
+            'W': (0, 1, 90),        # Bottom (opposite to D)
+            'A': (-1, 1, 150),      # Bottom-left (opposite to S)
+            'Q': (-1, 0, 210)       # Left (opposite to E)
         }
 
     def draw_arrow(self, x, y, angle):
@@ -194,18 +195,19 @@ def main():
             if event.type == pygame.QUIT:
                 running = False
             elif event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_q:  # Top-left
-                    player.move(-1, 0)
-                elif event.key == pygame.K_w:  # Top-right
-                    player.move(1, -1)
-                elif event.key == pygame.K_e:  # Right
-                    player.move(1, 0)
-                elif event.key == pygame.K_a:  # Left
-                    player.move(-1, 1)
-                elif event.key == pygame.K_s:  # Bottom-right
-                    player.move(0, 1)
-                elif event.key == pygame.K_d:  # Bottom-left
+                # Updated keyboard controls to match new direction sequence
+                if event.key == pygame.K_d:     # Top
                     player.move(0, -1)
+                elif event.key == pygame.K_s:    # Top-right
+                    player.move(1, -1)
+                elif event.key == pygame.K_e:    # Right
+                    player.move(1, 0)
+                elif event.key == pygame.K_w:    # Bottom
+                    player.move(0, 1)
+                elif event.key == pygame.K_a:    # Bottom-left
+                    player.move(-1, 1)
+                elif event.key == pygame.K_q:    # Left
+                    player.move(-1, 0)
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 movement = control_guide.check_click(event.pos)
                 if movement:
