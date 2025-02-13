@@ -23,12 +23,13 @@ class GameOfLife:
         self.spawn_count_selected = 10
         self.dropdown_options = [i for i in range(10, 101, 10)]
         # New buttons for menu:
-        self.add_button_rect = pygame.Rect(10, self.height * self.cell_size + 10, 100, 40)
-        self.dropdown_rect = pygame.Rect(120, self.height * self.cell_size + 10, 100, 40)
-        self.start_button_rect = pygame.Rect(230, self.height * self.cell_size + 10, 100, 40)
-        # Buttons for simulation state:
-        self.pause_button_rect = pygame.Rect(10, self.height * self.cell_size + 10, 100, 40)
-        self.newgame_button_rect = pygame.Rect(120, self.height * self.cell_size + 10, 100, 40)
+        bottom_y = self.height * self.cell_size + 10
+        # Fixed positions for UI controls (do not overlap)
+        self.add_button_rect = pygame.Rect(10, bottom_y, 100, 40)
+        self.dropdown_rect = pygame.Rect(120, bottom_y, 100, 40)
+        self.start_button_rect = pygame.Rect(230, bottom_y, 100, 40)
+        self.pause_button_rect = pygame.Rect(340, bottom_y, 100, 40)
+        self.newgame_button_rect = pygame.Rect(450, bottom_y, 100, 40)
 
     def toggle_cell(self, pos):
         x, y = pos
@@ -87,27 +88,27 @@ class GameOfLife:
                 pygame.draw.rect(self.screen, (200, 200, 200), rect, 1)
         # Draw UI area below grid based on state
         font = pygame.font.SysFont(None, 24)
-        # Always show "Add" and "Dropdown" buttons
+        # Always draw "Add" and "Dropdown" at fixed locations
         pygame.draw.rect(self.screen, (0, 200, 0), self.add_button_rect)
         add_text = font.render("Add", True, (255, 255, 255))
         self.screen.blit(add_text, (self.add_button_rect.x + 20, self.add_button_rect.y + 10))
         pygame.draw.rect(self.screen, (0, 0, 200), self.dropdown_rect)
         drop_text = font.render(f"{self.spawn_count_selected}", True, (255, 255, 255))
         self.screen.blit(drop_text, (self.dropdown_rect.x + 20, self.dropdown_rect.y + 10))
-        # UI elements based on state
         if self.state == "menu":
+            # Fixed "Start" button in menu
             pygame.draw.rect(self.screen, (200, 0, 0), self.start_button_rect)
             start_text = font.render("Start", True, (255, 255, 255))
             self.screen.blit(start_text, (self.start_button_rect.x + 10, self.start_button_rect.y + 10))
         else:
-            # Draw Pause and New Game buttons
+            # In simulation, fixed "Pause" and "New Game" buttons
             pygame.draw.rect(self.screen, (200, 200, 0), self.pause_button_rect)
             pause_text = font.render("Pause", True, (0, 0, 0))
             self.screen.blit(pause_text, (self.pause_button_rect.x + 10, self.pause_button_rect.y + 10))
             pygame.draw.rect(self.screen, (0, 0, 200), self.newgame_button_rect)
             new_text = font.render("New Game", True, (255, 255, 255))
             self.screen.blit(new_text, (self.newgame_button_rect.x + 5, self.newgame_button_rect.y + 10))
-            # Move generation info to the right
+            # Draw generation info (unchanged)
             live_cells = sum(sum(row) for row in self.grid)
             info = f"Live: {live_cells}  Generation: {self.generation}"
             info_text = font.render(info, True, (0, 0, 0))
@@ -128,29 +129,37 @@ class GameOfLife:
                 if event.type == pygame.QUIT:
                     running = False
 
-                if self.state == "menu":
-                    if event.type == pygame.MOUSEBUTTONDOWN:
-                        pos = pygame.mouse.get_pos()
-                        if self.add_button_rect.collidepoint(pos):
-                            # Add spawn_count_selected live cells at random positions
-                            for _ in range(self.spawn_count_selected):
-                                r = random.randint(0, self.height - 1)
-                                c = random.randint(0, self.width - 1)
-                                self.grid[r][c] = 1
-                        elif self.dropdown_rect.collidepoint(pos):
-                            current_index = self.dropdown_options.index(self.spawn_count_selected)
-                            self.spawn_count_selected = self.dropdown_options[(current_index + 1) % len(self.dropdown_options)]
-                        elif self.start_button_rect.collidepoint(pos):
-                            # Only start if at least one cell is marked (live)
+                if event.type == pygame.MOUSEBUTTONDOWN:
+                    pos = pygame.mouse.get_pos()
+                    # Always process "Add" and "Dropdown" button clicks first
+                    if self.add_button_rect.collidepoint(pos):
+                        for _ in range(self.spawn_count_selected):
+                            r = random.randint(0, self.height - 1)
+                            c = random.randint(0, self.width - 1)
+                            self.grid[r][c] = 1
+                    elif self.dropdown_rect.collidepoint(pos):
+                        current_index = self.dropdown_options.index(self.spawn_count_selected)
+                        self.spawn_count_selected = self.dropdown_options[(current_index + 1) % len(self.dropdown_options)]
+                    # Process state-specific buttons
+                    if self.state == "menu":
+                        if self.start_button_rect.collidepoint(pos):
                             if sum(sum(row) for row in self.grid) > 0:
                                 self.state = "simulation"
                                 self.paused = False
                             else:
                                 print("No boxes marked. Please add live cells before starting.")
-                    elif event.type == pygame.MOUSEBUTTONDOWN:
-                        # Allow manual toggling via mouse for grid cells
-                        self.toggle_cell(pygame.mouse.get_pos())
-                else:  # simulation state
+                        else:
+                            # Allow toggling cells outside UI area
+                            self.toggle_cell(pos)
+                    else:
+                        if self.pause_button_rect.collidepoint(pos):
+                            self.paused = not self.paused
+                        elif self.newgame_button_rect.collidepoint(pos):
+                            self.reset()
+                        else:
+                            self.toggle_cell(pos)
+
+                if self.state == "simulation":
                     if event.type == pygame.KEYDOWN:
                         if event.key == pygame.K_SPACE:
                             self.paused = not self.paused
@@ -158,17 +167,6 @@ class GameOfLife:
                             self.reset()
                         elif event.key == pygame.K_q:
                             running = False
-                    elif event.type == pygame.MOUSEBUTTONDOWN:
-                        pos = pygame.mouse.get_pos()
-                        # Check for Pause button click
-                        if self.pause_button_rect.collidepoint(pos):
-                            self.paused = not self.paused
-                        # Check for New Game button click
-                        elif self.newgame_button_rect.collidepoint(pos):
-                            self.reset()
-                        else:
-                            # Allow toggling in simulation if desired
-                            self.toggle_cell(pos)
 
             if self.state == "simulation" and not self.paused:
                 self.update()
