@@ -87,19 +87,31 @@ class GameOfLife:
                 pygame.draw.rect(self.screen, (200, 200, 200), rect, 1)
         # Draw UI area below grid based on state
         font = pygame.font.SysFont(None, 24)
+        # Always show "Add" and "Dropdown" buttons
+        pygame.draw.rect(self.screen, (0, 200, 0), self.add_button_rect)
+        add_text = font.render("Add", True, (255, 255, 255))
+        self.screen.blit(add_text, (self.add_button_rect.x + 20, self.add_button_rect.y + 10))
+        pygame.draw.rect(self.screen, (0, 0, 200), self.dropdown_rect)
+        drop_text = font.render(f"{self.spawn_count_selected}", True, (255, 255, 255))
+        self.screen.blit(drop_text, (self.dropdown_rect.x + 20, self.dropdown_rect.y + 10))
+        # UI elements based on state
         if self.state == "menu":
-            self.draw_menu()
+            pygame.draw.rect(self.screen, (200, 0, 0), self.start_button_rect)
+            start_text = font.render("Start", True, (255, 255, 255))
+            self.screen.blit(start_text, (self.start_button_rect.x + 10, self.start_button_rect.y + 10))
         else:
-            # Simulation UI: show generation info, pause and new game buttons
-            live_cells = sum(sum(row) for row in self.grid)
-            info_text = font.render(f"Live: {live_cells}  Generation: {self.generation}", True, (0, 0, 0))
-            self.screen.blit(info_text, (10, self.height * self.cell_size + 10))
+            # Draw Pause and New Game buttons
             pygame.draw.rect(self.screen, (200, 200, 0), self.pause_button_rect)
             pause_text = font.render("Pause", True, (0, 0, 0))
             self.screen.blit(pause_text, (self.pause_button_rect.x + 10, self.pause_button_rect.y + 10))
             pygame.draw.rect(self.screen, (0, 0, 200), self.newgame_button_rect)
             new_text = font.render("New Game", True, (255, 255, 255))
             self.screen.blit(new_text, (self.newgame_button_rect.x + 5, self.newgame_button_rect.y + 10))
+            # Move generation info to the right
+            live_cells = sum(sum(row) for row in self.grid)
+            info = f"Live: {live_cells}  Generation: {self.generation}"
+            info_text = font.render(info, True, (0, 0, 0))
+            self.screen.blit(info_text, (self.screen.get_width() - info_text.get_width() - 10, self.height * self.cell_size + 10))
         pygame.display.flip()
 
     def reset(self):
