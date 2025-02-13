@@ -30,6 +30,8 @@ class GameOfLife:
         self.start_button_rect = pygame.Rect(230, bottom_y, 100, 40)
         self.pause_button_rect = pygame.Rect(340, bottom_y, 100, 40)
         self.newgame_button_rect = pygame.Rect(450, bottom_y, 100, 40)
+        self.prev_live_counts = []
+        self.prev_grids = []
 
     def toggle_cell(self, pos):
         x, y = pos
@@ -171,6 +173,25 @@ class GameOfLife:
             if self.state == "simulation" and not self.paused:
                 self.update()
                 self.generation += 1
+                # Record current live count and grid state (deepcopy)
+                current_live = sum(sum(row) for row in self.grid)
+                self.prev_live_counts.append(current_live)
+                self.prev_grids.append(copy.deepcopy(self.grid))
+                # Keep history limited (we only need last 5 or so)
+                if len(self.prev_live_counts) > 5:
+                    self.prev_live_counts.pop(0)
+                if len(self.prev_grids) > 3:
+                    self.prev_grids.pop(0)
+                # Check condition: last five live counts equal
+                if len(self.prev_live_counts) == 5 and len(set(self.prev_live_counts)) == 1:
+                    print("Static live count detected over 5 generations. Pausing game.")
+                    self.paused = True
+                # Check condition: same grid as two generations ago
+                if len(self.prev_grids) == 3:
+                    if self.prev_grids[0] == self.prev_grids[2]:
+                        print("Static grid detected compared to two generations ago. Pausing game.")
+                        self.paused = True
+
             self.draw()
         pygame.quit()
         sys.exit()
