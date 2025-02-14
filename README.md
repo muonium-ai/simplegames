@@ -1,5 +1,3 @@
-
-
 # SimpleGames 🎮
 
 Welcome to **SimpleGames**! This is an open-source project featuring classic games built with Python. The project includes both interactive and AI-enhanced features, making it ideal for anyone interested in game development, AI, and the power of Python.
@@ -17,21 +15,26 @@ Welcome to **SimpleGames**! This is an open-source project featuring classic gam
 ## 🌟 Features
 
 ### Current Games
-1. **Minesweeper with Solver** 🧩
-   - The classic logic game where players uncover tiles and avoid hidden mines. Simple, fun, and challenging!
-
-2. **2048 with AI Solver** 🔢
-   - Enjoy the addictive 2048 game, where numbers merge to reach the 2048 tile!
-   - **AI Solver**: A unique addition to this project, the AI solver is implemented using Flask and runs through HTTP requests. You can watch an AI tackle the game, exploring how an algorithm strategizes for optimal moves.
-
-3. **Sudoku with Solver** 🔢
-   - The Sudoku Game with Solver in SimpleGames offers the classic puzzle experience where players fill a 9x9 grid following Sudoku rules. Additionally, it includes an AI-based solver that can help players find solutions. 
-
-4. **Chess Replay Viewer** ♔♕
-
-   - This project is a **Chess Replay Viewer** built with Python, Pygame, and `python-chess`. It reads a PGN (Portable Game Notation) file containing one or multiple chess games and visually replays each game move-by-move.
-
-
+- **2048 with AI Solver** 🔢  
+  Enjoy the addictive 2048 game where numbers merge to reach 2048 alongside an AI solver.
+- **Bricks** 🧱  
+  Challenge your reflexes in this classic brick-breaking arcade game.
+- **FlappyBird** 🐦  
+  Navigate through pipes in this fast-paced FlappyBird clone.
+- **Game of Life** 🧬  
+  Witness Conway’s cellular automaton evolve with interactive simulation.
+- **Mazes** 🌀  
+  Tackle intricate maze puzzles in both grid and hexagonal formats.
+- **Minesweeper with Solver** 🧩  
+  Uncover hidden mines with strategic logic enhanced by a built-in solver.
+- **Pong** 🏓  
+  Experience the timeless gameplay of the classic Pong game.
+- **Sudoku with Solver** 🔢  
+  Solve challenging Sudoku puzzles aided by an intelligent solver.
+- **Tetris** 🎮  
+  Enjoy the classic Tetris challenge with dynamic falling pieces.
+- **Chess Replay Viewer** ♔♕  
+  Relive chess games move-by-move by loading and replaying PGN files.
 
 ### Usage
 1. Place your PGN file in the `pgns` folder (or provide the path to any other location).
@@ -39,7 +42,6 @@ Welcome to **SimpleGames**! This is an open-source project featuring classic gam
    ```bash
    python chess_player.py path/to/your_game.pgn
    ```
-
 
 ## 🛠️ Tech Stack
 
