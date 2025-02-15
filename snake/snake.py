@@ -2,6 +2,7 @@ from os import environ
 environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'  # Hide pygame support prompt
 
 import pygame, sys, random, time
+from collections import deque  # Add this import
 
 # Constants
 SCREEN_WIDTH, SCREEN_HEIGHT = 800, 600
@@ -51,28 +52,67 @@ def start_screen():
 def game_loop(mode):
     # Initialize snake and food
     snake = [(SCREEN_WIDTH//2, SCREEN_HEIGHT//2)]
-    direction = (BLOCK_SIZE, 0)  # start moving right
+    direction = (BLOCK_SIZE, 0)
     food = (random.randrange(BLOCK_SIZE, SCREEN_WIDTH - BLOCK_SIZE, BLOCK_SIZE),
             random.randrange(BLOCK_SIZE, SCREEN_HEIGHT - BLOCK_SIZE, BLOCK_SIZE))
     start_time = time.time()
+    current_fps = FPS
     
-    # Set initial snake speed
-    current_fps = FPS  # default is 5 FPS
+    # Initialize position history (but don't use it for collision detection)
+    position_history = deque(maxlen=100)
+    position_history.append(snake[0])
     
     def ai_direction(head, food, current_direction):
-        import math  # For distance calculations
+        import math
         possible_moves = [(BLOCK_SIZE, 0), (-BLOCK_SIZE, 0), (0, BLOCK_SIZE), (0, -BLOCK_SIZE)]
-        # Avoid reversing direction if snake length > 1
         if len(snake) > 1:
             possible_moves = [mv for mv in possible_moves if mv != (-current_direction[0], -current_direction[1])]
-        safe_moves = []
-        for mv in possible_moves:
-            new_head = (head[0] + mv[0], head[1] + mv[1])
-            if 0 <= new_head[0] < SCREEN_WIDTH and 0 <= new_head[1] < SCREEN_HEIGHT:
-                safe_moves.append(mv)
+
+        def is_safe_move(move, look_ahead=1):
+            next_pos = (head[0] + move[0], head[1] + move[1])
+            
+            # Check wall collisions
+            if not (0 <= next_pos[0] < SCREEN_WIDTH and 0 <= next_pos[1] < SCREEN_HEIGHT):
+                return False
+            
+            # Check only against actual snake body (excluding tail if moving)
+            future_snake = snake[:-1] if len(snake) > 1 else []
+            if next_pos in future_snake:
+                return False
+            
+            if look_ahead > 1:
+                future_moves = [(BLOCK_SIZE, 0), (-BLOCK_SIZE, 0), (0, BLOCK_SIZE), (0, -BLOCK_SIZE)]
+                future_moves = [mv for mv in future_moves if mv != (-move[0], -move[1])]
+                
+                has_safe_future = False
+                for future_move in future_moves:
+                    future_pos = (next_pos[0] + future_move[0], next_pos[1] + future_move[1])
+                    if (0 <= future_pos[0] < SCREEN_WIDTH and 
+                        0 <= future_pos[1] < SCREEN_HEIGHT and 
+                        future_pos not in future_snake):
+                        has_safe_future = True
+                        break
+                if not has_safe_future:
+                    return False
+            
+            return True
+
+        # Filter safe moves
+        safe_moves = [mv for mv in possible_moves if is_safe_move(mv, look_ahead=2)]
+        
         if safe_moves:
-            best_move = min(safe_moves, key=lambda mv: math.hypot(food[0] - (head[0] + mv[0]), food[1] - (head[1] + mv[1])))
+            # Among safe moves, prefer those that get us closer to food
+            best_move = min(safe_moves, 
+                          key=lambda mv: math.hypot(food[0] - (head[0] + mv[0]), 
+                                                  food[1] - (head[1] + mv[1])))
             return best_move
+        
+        # If no safe moves leading to food, try any safe move
+        safe_moves = [mv for mv in possible_moves if is_safe_move(mv, look_ahead=1)]
+        if safe_moves:
+            return random.choice(safe_moves)
+        
+        # If still no safe moves, continue in current direction (will likely end game)
         return current_direction
 
     while True:
@@ -104,19 +144,21 @@ def game_loop(mode):
             direction = ai_direction(head, food, direction)
 
         new_head = (snake[0][0] + direction[0], snake[0][1] + direction[1])
-        # Update collision check: exclude the tail that may be removed on this move.
+        position_history.append(new_head)
+        
+        # Simplified collision detection using actual snake body
         if (new_head[0] < 0 or new_head[0] >= SCREEN_WIDTH or
-            new_head[1] < 0 or new_head[1] >= SCREEN_HEIGHT or new_head in snake[1:]):
+            new_head[1] < 0 or new_head[1] >= SCREEN_HEIGHT or
+            (len(snake) > 2 and new_head in snake[1:])):  # Only check body collision if snake length > 2
             break
         
         snake.insert(0, new_head)
         
         if new_head == food:
-            # Spawn new food ensuring it does not overlap the snake's body.
             while True:
                 candidate = (random.randrange(BLOCK_SIZE, SCREEN_WIDTH - BLOCK_SIZE, BLOCK_SIZE),
                              random.randrange(BLOCK_SIZE, SCREEN_HEIGHT - BLOCK_SIZE, BLOCK_SIZE))
-                if candidate not in snake:
+                if candidate not in snake:  # Only check against actual snake body
                     food = candidate
                     break
         else:
