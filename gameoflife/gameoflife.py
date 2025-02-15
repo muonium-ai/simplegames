@@ -32,6 +32,36 @@ class GameOfLife:
         self.newgame_button_rect = pygame.Rect(450, bottom_y, 100, 40)
         self.prev_live_counts = []
         self.prev_grids = []
+        
+        # Add pattern buttons (after other button definitions)
+        button_y = self.height * self.cell_size + 10
+        self.pattern_buttons = {
+            'Blinker': pygame.Rect(560, button_y, 80, 40),
+            'Block': pygame.Rect(650, button_y, 80, 40),
+            'Glider': pygame.Rect(740, button_y, 80, 40),
+            'Gosper': pygame.Rect(830, button_y, 80, 40)
+        }
+        
+        # Increase window width to accommodate pattern buttons
+        self.screen = pygame.display.set_mode((920, self.height * self.cell_size + 60))
+
+    # Common Game of Life Patterns
+    PATTERNS = {
+        'Blinker': [(0, 1), (1, 1), (2, 1)],
+        'Block': [(0, 0), (0, 1), (1, 0), (1, 1)],
+        'Glider': [(0, 1), (1, 2), (2, 0), (2, 1), (2, 2)],
+        'Gosper': [
+            (0, 2), (0, 3), (1, 2), (1, 3),  # Left block
+            (10, 2), (10, 3), (10, 4),  # Right block
+            (11, 1), (11, 5),
+            (12, 0), (12, 6),
+            (13, 0), (13, 6),
+            (14, 3),
+            (15, 1), (15, 5),
+            (16, 2), (16, 3), (16, 4),
+            (17, 3)
+        ]
+    }
 
     def toggle_cell(self, pos):
         x, y = pos
@@ -115,6 +145,14 @@ class GameOfLife:
             info = f"Live: {live_cells}  Generation: {self.generation}"
             info_text = font.render(info, True, (0, 0, 0))
             self.screen.blit(info_text, (self.screen.get_width() - info_text.get_width() - 10, self.height * self.cell_size + 10))
+        
+        # Draw pattern buttons
+        font = pygame.font.SysFont(None, 20)
+        for name, rect in self.pattern_buttons.items():
+            pygame.draw.rect(self.screen, (100, 100, 200), rect)
+            text = font.render(name, True, (255, 255, 255))
+            self.screen.blit(text, (rect.x + 5, rect.y + 10))
+        
         pygame.display.flip()
 
     def reset(self):
@@ -122,6 +160,19 @@ class GameOfLife:
         self.generation = 0
         self.paused = True
         self.state = "menu"
+
+    def place_pattern(self, pattern_name, start_row, start_col):
+        if pattern_name in self.PATTERNS:
+            # Clear a space for the pattern
+            for i in range(max(0, start_row-1), min(self.height, start_row+10)):
+                for j in range(max(0, start_col-1), min(self.width, start_col+10)):
+                    self.grid[i][j] = 0
+            # Place the pattern
+            for row_offset, col_offset in self.PATTERNS[pattern_name]:
+                new_row = start_row + row_offset
+                new_col = start_col + col_offset
+                if 0 <= new_row < self.height and 0 <= new_col < self.width:
+                    self.grid[new_row][new_col] = 1
 
     def run(self):
         running = True
@@ -160,6 +211,15 @@ class GameOfLife:
                             self.reset()
                         else:
                             self.toggle_cell(pos)
+                    
+                    # Add pattern button handling
+                    for pattern_name, rect in self.pattern_buttons.items():
+                        if rect.collidepoint(pos):
+                            # Place pattern near the center of the grid
+                            center_row = self.height // 2 - 2
+                            center_col = self.width // 2 - 2
+                            self.place_pattern(pattern_name, center_row, center_col)
+                            break
 
                 if self.state == "simulation":
                     if event.type == pygame.KEYDOWN:
