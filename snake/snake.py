@@ -104,8 +104,9 @@ def game_loop(mode):
             direction = ai_direction(head, food, direction)
 
         new_head = (snake[0][0] + direction[0], snake[0][1] + direction[1])
+        # Update collision check: exclude the tail that may be removed on this move.
         if (new_head[0] < 0 or new_head[0] >= SCREEN_WIDTH or
-            new_head[1] < 0 or new_head[1] >= SCREEN_HEIGHT or new_head in snake):
+            new_head[1] < 0 or new_head[1] >= SCREEN_HEIGHT or new_head in snake[1:]):
             break
         
         snake.insert(0, new_head)
