@@ -112,8 +112,13 @@ def game_loop(mode):
         snake.insert(0, new_head)
         
         if new_head == food:
-            food = (random.randrange(BLOCK_SIZE, SCREEN_WIDTH - BLOCK_SIZE, BLOCK_SIZE),
-                    random.randrange(BLOCK_SIZE, SCREEN_HEIGHT - BLOCK_SIZE, BLOCK_SIZE))
+            # Spawn new food ensuring it does not overlap the snake's body.
+            while True:
+                candidate = (random.randrange(BLOCK_SIZE, SCREEN_WIDTH - BLOCK_SIZE, BLOCK_SIZE),
+                             random.randrange(BLOCK_SIZE, SCREEN_HEIGHT - BLOCK_SIZE, BLOCK_SIZE))
+                if candidate not in snake:
+                    food = candidate
+                    break
         else:
             snake.pop()
         
