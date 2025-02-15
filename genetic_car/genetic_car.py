@@ -66,12 +66,14 @@ class Car:
         # Variant properties
         self.name = name if name is not None else random.choice(VARIANT_NAMES)
         self.color = color if color is not None else random.choice(VARIANT_COLORS)
-        self.wheel_size = wheel_size if wheel_size is not None else random.randint(3, 6)
+        # Use bigger wheels by default.
+        self.wheel_size = wheel_size if wheel_size is not None else random.randint(8, 12)
         # wheel_offsets: list of tuples relative to car center (can be more than one wheel)
         self.wheel_offsets = wheel_offsets if wheel_offsets is not None else [(-15, -10), (-15, 10)]
         self.vy = 0  # vertical speed
         self.alive = True
         self.fitness = 0
+        self.wheel_rotation = 0  # New attribute for tracking rotation
 
     def update(self):
         if not self.alive:
@@ -82,8 +84,13 @@ class Car:
         correction = -self.gene * sensor
         self.angle += correction * 0.05
         
-        # Horizontal movement (constant forward speed)
-        self.x += SPEED * math.cos(self.angle)
+        # Horizontal movement only happens fully if wheels touch ground.
+        if abs(self.y - baseline) < 5:
+            self.x += SPEED * math.cos(self.angle)
+            self.wheel_rotation += SPEED / self.wheel_size
+        else:
+            self.x += 0.2 * SPEED * math.cos(self.angle)
+        
         # Vertical physics: add jump physics and gravity
         self.y += SPEED * math.sin(self.angle) + self.vy
         self.vy += GRAVITY
@@ -105,20 +112,34 @@ class Car:
 
     def draw(self, screen, cam_offset):
         x_draw = int(self.x - cam_offset)
-        # Rotate chassis triangle based on car's angle
-        chassis = [(20, 0), (-15, -10), (-15, 10)]
-        rotated_chassis = []
-        for px, py in chassis:
+        # Draw two chassis triangles
+        # Front triangle (larger)
+        front_chassis = [(20, 0), (0, -15), (0, 15)]
+        front_points = []
+        for px, py in front_chassis:
             rx, ry = rotate_point(px, py, self.angle)
-            rotated_chassis.append((x_draw + int(rx), int(self.y + ry)))
+            front_points.append((x_draw + int(rx), int(self.y + ry)))
+        # Rear triangle (smaller)
+        rear_chassis = [(0, 0), (-15, -10), (-15, 10)]
+        rear_points = []
+        for px, py in rear_chassis:
+            rx, ry = rotate_point(px, py, self.angle)
+            rear_points.append((x_draw + int(rx), int(self.y + ry)))
         col = (150,150,150) if not self.alive else self.color
-        pygame.draw.polygon(screen, col, rotated_chassis)
-        # Draw wheels per variant
+        pygame.draw.polygon(screen, col, front_points)
+        pygame.draw.polygon(screen, col, rear_points)
+        
+        # Draw wheels with rotation indicator
         for off in self.wheel_offsets:
             rx, ry = rotate_point(off[0], off[1], self.angle)
             wx = x_draw + int(rx)
             wy = int(self.y + ry)
             pygame.draw.circle(screen, (0, 0, 0), (wx, wy), self.wheel_size)
+            # Draw a line inside the wheel to show rotation.
+            line_length = int(self.wheel_size * 0.8)
+            end_x = wx + int(line_length * math.cos(self.wheel_rotation))
+            end_y = wy + int(line_length * math.sin(self.wheel_rotation))
+            pygame.draw.line(screen, (255, 255, 255), (wx, wy), (end_x, end_y), 2)
 
 # Genetic algorithm class with variant mutation
 class GeneticAlgorithm:
