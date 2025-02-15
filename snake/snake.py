@@ -56,6 +56,9 @@ def game_loop(mode):
             random.randrange(BLOCK_SIZE, SCREEN_HEIGHT - BLOCK_SIZE, BLOCK_SIZE))
     start_time = time.time()
     
+    # Set initial snake speed
+    current_fps = FPS  # default is 5 FPS
+    
     def ai_direction(head, food, current_direction):
         import math  # For distance calculations
         possible_moves = [(BLOCK_SIZE, 0), (-BLOCK_SIZE, 0), (0, BLOCK_SIZE), (0, -BLOCK_SIZE)]
@@ -76,6 +79,7 @@ def game_loop(mode):
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit(); sys.exit()
+            # Handle keyboard for manual mode
             if mode == "manual" and event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_UP and direction != (0, BLOCK_SIZE):
                     direction = (0, -BLOCK_SIZE)
@@ -85,22 +89,27 @@ def game_loop(mode):
                     direction = (-BLOCK_SIZE, 0)
                 elif event.key == pygame.K_RIGHT and direction != (-BLOCK_SIZE, 0):
                     direction = (BLOCK_SIZE, 0)
+            # Handle arrow button clicks for snake speed adjustment
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                mx, my = event.pos
+                left_arrow = pygame.Rect(SCREEN_WIDTH//2 - 120, 10, 30, 30)
+                right_arrow = pygame.Rect(SCREEN_WIDTH//2 + 70, 10, 30, 30)
+                if left_arrow.collidepoint(mx, my):
+                    current_fps = max(1, current_fps - 1)
+                elif right_arrow.collidepoint(mx, my):
+                    current_fps = min(20, current_fps + 1)
         
         if mode == "autosnake":
-            # Automatic control: simple AI moves snake toward the food.
             head = snake[0]
             direction = ai_direction(head, food, direction)
 
-        # Move snake
         new_head = (snake[0][0] + direction[0], snake[0][1] + direction[1])
-        # Collision with boundaries
         if (new_head[0] < 0 or new_head[0] >= SCREEN_WIDTH or
             new_head[1] < 0 or new_head[1] >= SCREEN_HEIGHT or new_head in snake):
-            break  # Game over
+            break
         
         snake.insert(0, new_head)
         
-        # Check for food collision
         if new_head == food:
             food = (random.randrange(BLOCK_SIZE, SCREEN_WIDTH - BLOCK_SIZE, BLOCK_SIZE),
                     random.randrange(BLOCK_SIZE, SCREEN_HEIGHT - BLOCK_SIZE, BLOCK_SIZE))
@@ -108,21 +117,27 @@ def game_loop(mode):
             snake.pop()
         
         screen.fill(BLACK)
-        # Draw food
         pygame.draw.rect(screen, RED, pygame.Rect(food[0], food[1], BLOCK_SIZE, BLOCK_SIZE))
-        # Draw snake: head with HEAD_COLOR and body with GREEN
         for i, block in enumerate(snake):
             color = HEAD_COLOR if i == 0 else GREEN
             pygame.draw.rect(screen, color, pygame.Rect(block[0], block[1], BLOCK_SIZE, BLOCK_SIZE))
         
-        # Display scores: elapsed time, snake length, and speed level.
         elapsed = int(time.time() - start_time)
         draw_text(f"Time: {elapsed} sec", WHITE, (80, 20))
         draw_text(f"Length: {len(snake)}", WHITE, (SCREEN_WIDTH - 80, 20))
-        draw_text("Speed: Slow", WHITE, (SCREEN_WIDTH//2, 20))
+        # Draw speed text
+        draw_text(f"Speed: {current_fps} FPS", WHITE, (SCREEN_WIDTH//2, 20))
+        # Draw left arrow button
+        left_btn = pygame.Rect(SCREEN_WIDTH//2 - 120, 10, 30, 30)
+        pygame.draw.rect(screen, BLUE, left_btn)
+        draw_text("<", BLACK, left_btn.center)
+        # Draw right arrow button
+        right_btn = pygame.Rect(SCREEN_WIDTH//2 + 70, 10, 30, 30)
+        pygame.draw.rect(screen, BLUE, right_btn)
+        draw_text(">", BLACK, right_btn.center)
         
         pygame.display.flip()
-        clock.tick(FPS)
+        clock.tick(current_fps)
     
     # Game Over screen
     screen.fill(BLACK)
