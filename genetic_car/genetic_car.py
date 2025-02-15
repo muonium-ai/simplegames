@@ -78,36 +78,57 @@ class Car:
     def update(self):
         if not self.alive:
             return
-        # Sensor relative to track baseline
         baseline = get_track_y(self.x)
         sensor = (self.y - baseline) / (HEIGHT / 2)
         correction = -self.gene * sensor
         self.angle += correction * 0.05
-        
-        # Horizontal movement only happens fully if wheels touch ground.
-        if abs(self.y - baseline) < 5:
+
+        # Define ground contact threshold
+        ground_threshold = 5
+
+        # Check wheel contact: all wheels must be near ground level at their x.
+        wheels_touching = True
+        for off in self.wheel_offsets:
+            rx, ry = rotate_point(off[0], off[1], self.angle)
+            wx = self.x + rx
+            wy = self.y + ry
+            if abs(wy - get_track_y(wx)) > ground_threshold:
+                wheels_touching = False
+                break
+
+        # Define chassis shapes (same as used in drawing).
+        front_chassis = [(20, 0), (0, -15), (0, 15)]
+        rear_chassis  = [(0, 0), (-15, -10), (-15, 10)]
+        chassis_clear = True
+        for point in front_chassis + rear_chassis:
+            rx, ry = rotate_point(point[0], point[1], self.angle)
+            vx = self.x + rx
+            vy = self.y + ry
+            if abs(vy - get_track_y(vx)) < ground_threshold:
+                chassis_clear = False
+                break
+
+        # Horizontal movement: full speed only if both wheels are contacting and chassis is clear.
+        if wheels_touching and chassis_clear:
             self.x += SPEED * math.cos(self.angle)
             self.wheel_rotation += SPEED / self.wheel_size
         else:
             self.x += 0.2 * SPEED * math.cos(self.angle)
         
-        # Vertical physics: add jump physics and gravity
+        # Vertical physics: wheels and chassis still follow gravity/jump
         self.y += SPEED * math.sin(self.angle) + self.vy
         self.vy += GRAVITY
 
-        # Check if car is near the ground (track)
-        if abs(self.y - baseline) < 5 and self.vy >= 0:
+        # Reset vertical speed when near ground
+        if abs(self.y - baseline) < ground_threshold and self.vy >= 0:
             self.y = baseline
             self.vy = 0
-            # Allow jump with small probability
             if random.random() < JUMP_PROB:
                 self.vy = JUMP_STRENGTH
 
-        # If car falls too far from track, it crashes
         deviation = abs(self.y - baseline)
         if deviation > TRACK_TOLERANCE:
             self.alive = False
-        # Fitness: horizontal progress with a penalty for deviation
         self.fitness = self.x - 0.2 * deviation
 
     def draw(self, screen, cam_offset):
