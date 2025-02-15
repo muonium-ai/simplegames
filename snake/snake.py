@@ -189,14 +189,23 @@ def game_loop(mode):
     
     # Game Over screen
     screen.fill(BLACK)
+    final_score = f"Score: {int(time.time()- start_time)} sec, {len(snake)}"
     draw_text("Game Over", RED, (SCREEN_WIDTH//2, SCREEN_HEIGHT//2 - 20))
-    draw_text(f"Score: {int(time.time()- start_time)} sec, {len(snake)}", WHITE, (SCREEN_WIDTH//2, SCREEN_HEIGHT//2 + 20))
+    draw_text(final_score, WHITE, (SCREEN_WIDTH//2, SCREEN_HEIGHT//2 + 20))
     pygame.display.flip()
     pygame.time.wait(2000)
+    return final_score  # Return the score
 
 def main():
-    mode = start_screen()
-    game_loop(mode)
+    while True:
+        try:
+            mode = start_screen()
+            score = game_loop(mode)
+        except SystemExit:
+            break
+        except:
+            break
+    
     pygame.quit()
     sys.exit()
 
