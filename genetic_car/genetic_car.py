@@ -58,22 +58,21 @@ def rotate_point(px, py, angle):
 
 # Car class with extra variant properties and physics
 class Car:
-    def __init__(self, gene=None, name=None, color=None, wheel_size=None, wheel_offsets=None):
+    def __init__(self, gene=None, name=None, color=None, left_wheel_size=None, right_wheel_size=None):
         self.x = 50
         self.y = get_track_y(50)
-        self.angle = 0  # 0 radians: rightward
+        # Set a random initial rotation
+        self.angle = random.uniform(0, 2 * math.pi)
         self.gene = gene if gene is not None else random.uniform(0.5, 1.5)
-        # Variant properties
         self.name = name if name is not None else random.choice(VARIANT_NAMES)
         self.color = color if color is not None else random.choice(VARIANT_COLORS)
-        # Use bigger wheels by default.
-        self.wheel_size = wheel_size if wheel_size is not None else random.randint(8, 12)
-        # wheel_offsets: list of tuples relative to car center (can be more than one wheel)
-        self.wheel_offsets = wheel_offsets if wheel_offsets is not None else [(-15, -10), (-15, 10)]
-        self.vy = 0  # vertical speed
+        # Use different wheel sizes on both ends by default.
+        self.left_wheel_size = left_wheel_size if left_wheel_size is not None else random.randint(8, 12)
+        self.right_wheel_size = right_wheel_size if right_wheel_size is not None else random.randint(8, 12)
+        self.vy = 0
         self.alive = True
         self.fitness = 0
-        self.wheel_rotation = 0  # New attribute for tracking rotation
+        self.wheel_rotation = 0  # For rotation visualization
 
     def update(self):
         if not self.alive:
@@ -83,84 +82,92 @@ class Car:
         correction = -self.gene * sensor
         self.angle += correction * 0.05
 
-        # Define ground contact threshold
         ground_threshold = 5
+        # Fixed local offsets for wheels relative to car center:
+        # Left wheel at rear, right wheel at front.
+        left_offset = (-20, 8)
+        right_offset = (20, 8)
+        r_left = rotate_point(*left_offset, self.angle)
+        rx_left, ry_left = self.x + r_left[0], self.y + r_left[1]
+        r_right = rotate_point(*right_offset, self.angle)
+        rx_right, ry_right = self.x + r_right[0], self.y + r_right[1]
+        # Check contact for both wheels.
+        left_touch = abs(ry_left - get_track_y(rx_left)) < ground_threshold
+        right_touch = abs(ry_right - get_track_y(rx_right)) < ground_threshold
 
-        # Check wheel contact: all wheels must be near ground level at their x.
-        wheels_touching = True
-        for off in self.wheel_offsets:
-            rx, ry = rotate_point(off[0], off[1], self.angle)
-            wx = self.x + rx
-            wy = self.y + ry
-            if abs(wy - get_track_y(wx)) > ground_threshold:
-                wheels_touching = False
-                break
-
-        # Define chassis shapes (same as used in drawing).
-        front_chassis = [(20, 0), (0, -15), (0, 15)]
-        rear_chassis  = [(0, 0), (-15, -10), (-15, 10)]
-        chassis_clear = True
-        for point in front_chassis + rear_chassis:
-            rx, ry = rotate_point(point[0], point[1], self.angle)
-            vx = self.x + rx
-            vy = self.y + ry
-            if abs(vy - get_track_y(vx)) < ground_threshold:
-                chassis_clear = False
-                break
-
-        # Horizontal movement: full speed only if both wheels are contacting and chassis is clear.
-        if wheels_touching and chassis_clear:
+        if left_touch and right_touch:
             self.x += SPEED * math.cos(self.angle)
-            self.wheel_rotation += SPEED / self.wheel_size
+            self.wheel_rotation += SPEED / min(self.left_wheel_size, self.right_wheel_size)
         else:
             self.x += 0.2 * SPEED * math.cos(self.angle)
         
-        # Vertical physics: wheels and chassis still follow gravity/jump
         self.y += SPEED * math.sin(self.angle) + self.vy
         self.vy += GRAVITY
 
-        # Reset vertical speed when near ground
         if abs(self.y - baseline) < ground_threshold and self.vy >= 0:
             self.y = baseline
             self.vy = 0
             if random.random() < JUMP_PROB:
                 self.vy = JUMP_STRENGTH
 
+        # Enforce that no part of the car (chassis or wheels) goes below the track.
+        max_corr = 0
+        # Define chassis corners and wheel centers (using same offsets as in draw)
+        parts = [
+            (20, 5), (20, -5), (-20, -5), (-20, 5),  # chassis corners
+            (-20, 8),  # left wheel center
+            (20, 8)    # right wheel center
+        ]
+        for offset in parts:
+            rx, ry = rotate_point(offset[0], offset[1], self.angle)
+            part_x, part_y = self.x + rx, self.y + ry
+            ground_y = get_track_y(part_x)
+            diff = part_y - ground_y
+            if diff > max_corr:
+                max_corr = diff
+        if max_corr > 0:
+            self.y -= max_corr
+            self.vy = 0
+
+        baseline = get_track_y(self.x)
         deviation = abs(self.y - baseline)
-        if deviation > TRACK_TOLERANCE:
-            self.alive = False
         self.fitness = self.x - 0.2 * deviation
 
     def draw(self, screen, cam_offset):
         x_draw = int(self.x - cam_offset)
-        # Draw two chassis triangles
-        # Front triangle (larger)
-        front_chassis = [(20, 0), (0, -15), (0, 15)]
-        front_points = []
-        for px, py in front_chassis:
-            rx, ry = rotate_point(px, py, self.angle)
-            front_points.append((x_draw + int(rx), int(self.y + ry)))
-        # Rear triangle (smaller)
-        rear_chassis = [(0, 0), (-15, -10), (-15, 10)]
-        rear_points = []
-        for px, py in rear_chassis:
-            rx, ry = rotate_point(px, py, self.angle)
-            rear_points.append((x_draw + int(rx), int(self.y + ry)))
+        # Chassis: a thin rectangle (length=40, height=10)
+        half_length, half_height = 20, 5
+        local_corners = [(half_length, half_height), (half_length, -half_height),
+                         (-half_length, -half_height), (-half_length, half_height)]
+        chassis_points = []
+        for cx, cy in local_corners:
+            rx, ry = rotate_point(cx, cy, self.angle)
+            chassis_points.append((x_draw + int(rx), int(self.y + ry)))
         col = (150,150,150) if not self.alive else self.color
-        pygame.draw.polygon(screen, col, front_points)
-        pygame.draw.polygon(screen, col, rear_points)
-        
-        # Draw wheels with rotation indicator
-        for off in self.wheel_offsets:
-            rx, ry = rotate_point(off[0], off[1], self.angle)
-            wx = x_draw + int(rx)
-            wy = int(self.y + ry)
-            pygame.draw.circle(screen, (0, 0, 0), (wx, wy), self.wheel_size)
-            # Draw a line inside the wheel to show rotation.
-            line_length = int(self.wheel_size * 0.8)
-            end_x = wx + int(line_length * math.cos(self.wheel_rotation))
-            end_y = wy + int(line_length * math.sin(self.wheel_rotation))
-            pygame.draw.line(screen, (255, 255, 255), (wx, wy), (end_x, end_y), 2)
+        pygame.draw.polygon(screen, col, chassis_points)
+
+        # Draw wheels with rotation indicator.
+        # Left wheel at rear.
+        left_offset = (-20, 8)
+        r_left = rotate_point(*left_offset, self.angle)
+        wx_left = x_draw + int(r_left[0])
+        wy_left = int(self.y + r_left[1])
+        pygame.draw.circle(screen, (0, 0, 0), (wx_left, wy_left), self.left_wheel_size)
+        line_length_left = int(self.left_wheel_size * 0.8)
+        end_x_left = wx_left + int(line_length_left * math.cos(self.wheel_rotation))
+        end_y_left = wy_left + int(line_length_left * math.sin(self.wheel_rotation))
+        pygame.draw.line(screen, (255, 255, 255), (wx_left, wy_left), (end_x_left, end_y_left), 2)
+
+        # Right wheel at front.
+        right_offset = (20, 8)
+        r_right = rotate_point(*right_offset, self.angle)
+        wx_right = x_draw + int(r_right[0])
+        wy_right = int(self.y + r_right[1])
+        pygame.draw.circle(screen, (0, 0, 0), (wx_right, wy_right), self.right_wheel_size)
+        line_length_right = int(self.right_wheel_size * 0.8)
+        end_x_right = wx_right + int(line_length_right * math.cos(self.wheel_rotation))
+        end_y_right = wy_right + int(line_length_right * math.sin(self.wheel_rotation))
+        pygame.draw.line(screen, (255, 255, 255), (wx_right, wy_right), (end_x_right, end_y_right), 2)
 
 # Genetic algorithm class with variant mutation
 class GeneticAlgorithm:
@@ -186,7 +193,7 @@ class GeneticAlgorithm:
         new_population = []
         # Elitism: preserve winner exactly
         new_population.append(Car(gene=best.gene, name=best.name, color=best.color,
-                                  wheel_size=best.wheel_size, wheel_offsets=best.wheel_offsets))
+                                  left_wheel_size=best.left_wheel_size, right_wheel_size=best.right_wheel_size))
         # Create children with additional mutations in variant properties
         while len(new_population) < len(self.population):
             parent1 = self.tournament_selection()
@@ -196,18 +203,13 @@ class GeneticAlgorithm:
             # Inherit and mutate variant properties slightly
             child_color = tuple(min(255, max(0, int((parent1.color[i] + parent2.color[i]) / 2 +
                             random.randint(-10, 10)))) for i in range(3))
-            child_wheel_size = max(2, int((parent1.wheel_size + parent2.wheel_size) / 2 +
+            child_left_wheel_size = max(2, int((parent1.left_wheel_size + parent2.left_wheel_size) / 2 +
                                           random.choice([-1,0,1])))
-            # Mutate wheel offsets randomly
-            base_offsets = [(-15, -10), (-15, 10)]
-            child_offsets = []
-            for off in base_offsets:
-                ox = off[0] + random.randint(-3, 3)
-                oy = off[1] + random.randint(-3, 3)
-                child_offsets.append((ox, oy))
+            child_right_wheel_size = max(2, int((parent1.right_wheel_size + parent2.right_wheel_size) / 2 +
+                                          random.choice([-1,0,1])))
             child_name = random.choice(VARIANT_NAMES)
             new_population.append(Car(gene=child_gene, name=child_name, color=child_color,
-                                      wheel_size=child_wheel_size, wheel_offsets=child_offsets))
+                                      left_wheel_size=child_left_wheel_size, right_wheel_size=child_right_wheel_size))
         self.population = new_population
         self.generation += 1
 
