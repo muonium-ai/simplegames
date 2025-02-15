@@ -4,14 +4,15 @@ environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'  # Hide pygame support prompt
 import pygame, sys, random, time
 
 # Constants
-SCREEN_WIDTH, SCREEN_HEIGHT = 600, 400
+SCREEN_WIDTH, SCREEN_HEIGHT = 800, 600
 BLOCK_SIZE = 20
-FPS = 10
+FPS = 5  # slower snake speed
 WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
 GREEN = (0, 255, 0)
 RED = (255, 0, 0)
 BLUE = (0, 0, 255)
+HEAD_COLOR = (255, 255, 0)  # snake head color
 
 pygame.init()
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
@@ -51,7 +52,8 @@ def game_loop(mode):
     # Initialize snake and food
     snake = [(SCREEN_WIDTH//2, SCREEN_HEIGHT//2)]
     direction = (BLOCK_SIZE, 0)  # start moving right
-    food = (random.randrange(0, SCREEN_WIDTH, BLOCK_SIZE), random.randrange(0, SCREEN_HEIGHT, BLOCK_SIZE))
+    food = (random.randrange(BLOCK_SIZE, SCREEN_WIDTH - BLOCK_SIZE, BLOCK_SIZE),
+            random.randrange(BLOCK_SIZE, SCREEN_HEIGHT - BLOCK_SIZE, BLOCK_SIZE))
     start_time = time.time()
     
     def ai_direction(head, food, current_direction):
@@ -100,21 +102,24 @@ def game_loop(mode):
         
         # Check for food collision
         if new_head == food:
-            food = (random.randrange(0, SCREEN_WIDTH, BLOCK_SIZE), random.randrange(0, SCREEN_HEIGHT, BLOCK_SIZE))
+            food = (random.randrange(BLOCK_SIZE, SCREEN_WIDTH - BLOCK_SIZE, BLOCK_SIZE),
+                    random.randrange(BLOCK_SIZE, SCREEN_HEIGHT - BLOCK_SIZE, BLOCK_SIZE))
         else:
             snake.pop()
         
         screen.fill(BLACK)
         # Draw food
         pygame.draw.rect(screen, RED, pygame.Rect(food[0], food[1], BLOCK_SIZE, BLOCK_SIZE))
-        # Draw snake
-        for block in snake:
-            pygame.draw.rect(screen, GREEN, pygame.Rect(block[0], block[1], BLOCK_SIZE, BLOCK_SIZE))
+        # Draw snake: head with HEAD_COLOR and body with GREEN
+        for i, block in enumerate(snake):
+            color = HEAD_COLOR if i == 0 else GREEN
+            pygame.draw.rect(screen, color, pygame.Rect(block[0], block[1], BLOCK_SIZE, BLOCK_SIZE))
         
-        # Display scores: elapsed time and snake length.
+        # Display scores: elapsed time, snake length, and speed level.
         elapsed = int(time.time() - start_time)
         draw_text(f"Time: {elapsed} sec", WHITE, (80, 20))
         draw_text(f"Length: {len(snake)}", WHITE, (SCREEN_WIDTH - 80, 20))
+        draw_text("Speed: Slow", WHITE, (SCREEN_WIDTH//2, 20))
         
         pygame.display.flip()
         clock.tick(FPS)
