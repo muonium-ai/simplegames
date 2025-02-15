@@ -57,20 +57,20 @@ def game_loop(mode):
     start_time = time.time()
     
     def ai_direction(head, food, current_direction):
-        # Simple AI: adjust horizontal then vertical toward food
-        dx = food[0] - head[0]
-        dy = food[1] - head[1]
-        # Prefer horizontal movement if not already moving in opposite direction to needed
-        if abs(dx) > abs(dy):
-            new_dir = (BLOCK_SIZE if dx>0 else -BLOCK_SIZE, 0)
-        else:
-            new_dir = (0, BLOCK_SIZE if dy>0 else -BLOCK_SIZE)
-        # Avoid reverse (if snake length > 1)
+        import math  # For distance calculations
+        possible_moves = [(BLOCK_SIZE, 0), (-BLOCK_SIZE, 0), (0, BLOCK_SIZE), (0, -BLOCK_SIZE)]
+        # Avoid reversing direction if snake length > 1
         if len(snake) > 1:
-            rev = (-current_direction[0], -current_direction[1])
-            if new_dir == rev:
-                new_dir = current_direction
-        return new_dir
+            possible_moves = [mv for mv in possible_moves if mv != (-current_direction[0], -current_direction[1])]
+        safe_moves = []
+        for mv in possible_moves:
+            new_head = (head[0] + mv[0], head[1] + mv[1])
+            if 0 <= new_head[0] < SCREEN_WIDTH and 0 <= new_head[1] < SCREEN_HEIGHT:
+                safe_moves.append(mv)
+        if safe_moves:
+            best_move = min(safe_moves, key=lambda mv: math.hypot(food[0] - (head[0] + mv[0]), food[1] - (head[1] + mv[1])))
+            return best_move
+        return current_direction
 
     while True:
         for event in pygame.event.get():
