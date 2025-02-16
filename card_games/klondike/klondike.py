@@ -144,7 +144,11 @@ class Pile:
         else:
             for i, card in enumerate(self.cards):
                 card.rect.x = self.rect.x
-                card.rect.y = self.rect.y + (i * offset_y if card.face_up else 0)
+                # Adjust y position based on pile type and card status
+                if self.type == "tableau":
+                    card.rect.y = self.rect.y + (i * (20 if card.face_up else 5))
+                else:
+                    card.rect.y = self.rect.y
                 screen.blit(card.image, card.rect)
 
     def get_clicked_card(self, pos):
@@ -152,11 +156,28 @@ class Pile:
         if not self.rect.collidepoint(pos):
             return None, []
         
-        for i, card in enumerate(self.cards):
-            if card.rect.collidepoint(pos) and card.face_up:
-                return card, self.cards[i:]
+        # For foundation piles, only return the top card
+        if self.type == "foundation" and self.cards:
+            top_card = self.cards[-1]
+            if top_card.rect.collidepoint(pos) and top_card.face_up:
+                return top_card, [top_card]
+                
+        # For tableau piles, check all face-up cards
+        y_threshold = 20  # Vertical spacing between cards
+        for i in range(len(self.cards) - 1, -1, -1):  # Check from top to bottom
+            card = self.cards[i]
+            if card.face_up:
+                card_rect = pygame.Rect(card.rect)
+                # Extend clickable area for overlapped cards
+                if i < len(self.cards) - 1:
+                    card_rect.height = y_threshold
+                if card_rect.collidepoint(pos):
+                    return card, self.cards[i:]
+            else:
+                break  # Stop at first face-down card
+                
         return None, []
-    
+
     def can_accept(self, cards):
         """Check if this pile can accept the given cards"""
         if not cards:
@@ -171,7 +192,7 @@ class Pile:
                 # Accept only Ace
                 return card.value == 1
             top_card = self.cards[-1]
-            # Same suit, one value higher
+            # Same suit and exactly one value higher
             return (card.suit == top_card.suit and 
                    card.value == top_card.value + 1)
                    
@@ -181,12 +202,19 @@ class Pile:
                 # Empty tableau accepts only King
                 return first_card.value == 13
             top_card = self.cards[-1]
-            # Different color, one value lower
-            return (((first_card.suit in [Suit.HEARTS, Suit.DIAMONDS]) !=
-                    (top_card.suit in [Suit.HEARTS, Suit.DIAMONDS])) and
-                    first_card.value == top_card.value - 1)
+            # Different color (red vs black) and one value lower
+            red_suits = {Suit.HEARTS, Suit.DIAMONDS}
+            first_is_red = first_card.suit in red_suits
+            top_is_red = top_card.suit in red_suits
+            
+            return (first_is_red != top_is_red and  # Must be different colors
+                   first_card.value == top_card.value - 1)  # Must be one less
         
         return False
+
+    def get_top_card(self):
+        """Get the top card of the pile without removing it"""
+        return self.cards[-1] if self.cards else None
 
 class Game:
     def __init__(self):
@@ -264,11 +292,38 @@ class Game:
             pygame.display.flip()
 
     def handle_click(self, pos):
-        # Check stock pile first
+        # If we have selected cards, try to place them
+        if self.selected_cards:
+            placed = False
+            
+            # Try foundations first (if it's a single card)
+            if len(self.selected_cards) == 1:
+                for foundation in self.foundations:
+                    if foundation.rect.collidepoint(pos):
+                        if foundation.can_accept(self.selected_cards):
+                            self.move_cards(foundation)
+                            placed = True
+                            break
+            
+            # Try tableau piles if not placed in foundation
+            if not placed:
+                for tableau in self.tableaus:
+                    if tableau.rect.collidepoint(pos):
+                        if tableau.can_accept(self.selected_cards):
+                            self.move_cards(tableau)
+                            placed = True
+                            break
+            
+            # Deselect cards if placed or clicked elsewhere
+            if placed or not any(pile.rect.collidepoint(pos) for pile in self.tableaus + self.foundations):
+                self.selected_cards = []
+                self.selected_pile = None
+            return
+
+        # If no cards selected, try to select cards
+        # Check stock pile
         if self.stock.rect.collidepoint(pos):
             self.draw_stock()
-            self.selected_cards = []
-            self.selected_pile = None
             return
 
         # Check waste pile
@@ -285,11 +340,6 @@ class Game:
                 self.selected_cards = cards
                 self.selected_pile = foundation
                 return
-            # Try to place selected card
-            elif self.selected_cards and foundation.rect.collidepoint(pos):
-                if foundation.can_accept(self.selected_cards):
-                    self.move_cards(foundation)
-                return
 
         # Check tableau piles
         for tableau in self.tableaus:
@@ -298,15 +348,6 @@ class Game:
                 self.selected_cards = cards
                 self.selected_pile = tableau
                 return
-            # Try to place selected cards
-            elif self.selected_cards and tableau.rect.collidepoint(pos):
-                if tableau.can_accept(self.selected_cards):
-                    self.move_cards(tableau)
-                return
-
-        # Click on empty space deselects
-        self.selected_cards = []
-        self.selected_pile = None
 
     def move_cards(self, destination):
         """Move selected cards to destination pile"""
