@@ -156,26 +156,22 @@ class Pile:
         if not self.rect.collidepoint(pos):
             return None, []
         
-        # For foundation piles, only return the top card
         if self.type == "foundation" and self.cards:
             top_card = self.cards[-1]
             if top_card.rect.collidepoint(pos) and top_card.face_up:
                 return top_card, [top_card]
-                
-        # For tableau piles, check all face-up cards
-        y_threshold = 20  # Vertical spacing between cards
-        for i in range(len(self.cards) - 1, -1, -1):  # Check from top to bottom
-            card = self.cards[i]
-            if card.face_up:
-                card_rect = pygame.Rect(card.rect)
-                # Extend clickable area for overlapped cards
-                if i < len(self.cards) - 1:
-                    card_rect.height = y_threshold
-                if card_rect.collidepoint(pos):
+        
+        if self.type == "tableau":
+            offset_y = 20  # The vertical gap used when drawing cards
+            # Iterate from the top card (last in list) downwards
+            for i in range(len(self.cards) - 1, -1, -1):
+                # Compute the top and bottom of clickable area
+                card_top = self.rect.y + i * offset_y
+                card_bottom = card_top + (CARD_HEIGHT if i == len(self.cards) - 1 else offset_y)
+                clickable_rect = pygame.Rect(self.rect.x, card_top, CARD_WIDTH, card_bottom - card_top)
+                card = self.cards[i]
+                if card.face_up and clickable_rect.collidepoint(pos):
                     return card, self.cards[i:]
-            else:
-                break  # Stop at first face-down card
-                
         return None, []
 
     def can_accept(self, cards):
