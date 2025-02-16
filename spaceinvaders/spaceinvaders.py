@@ -202,37 +202,50 @@ class Game:
         self.game_state = "playing"
 
     def auto_play(self):
-        """AI logic for auto-play mode"""
+        """AI logic for auto-play mode - Counter movement strategy"""
         if self.enemies:
-            # Find the lowest enemy that's somewhat aligned with the player
-            target = None
-            lowest_y = 0
-            player_x = self.player.rect.centerx
-
+            # Find enemy movement direction (using the first enemy)
+            enemy_direction = self.enemies.sprites()[0].direction
+            
+            # Find lowest enemies in each column
+            enemies_by_column = {}
             for enemy in self.enemies:
-                # Consider enemies within a reasonable x-range of the player
-                if abs(enemy.rect.centerx - player_x) < 50 and enemy.rect.bottom > lowest_y:
-                    target = enemy
-                    lowest_y = enemy.rect.bottom
+                col = enemy.rect.centerx
+                if col not in enemies_by_column or enemy.rect.bottom > enemies_by_column[col].rect.bottom:
+                    enemies_by_column[col] = enemy
 
-            # Move towards the selected target or the nearest enemy if no aligned target
-            if not target:
-                target = min(self.enemies, key=lambda e: abs(e.rect.centerx - player_x))
+            # Choose target based on player position
+            player_x = self.player.rect.centerx
+            current_col = min(enemies_by_column.keys(), key=lambda x: abs(x - player_x))
+            target = enemies_by_column[current_col]
 
-            # Move towards target
-            if self.player.rect.centerx < target.rect.centerx - 5:
+            # Move in opposite direction to enemies
+            # But stay within a range where we can still shoot effectively
+            screen_margin = 50  # Don't get too close to screen edges
+            if enemy_direction > 0:  # Enemies moving right
+                desired_x = target.rect.centerx - 30  # Stay left of target
+            else:  # Enemies moving left
+                desired_x = target.rect.centerx + 30  # Stay right of target
+
+            # Ensure we don't move too close to screen edges
+            desired_x = max(screen_margin, min(SCREEN_WIDTH - screen_margin, desired_x))
+
+            # Move towards desired position
+            if self.player.rect.centerx < desired_x - 5:
                 self.player.rect.x += self.player.speed
-            elif self.player.rect.centerx > target.rect.centerx + 5:
+            elif self.player.rect.centerx > desired_x + 5:
                 self.player.rect.x -= self.player.speed
 
-            # Shoot if aligned
-            if abs(self.player.rect.centerx - target.rect.centerx) < 30:
-                now = pygame.time.get_ticks()
-                if now - self.player.last_shot > self.player.shot_delay:
-                    bullet = Bullet(self.player.rect.centerx, self.player.rect.top, BULLET_SPEED)
-                    self.all_sprites.add(bullet)
-                    self.player_bullets.add(bullet)
-                    self.player.last_shot = now
+            # Shoot more frequently when aligned with any enemy
+            for enemy in self.enemies:
+                if abs(self.player.rect.centerx - enemy.rect.centerx) < 15:
+                    now = pygame.time.get_ticks()
+                    if now - self.player.last_shot > self.player.shot_delay:
+                        bullet = Bullet(self.player.rect.centerx, self.player.rect.top, BULLET_SPEED)
+                        self.all_sprites.add(bullet)
+                        self.player_bullets.add(bullet)
+                        self.player.last_shot = now
+                    break
 
     def run(self):
         while True:
