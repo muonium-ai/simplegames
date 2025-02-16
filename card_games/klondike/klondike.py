@@ -246,6 +246,8 @@ class Game:
             'autoplay': pygame.Rect(WINDOW_WIDTH - 100, WINDOW_HEIGHT - 50, 100, 40),
         }
         self.autoplay = False  # new autoplay flag
+        self.last_autoplay_moves = 0  # Track moves counter
+        self.no_progress_count = 0    # Track cycles without progress
     
     def reset_game(self):
         # Set seed so deck and deal are reproducible
@@ -298,28 +300,87 @@ class Game:
             self.waste.add(card)
 
     def auto_play(self):
-        # Minimal autoplay logic: try moving waste or tableau top card to foundation.
-        # If no move found, try drawing from stock.
-        if self.waste.cards:
-            candidate = self.waste.cards[-1]
-            for foundation in self.foundations:
-                if foundation.can_accept([candidate]):
-                    self.selected_cards = [candidate]
-                    self.selected_pile = self.waste
-                    self.move_cards(foundation)
-                    return
-        for tableau in self.tableaus:
-            if tableau.cards:
-                candidate = tableau.cards[-1]
+        """Enhanced autoplay with move tracking"""
+        # Check if we're stuck (no progress in 2 cycles)
+        if self.moves == self.last_autoplay_moves:
+            self.no_progress_count += 1
+            if self.no_progress_count >= 2:
+                self.autoplay = False  # Stop autoplay
+                return
+        else:
+            self.no_progress_count = 0
+            self.last_autoplay_moves = self.moves
+
+        # 1. First try to move any Aces to empty foundations
+        for source in [self.waste] + self.tableaus:
+            if not source.cards:
+                continue
+            card = source.cards[-1]
+            if card.face_up and card.value == 1:
                 for foundation in self.foundations:
-                    if foundation.can_accept([candidate]):
-                        self.selected_cards = [candidate]
-                        self.selected_pile = tableau
+                    if not foundation.cards:
+                        self.selected_cards = [card]
+                        self.selected_pile = source
                         self.move_cards(foundation)
                         return
-        # If no moves; if stock has cards, draw one.
+
+        # 2. Try moving cards to foundations (building up)
+        for source in [self.waste] + self.tableaus:
+            if not source.cards:
+                continue
+            card = source.cards[-1]
+            if not card.face_up:
+                continue
+            for foundation in self.foundations:
+                if foundation.can_accept([card]):
+                    self.selected_cards = [card]
+                    self.selected_pile = source
+                    self.move_cards(foundation)
+                    return
+
+        # 3. Try moving Kings to empty tableau spots
+        if any(not tableau.cards for tableau in self.tableaus):
+            for source in [self.waste] + self.tableaus:
+                if not source.cards:
+                    continue
+                for i in range(len(source.cards)-1, -1, -1):
+                    card = source.cards[i]
+                    if card.face_up and card.value == 13:
+                        cards_to_move = source.cards[i:]
+                        for tableau in self.tableaus:
+                            if not tableau.cards and tableau != source:
+                                self.selected_cards = cards_to_move
+                                self.selected_pile = source
+                                self.move_cards(tableau)
+                                return
+
+        # 4. Try moving cards between tableau piles
+        for source in self.tableaus:
+            if not source.cards:
+                continue
+            for i in range(len(source.cards)-1, -1, -1):
+                card = source.cards[i]
+                if not card.face_up:
+                    continue
+                cards_to_move = source.cards[i:]
+                for tableau in self.tableaus:
+                    if tableau != source and tableau.can_accept(cards_to_move):
+                        # Only move if it helps uncover a face-down card
+                        if (i > 0 and not source.cards[i-1].face_up):
+                            self.selected_cards = cards_to_move
+                            self.selected_pile = source
+                            self.move_cards(tableau)
+                            return
+
+        # 5. If no other moves, draw from stock
         if self.stock.cards:
             self.draw_stock()
+            return
+
+        # 6. If stock is empty and waste has cards, reset stock
+        if not self.stock.cards and self.waste.cards:
+            self.draw_stock()
+            return
 
     def run(self):
         running = True
@@ -352,6 +413,8 @@ class Game:
                     self.reset_game()
                 elif name == 'autoplay':
                     self.autoplay = not self.autoplay
+                    self.last_autoplay_moves = self.moves  # Reset tracking
+                    self.no_progress_count = 0
                 return  # Do not process further clicks when menu button pressed
         
         # If paused, ignore other clicks.
