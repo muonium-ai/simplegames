@@ -164,10 +164,12 @@ class Game:
         title = self.font.render("SPACE INVADERS", True, WHITE)
         play_text = self.font.render("Press SPACE for Manual / A for Auto", True, WHITE)
         score_text = self.font.render(f"High Score: {self.high_score}", True, WHITE)
+        quit_text = self.font.render("Press Q to Quit", True, WHITE)
         
         self.screen.blit(title, (SCREEN_WIDTH//2 - title.get_width()//2, 200))
         self.screen.blit(play_text, (SCREEN_WIDTH//2 - play_text.get_width()//2, 300))
         self.screen.blit(score_text, (SCREEN_WIDTH//2 - score_text.get_width()//2, 400))
+        self.screen.blit(quit_text, (SCREEN_WIDTH//2 - quit_text.get_width()//2, 450))
         
         pygame.display.flip()
 
@@ -175,7 +177,7 @@ class Game:
         self.screen.fill(BLACK)
         text = self.font.render("GAME OVER", True, WHITE)
         score = self.font.render(f"Final Score: {self.score}", True, WHITE)
-        restart = self.font.render("R - Manual Mode / A - Auto Mode", True, WHITE)
+        restart = self.font.render("R - Manual / A - Auto / Q - Quit", True, WHITE)
         
         self.screen.blit(text, (SCREEN_WIDTH//2 - text.get_width()//2, 250))
         self.screen.blit(score, (SCREEN_WIDTH//2 - score.get_width()//2, 300))
@@ -242,6 +244,10 @@ class Game:
                     return
                 
                 if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_q:  # Add quit option
+                        self.save_high_score()
+                        return
+                        
                     if event.key == pygame.K_ESCAPE:
                         if self.game_state == "playing":
                             self.game_state = "paused"
