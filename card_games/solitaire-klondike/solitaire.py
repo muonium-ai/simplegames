@@ -1,4 +1,6 @@
-#!/usr/bin python3
+from os import environ
+environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'
+
 import sys, os, subprocess
 
 if __name__ == "__main__":
