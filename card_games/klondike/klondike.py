@@ -10,8 +10,8 @@ import os
 pygame.init()
 
 # Constants
-WINDOW_WIDTH = 800
-WINDOW_HEIGHT = 600
+WINDOW_WIDTH = 1280  # updated from 800
+WINDOW_HEIGHT = 800  # updated from 600
 CARD_WIDTH = 71
 CARD_HEIGHT = 96
 FPS = 60
@@ -138,15 +138,14 @@ class Pile:
             return [self.cards.pop() for _ in range(count)][::-1]
         return []
 
-    def draw(self, screen, offset_y=0):
+    def draw(self, screen, offset_y=30):  # Changed default offset_y to 30
         if not self.cards:
             screen.blit(self.empty_image, self.rect)
         else:
             for i, card in enumerate(self.cards):
                 card.rect.x = self.rect.x
-                # Adjust y position based on pile type and card status
                 if self.type == "tableau":
-                    card.rect.y = self.rect.y + (i * (20 if card.face_up else 5))
+                    card.rect.y = self.rect.y + (i * offset_y)
                 else:
                     card.rect.y = self.rect.y
                 screen.blit(card.image, card.rect)
@@ -162,10 +161,8 @@ class Pile:
                 return top_card, [top_card]
         
         if self.type == "tableau":
-            offset_y = 20  # The vertical gap used when drawing cards
-            # Iterate from the top card (last in list) downwards
+            offset_y = 30  # Increased vertical gap from 20 to 30
             for i in range(len(self.cards) - 1, -1, -1):
-                # Compute the top and bottom of clickable area
                 card_top = self.rect.y + i * offset_y
                 card_bottom = card_top + (CARD_HEIGHT if i == len(self.cards) - 1 else offset_y)
                 clickable_rect = pygame.Rect(self.rect.x, card_top, CARD_WIDTH, card_bottom - card_top)
@@ -218,20 +215,44 @@ class Game:
         pygame.display.set_caption("Klondike Solitaire")
         self.clock = pygame.time.Clock()
         self.font = pygame.font.SysFont('arial', 24)
-        
-        # Create deck
+        # Generate and save seed before deck creation
+        self.seed = random.randint(0, 10**9)
+        random.seed(self.seed)
+        # Create deck and piles
         self.create_deck()
         
         # Create piles
         self.stock = Pile(50, 50, "stock")
         self.waste = Pile(150, 50, "waste")
-        self.foundations = [Pile(350 + i*100, 50, "foundation") for i in range(4)]
+        # Reposition foundation piles vertically along the right side
+        self.foundations = [Pile(WINDOW_WIDTH - CARD_WIDTH - 20, 50 + i*(CARD_HEIGHT + 20), "foundation") for i in range(4)]
         self.tableaus = [Pile(50 + i*100, 200, "tableau") for i in range(7)]
         
         # Deal initial cards
         self.deal_initial_cards()
         
         # Game state
+        self.selected_cards = []
+        self.selected_pile = None
+        self.start_time = time.time()
+        self.moves = 0
+        # New attributes for menu and pause state
+        self.paused = False
+        self.menu_buttons = {
+            'pause': pygame.Rect(WINDOW_WIDTH - 330, WINDOW_HEIGHT - 50, 100, 40),
+            'restart': pygame.Rect(WINDOW_WIDTH - 220, WINDOW_HEIGHT - 50, 100, 40),
+            'new': pygame.Rect(WINDOW_WIDTH - 110, WINDOW_HEIGHT - 50, 100, 40),
+        }
+    
+    def reset_game(self):
+        # Set seed so deck and deal are reproducible
+        random.seed(self.seed)
+        self.create_deck()
+        self.stock.cards = []
+        self.waste.cards = []
+        for pile in self.foundations + self.tableaus:
+            pile.cards = []
+        self.deal_initial_cards()
         self.selected_cards = []
         self.selected_pile = None
         self.start_time = time.time()
@@ -288,6 +309,22 @@ class Game:
             pygame.display.flip()
 
     def handle_click(self, pos):
+        # Check if a menu button was clicked
+        for name, rect in self.menu_buttons.items():
+            if rect.collidepoint(pos):
+                if name == 'pause':
+                    self.paused = not self.paused
+                elif name == 'restart':
+                    self.reset_game()        # Use existing seed
+                elif name == 'new':
+                    self.seed = random.randint(0, 10**9)  # Save a new seed
+                    self.reset_game()
+                return  # Do not process further clicks when menu button pressed
+        
+        # If paused, ignore other clicks.
+        if self.paused:
+            return
+        
         # If we have selected cards, try to place them
         if self.selected_cards:
             placed = False
@@ -390,6 +427,18 @@ class Game:
         
         self.screen.blit(time_text, (10, 10))
         self.screen.blit(moves_text, (WINDOW_WIDTH - 120, 10))
+        
+        # Draw menu buttons
+        for name, rect in self.menu_buttons.items():
+            pygame.draw.rect(self.screen, BLUE, rect)
+            btn_text = self.font.render(name.capitalize(), True, WHITE)
+            self.screen.blit(btn_text, (rect.centerx - btn_text.get_width()//2,
+                                        rect.centery - btn_text.get_height()//2))
+        # Overlay paused message, if applicable
+        if self.paused:
+            pause_overlay = self.font.render("Paused", True, RED)
+            self.screen.blit(pause_overlay, (WINDOW_WIDTH//2 - pause_overlay.get_width()//2,
+                                             WINDOW_HEIGHT//2 - pause_overlay.get_height()//2))
 
 def main():
     game = Game()
