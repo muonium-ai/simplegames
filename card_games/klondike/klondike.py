@@ -238,11 +238,14 @@ class Game:
         self.moves = 0
         # New attributes for menu and pause state
         self.paused = False
+        # Update menu buttons positions and add "autoplay" button
         self.menu_buttons = {
-            'pause': pygame.Rect(WINDOW_WIDTH - 330, WINDOW_HEIGHT - 50, 100, 40),
-            'restart': pygame.Rect(WINDOW_WIDTH - 220, WINDOW_HEIGHT - 50, 100, 40),
-            'new': pygame.Rect(WINDOW_WIDTH - 110, WINDOW_HEIGHT - 50, 100, 40),
+            'pause': pygame.Rect(WINDOW_WIDTH - 430, WINDOW_HEIGHT - 50, 100, 40),
+            'restart': pygame.Rect(WINDOW_WIDTH - 320, WINDOW_HEIGHT - 50, 100, 40),
+            'new': pygame.Rect(WINDOW_WIDTH - 210, WINDOW_HEIGHT - 50, 100, 40),
+            'autoplay': pygame.Rect(WINDOW_WIDTH - 100, WINDOW_HEIGHT - 50, 100, 40),
         }
+        self.autoplay = False  # new autoplay flag
     
     def reset_game(self):
         # Set seed so deck and deal are reproducible
@@ -294,6 +297,30 @@ class Game:
             card.load_images()
             self.waste.add(card)
 
+    def auto_play(self):
+        # Minimal autoplay logic: try moving waste or tableau top card to foundation.
+        # If no move found, try drawing from stock.
+        if self.waste.cards:
+            candidate = self.waste.cards[-1]
+            for foundation in self.foundations:
+                if foundation.can_accept([candidate]):
+                    self.selected_cards = [candidate]
+                    self.selected_pile = self.waste
+                    self.move_cards(foundation)
+                    return
+        for tableau in self.tableaus:
+            if tableau.cards:
+                candidate = tableau.cards[-1]
+                for foundation in self.foundations:
+                    if foundation.can_accept([candidate]):
+                        self.selected_cards = [candidate]
+                        self.selected_pile = tableau
+                        self.move_cards(foundation)
+                        return
+        # If no moves; if stock has cards, draw one.
+        if self.stock.cards:
+            self.draw_stock()
+
     def run(self):
         running = True
         while running:
@@ -304,6 +331,10 @@ class Game:
                     running = False
                 elif event.type == pygame.MOUSEBUTTONDOWN:
                     self.handle_click(event.pos)
+            
+            # If autoplay is enabled, perform automated move(s)
+            if self.autoplay and not self.paused:
+                self.auto_play()
             
             self.draw()
             pygame.display.flip()
@@ -319,6 +350,8 @@ class Game:
                 elif name == 'new':
                     self.seed = random.randint(0, 10**9)  # Save a new seed
                     self.reset_game()
+                elif name == 'autoplay':
+                    self.autoplay = not self.autoplay
                 return  # Do not process further clicks when menu button pressed
         
         # If paused, ignore other clicks.
