@@ -123,6 +123,7 @@ class Game:
         self.high_score = self.load_high_score()
         self.level = 1
         self.game_state = "start"  # start, playing, paused, game_over
+        self.auto_mode = False  # Add this line
         
         # Sprite groups
         self.all_sprites = pygame.sprite.Group()
@@ -161,7 +162,7 @@ class Game:
     def show_start_screen(self):
         self.screen.fill(BLACK)
         title = self.font.render("SPACE INVADERS", True, WHITE)
-        play_text = self.font.render("Press SPACE to Play", True, WHITE)
+        play_text = self.font.render("Press SPACE for Manual / A for Auto", True, WHITE)
         score_text = self.font.render(f"High Score: {self.high_score}", True, WHITE)
         
         self.screen.blit(title, (SCREEN_WIDTH//2 - title.get_width()//2, 200))
@@ -174,7 +175,7 @@ class Game:
         self.screen.fill(BLACK)
         text = self.font.render("GAME OVER", True, WHITE)
         score = self.font.render(f"Final Score: {self.score}", True, WHITE)
-        restart = self.font.render("Press R to Restart", True, WHITE)
+        restart = self.font.render("R - Manual Mode / A - Auto Mode", True, WHITE)
         
         self.screen.blit(text, (SCREEN_WIDTH//2 - text.get_width()//2, 250))
         self.screen.blit(score, (SCREEN_WIDTH//2 - score.get_width()//2, 300))
@@ -182,7 +183,7 @@ class Game:
         
         pygame.display.flip()
 
-    def new_game(self):
+    def new_game(self, auto_mode=False):
         self.all_sprites.empty()
         self.enemies.empty()
         self.player_bullets.empty()
@@ -195,7 +196,41 @@ class Game:
         self.create_barriers()
         self.score = 0
         self.level = 1
+        self.auto_mode = auto_mode
         self.game_state = "playing"
+
+    def auto_play(self):
+        """AI logic for auto-play mode"""
+        if self.enemies:
+            # Find the lowest enemy that's somewhat aligned with the player
+            target = None
+            lowest_y = 0
+            player_x = self.player.rect.centerx
+
+            for enemy in self.enemies:
+                # Consider enemies within a reasonable x-range of the player
+                if abs(enemy.rect.centerx - player_x) < 50 and enemy.rect.bottom > lowest_y:
+                    target = enemy
+                    lowest_y = enemy.rect.bottom
+
+            # Move towards the selected target or the nearest enemy if no aligned target
+            if not target:
+                target = min(self.enemies, key=lambda e: abs(e.rect.centerx - player_x))
+
+            # Move towards target
+            if self.player.rect.centerx < target.rect.centerx - 5:
+                self.player.rect.x += self.player.speed
+            elif self.player.rect.centerx > target.rect.centerx + 5:
+                self.player.rect.x -= self.player.speed
+
+            # Shoot if aligned
+            if abs(self.player.rect.centerx - target.rect.centerx) < 30:
+                now = pygame.time.get_ticks()
+                if now - self.player.last_shot > self.player.shot_delay:
+                    bullet = Bullet(self.player.rect.centerx, self.player.rect.top, BULLET_SPEED)
+                    self.all_sprites.add(bullet)
+                    self.player_bullets.add(bullet)
+                    self.player.last_shot = now
 
     def run(self):
         while True:
@@ -213,13 +248,19 @@ class Game:
                         elif self.game_state == "paused":
                             self.game_state = "playing"
                     
-                    if self.game_state == "start" and event.key == pygame.K_SPACE:
-                        self.new_game()
+                    if self.game_state == "start":
+                        if event.key == pygame.K_SPACE:
+                            self.new_game(auto_mode=False)
+                        elif event.key == pygame.K_a:
+                            self.new_game(auto_mode=True)
                     
-                    if self.game_state == "game_over" and event.key == pygame.K_r:
-                        self.game_state = "start"
+                    if self.game_state == "game_over":
+                        if event.key == pygame.K_r:
+                            self.new_game(auto_mode=False)
+                        elif event.key == pygame.K_a:
+                            self.new_game(auto_mode=True)
                     
-                    if self.game_state == "playing":
+                    if self.game_state == "playing" and not self.auto_mode:
                         if event.key == pygame.K_SPACE:
                             now = pygame.time.get_ticks()
                             if now - self.player.last_shot > self.player.shot_delay:
@@ -231,6 +272,8 @@ class Game:
             if self.game_state == "start":
                 self.show_start_screen()
             elif self.game_state == "playing":
+                if self.auto_mode:
+                    self.auto_play()
                 self.update()
                 self.draw()
             elif self.game_state == "game_over":
@@ -292,6 +335,10 @@ class Game:
         self.screen.blit(score_text, (10, 10))
         self.screen.blit(lives_text, (10, 40))
         self.screen.blit(level_text, (SCREEN_WIDTH - 100, 10))
+        
+        # Add mode indicator
+        mode_text = self.font.render("AUTO" if self.auto_mode else "MANUAL", True, WHITE)
+        self.screen.blit(mode_text, (SCREEN_WIDTH - 100, 40))
         
         pygame.display.flip()
 
