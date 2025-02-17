@@ -13,6 +13,7 @@ FPS = 60
 PADDLE_WIDTH = 100
 PADDLE_HEIGHT = 15
 PADDLE_SPEED = 6
+FAST_PADDLE_SPEED = 12  # increased paddle speed for fast autoplay
 
 BALL_SIZE = 12
 BALL_SPEED = 5
@@ -119,6 +120,7 @@ class Brick:
         self.width = BRICK_WIDTH
         self.height = BRICK_HEIGHT
         self.hit = hit  # Durability
+        self.initial = hit  # Save initial hit count for miss calculation
         self.points = 10 * hit
 
     def draw(self, surface):
@@ -177,13 +179,15 @@ def main():
     font = pygame.font.SysFont(None, 36)
     
     while True:  # Outer loop to allow restarting the game
-        # Show modal window for mode selection at start/restart
         mode = show_modal(screen, font)
         
         # Initialize game variables
         paddle = Paddle()
+        if mode == "fast_autoplay":
+            paddle.speed = FAST_PADDLE_SPEED  # Increase paddle speed for fast autoplay
         ball = Ball()
         bricks = create_bricks()
+        total_initial_hits = sum(b.initial for b in bricks)  # total brick hits needed to win
         score = 0
         lives = STARTING_LIVES
         paddle_hits = 0  # Count of paddle hits
@@ -211,14 +215,14 @@ def main():
                 if ball.dx == 0 and ball.dy == 0:
                     ball.launch()
             elif mode == "fast_autoplay":
-                # Fast autopilot: aim for paddle edge based on ball position
+                # Fast autopilot: aim for paddle side to get a more angled hit.
                 paddle_center = paddle.x + paddle.width / 2
-                ball_center = ball.x + BALL_SIZE/2
+                ball_center = ball.x + BALL_SIZE / 2
                 if ball_center < paddle_center:
-                    target = paddle.x + 10  # left edge offset
+                    target = paddle.x + 5  # lean towards left extreme
                 else:
-                    target = paddle.x + paddle.width - 10  # right edge offset
-                current = paddle.x + paddle.width/2
+                    target = paddle.x + paddle.width - 5  # lean towards right extreme
+                current = paddle.x + paddle.width / 2
                 if abs(current - target) > 5:
                     if current < target:
                         paddle.move_right()
@@ -226,7 +230,6 @@ def main():
                         paddle.move_left()
                 if ball.dx == 0 and ball.dy == 0:
                     ball.launch()
-                    # Increase ball speed for fast autoplay (e.g. 1.5x boost)
                     ball.dx *= 1.5
                     ball.dy *= 1.5
             else:
@@ -238,12 +241,12 @@ def main():
                     paddle.move_right()
 
             # Update ball when in motion
-            if ball.dx != 0 or ball.dy != 0:
-                gained_points = ball.update(paddle, bricks)
-                score += gained_points
-                if ball.hit_paddle:
-                    paddle_hits += 1
-                    ball.hit_paddle = False
+            gained_points = ball.update(paddle, bricks)
+            score += gained_points
+            # Check for paddle hit event and record count.
+            if ball.hit_paddle:
+                paddle_hits += 1
+                ball.hit_paddle = False
 
             # Check if ball fell below
             if ball.y > WINDOW_HEIGHT:
@@ -256,6 +259,12 @@ def main():
             if all(brick.hit <= 0 for brick in bricks):
                 running = False
 
+            # Drawing game and HUD; compute pending hits as sum of remaining (current) brick hits.
+            pending_hits = sum(brick.hit for brick in bricks if brick.hit > 0)
+            # Compute misses = paddle_hits - (total hits achieved), where total achieved = total_initial_hits - pending_hits.
+            # So, misses = paddle_hits + pending_hits - total_initial_hits.
+            misses = max(0, paddle_hits + pending_hits - total_initial_hits)
+
             # Drawing game
             screen.fill(BLACK)
             paddle.draw(screen)
@@ -265,16 +274,18 @@ def main():
             score_text = font.render(f"Score: {score}", True, WHITE)
             lives_text = font.render(f"Lives: {lives}", True, WHITE)
             screen.blit(score_text, (10, 10))
-            screen.blit(lives_text, (200, 10))
+            screen.blit(lives_text, (120, 10))
             # Draw added scoreboard information
             elapsed_sec = (pygame.time.get_ticks() - start_time) // 1000
             pending_hits = sum(brick.hit for brick in bricks if brick.hit > 0)
             time_text = font.render(f"Time: {elapsed_sec} sec", True, WHITE)
             hits_text = font.render(f"Paddle Hits: {paddle_hits}", True, WHITE)
+            misses_text = font.render(f"Misses: {misses}", True, WHITE)
             pending_text = font.render(f"Pending Brick Hits: {pending_hits}", True, WHITE)
-            screen.blit(time_text, (400, 10))
-            screen.blit(hits_text, (600, 10))
-            screen.blit(pending_text, (800, 10))
+            screen.blit(time_text, (230, 10))
+            screen.blit(hits_text, (340, 10))
+            screen.blit(misses_text, (450, 10))
+            screen.blit(pending_text, (560, 10))
             pygame.display.flip()
         
         # End screen before restarting
