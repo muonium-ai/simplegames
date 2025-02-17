@@ -6,8 +6,8 @@ import sys
 import random
 
 # --- Constants ---
-WINDOW_WIDTH = 800
-WINDOW_HEIGHT = 600
+WINDOW_WIDTH = 1000  # increased width
+WINDOW_HEIGHT = 700  # increased height
 FPS = 60
 
 PADDLE_WIDTH = 100
@@ -60,6 +60,7 @@ class Ball:
         self.y = WINDOW_HEIGHT - 60
         self.dx = 0
         self.dy = 0  # Set 0 so ball is "held" until space pressed
+        self.hit_paddle = False  # Initialize paddle hit flag
 
     def launch(self):
         # Launch with a random horizontal direction
@@ -91,6 +92,7 @@ class Ball:
             hit_pos = (self.x + BALL_SIZE/2) - (paddle.x + paddle.width/2)
             self.dx = hit_pos * 0.05
             self.dy = -self.dy
+            self.hit_paddle = True
 
         # Collide with bricks
         for brick in bricks:
@@ -136,11 +138,13 @@ def create_bricks(level=1):
     return bricks
 
 def show_modal(screen, font):
-    """Display a modal window with two buttons and return 'manual' or 'autoplay'."""
-    modal_rect = pygame.Rect(200, 150, 400, 300)
-    start_button = pygame.Rect(250, 250, 140, 50)
-    auto_button = pygame.Rect(410, 250, 140, 50)
-    
+    """Display modal with three buttons (in one horizontal row) and return a mode string."""
+    # Bigger, shorter modal so that all options fit in a single row
+    modal_rect = pygame.Rect(100, 250, 800, 100)
+    # Define three buttons horizontally arranged
+    start_button = pygame.Rect(modal_rect.x + 50, modal_rect.y + 25, 200, 50)
+    auto_button = pygame.Rect(modal_rect.x + 300, modal_rect.y + 25, 200, 50)
+    fast_button = pygame.Rect(modal_rect.x + 550, modal_rect.y + 25, 200, 50)
     while True:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -150,18 +154,19 @@ def show_modal(screen, font):
                     return "manual"
                 if auto_button.collidepoint(event.pos):
                     return "autoplay"
-        
+                if fast_button.collidepoint(event.pos):
+                    return "fast_autoplay"
         screen.fill(BLACK)
-        # Draw modal backdrop
         pygame.draw.rect(screen, GRAY, modal_rect)
-        # Draw buttons
         pygame.draw.rect(screen, WHITE, start_button)
         pygame.draw.rect(screen, WHITE, auto_button)
-        # Render button texts
+        pygame.draw.rect(screen, WHITE, fast_button)
         start_text = font.render("Start Game", True, BLACK)
         auto_text = font.render("Autoplay", True, BLACK)
+        fast_text = font.render("Fast Autoplay", True, BLACK)
         screen.blit(start_text, start_text.get_rect(center=start_button.center))
         screen.blit(auto_text, auto_text.get_rect(center=auto_button.center))
+        screen.blit(fast_text, fast_text.get_rect(center=fast_button.center))
         pygame.display.flip()
 
 def main():
@@ -181,6 +186,8 @@ def main():
         bricks = create_bricks()
         score = 0
         lives = STARTING_LIVES
+        paddle_hits = 0  # Count of paddle hits
+        start_time = pygame.time.get_ticks()
 
         running = True
         while running:
@@ -203,6 +210,25 @@ def main():
                         paddle.move_left()
                 if ball.dx == 0 and ball.dy == 0:
                     ball.launch()
+            elif mode == "fast_autoplay":
+                # Fast autopilot: aim for paddle edge based on ball position
+                paddle_center = paddle.x + paddle.width / 2
+                ball_center = ball.x + BALL_SIZE/2
+                if ball_center < paddle_center:
+                    target = paddle.x + 10  # left edge offset
+                else:
+                    target = paddle.x + paddle.width - 10  # right edge offset
+                current = paddle.x + paddle.width/2
+                if abs(current - target) > 5:
+                    if current < target:
+                        paddle.move_right()
+                    else:
+                        paddle.move_left()
+                if ball.dx == 0 and ball.dy == 0:
+                    ball.launch()
+                    # Increase ball speed for fast autoplay (e.g. 1.5x boost)
+                    ball.dx *= 1.5
+                    ball.dy *= 1.5
             else:
                 # Manual mode: use keyboard for paddle movement
                 keys = pygame.key.get_pressed()
@@ -215,6 +241,9 @@ def main():
             if ball.dx != 0 or ball.dy != 0:
                 gained_points = ball.update(paddle, bricks)
                 score += gained_points
+                if ball.hit_paddle:
+                    paddle_hits += 1
+                    ball.hit_paddle = False
 
             # Check if ball fell below
             if ball.y > WINDOW_HEIGHT:
@@ -237,6 +266,15 @@ def main():
             lives_text = font.render(f"Lives: {lives}", True, WHITE)
             screen.blit(score_text, (10, 10))
             screen.blit(lives_text, (200, 10))
+            # Draw added scoreboard information
+            elapsed_sec = (pygame.time.get_ticks() - start_time) // 1000
+            pending_hits = sum(brick.hit for brick in bricks if brick.hit > 0)
+            time_text = font.render(f"Time: {elapsed_sec} sec", True, WHITE)
+            hits_text = font.render(f"Paddle Hits: {paddle_hits}", True, WHITE)
+            pending_text = font.render(f"Pending Brick Hits: {pending_hits}", True, WHITE)
+            screen.blit(time_text, (400, 10))
+            screen.blit(hits_text, (600, 10))
+            screen.blit(pending_text, (800, 10))
             pygame.display.flip()
         
         # End screen before restarting
