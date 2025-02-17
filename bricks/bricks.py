@@ -228,6 +228,14 @@ def main():
                         paddle.move_right()
                     else:
                         paddle.move_left()
+                # If ball is moving nearly vertically, apply a random paddle shift
+                if abs(ball.dx) < 0.5:
+                    random_shift = random.randint(10, 20)
+                    if random.choice([True, False]):
+                        paddle.x = min(WINDOW_WIDTH - paddle.width, paddle.x + random_shift)
+                    else:
+                        paddle.x = max(0, paddle.x - random_shift)
+                # Launch ball if idle and then boost its speed.
                 if ball.dx == 0 and ball.dy == 0:
                     ball.launch()
                     ball.dx *= 1.5
