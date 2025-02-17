@@ -4,6 +4,7 @@ environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'  # Hide pygame support prompt
 import pygame
 import sys
 import random
+import math
 
 # --- Constants ---
 WINDOW_WIDTH = 1000  # increased width
@@ -31,6 +32,39 @@ GRAY = (100, 100, 100)
 RED = (200, 0, 0)
 BLUE = (0, 100, 200)
 
+def calculate_intercept_position(ball_x, ball_y, ball_dx, ball_dy, target_x, target_y, paddle_y, try_alternative=False):
+    """Calculate where to position paddle to hit ball toward target"""
+    if ball_dy > 0:  # Ball is falling
+        # Calculate exact landing position accounting for current velocity
+        time_to_paddle = (paddle_y - ball_y) / ball_dy
+        landing_x = ball_x + (ball_dx * time_to_paddle)
+        
+        # Add safety margin - aim slightly toward ball's center
+        if ball_dx > 0:
+            landing_x -= PADDLE_WIDTH * 0.2  # Shift left a bit if ball moving right
+        else:
+            landing_x += PADDLE_WIDTH * 0.2  # Shift right a bit if ball moving left
+            
+        # Keep paddle within screen bounds
+        landing_x = max(PADDLE_WIDTH/2, min(WINDOW_WIDTH - PADDLE_WIDTH/2, landing_x))
+        return landing_x
+
+    # For upward-moving balls
+    time_to_paddle = (paddle_y - ball_y) / ball_dy if ball_dy != 0 else 0
+    intersection_x = ball_x + (ball_dx * time_to_paddle)
+    dx_to_target = target_x - intersection_x
+    
+    # Adjust angle factor based on height difference
+    dy_to_target = target_y - ball_y
+    angle_factor = 0.5
+    if dy_to_target < -WINDOW_HEIGHT/3:  # If target is significantly higher
+        angle_factor = 0.8  # Use more aggressive angles
+    
+    offset = dx_to_target * angle_factor
+    max_offset = PADDLE_WIDTH * 0.9  # Allow more extreme positions
+    offset = max(-max_offset, min(max_offset, offset))
+    return intersection_x + offset
+
 class Paddle:
     def __init__(self):
         self.width = PADDLE_WIDTH
@@ -55,6 +89,8 @@ class Paddle:
 class Ball:
     def __init__(self):
         self.reset()
+        self.last_distance_to_target = None  # Add tracking for target distance
+        self.hits_getting_closer = True      # Track if we're making progress
 
     def reset(self):
         self.x = WINDOW_WIDTH // 2
@@ -62,6 +98,8 @@ class Ball:
         self.dx = 0
         self.dy = 0  # Set 0 so ball is "held" until space pressed
         self.hit_paddle = False  # Initialize paddle hit flag
+        self.last_distance_to_target = None
+        self.hits_getting_closer = True
 
     def launch(self):
         # Launch with a random horizontal direction
@@ -108,10 +146,19 @@ class Ball:
                     else:
                         self.dy = -self.dy
                     return brick.points  # Return the points from the collision
+        if self.hit_paddle:
+            # After paddle hit, if we have a last_distance, check if we're getting closer
+            if self.last_distance_to_target is not None:
+                current_distance = self.distance_to_target(self.x, self.y)
+                self.hits_getting_closer = current_distance < self.last_distance_to_target
+            self.last_distance_to_target = None  # Reset for next measurement
         return 0
 
     def draw(self, surface):
         pygame.draw.circle(surface, WHITE, (int(self.x + BALL_SIZE/2), int(self.y + BALL_SIZE/2)), BALL_SIZE//2)
+
+    def distance_to_target(self, target_x, target_y):
+        return ((self.x - target_x) ** 2 + (self.y - target_y) ** 2) ** 0.5
 
 class Brick:
     def __init__(self, x, y, hit=1):
@@ -122,11 +169,16 @@ class Brick:
         self.hit = hit  # Durability
         self.initial = hit  # Save initial hit count for miss calculation
         self.points = 10 * hit
+        self.hover = False  # Add hover state
 
     def draw(self, surface):
         if self.hit > 0:
             color = BLUE if self.hit == 1 else RED
             pygame.draw.rect(surface, color, (self.x, self.y, self.width, self.height))
+            # Draw hover effect
+            if self.hover:
+                pygame.draw.rect(surface, (255, 255, 255), 
+                               (self.x, self.y, self.width, self.height), 2)
 
 def create_bricks(level=1):
     bricks = []
@@ -139,14 +191,14 @@ def create_bricks(level=1):
             bricks.append(Brick(x, y, hit_value))
     return bricks
 
-def show_modal(screen, font):
-    """Display modal with three buttons (in one horizontal row) and return a mode string."""
-    # Bigger, shorter modal so that all options fit in a single row
-    modal_rect = pygame.Rect(100, 250, 800, 100)
+def show_modal(screen, font, prev_stats=None):
+    """Display modal with three buttons and previous game stats if available"""
+    modal_rect = pygame.Rect(100, 200, 800, 200)  # Made taller for stats
     # Define three buttons horizontally arranged
-    start_button = pygame.Rect(modal_rect.x + 50, modal_rect.y + 25, 200, 50)
-    auto_button = pygame.Rect(modal_rect.x + 300, modal_rect.y + 25, 200, 50)
-    fast_button = pygame.Rect(modal_rect.x + 550, modal_rect.y + 25, 200, 50)
+    start_button = pygame.Rect(modal_rect.x + 50, modal_rect.y + 125, 200, 50)
+    auto_button = pygame.Rect(modal_rect.x + 300, modal_rect.y + 125, 200, 50)
+    fast_button = pygame.Rect(modal_rect.x + 550, modal_rect.y + 125, 200, 50)
+    
     while True:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -158,11 +210,31 @@ def show_modal(screen, font):
                     return "autoplay"
                 if fast_button.collidepoint(event.pos):
                     return "fast_autoplay"
+        
         screen.fill(BLACK)
+        # Draw title
+        title = font.render("BRICK BREAKER", True, WHITE)
+        screen.blit(title, (WINDOW_WIDTH//2 - title.get_width()//2, 100))
+        
+        # Draw previous game stats if available
+        if prev_stats:
+            score_text = font.render(f"Previous Score: {prev_stats['score']}", True, WHITE)
+            time_text = font.render(f"Time: {prev_stats['time']} sec", True, WHITE)
+            hits_text = font.render(f"Hits: {prev_stats['hits']}", True, WHITE)
+            misses_text = font.render(f"Misses: {prev_stats['misses']}", True, WHITE)
+            
+            # Layout stats in two rows above the buttons
+            screen.blit(score_text, (WINDOW_WIDTH//2 - 300, 150))
+            screen.blit(time_text, (WINDOW_WIDTH//2 + 50, 150))
+            screen.blit(hits_text, (WINDOW_WIDTH//2 - 300, 180))
+            screen.blit(misses_text, (WINDOW_WIDTH//2 + 50, 180))
+        
+        # Draw buttons
         pygame.draw.rect(screen, GRAY, modal_rect)
         pygame.draw.rect(screen, WHITE, start_button)
         pygame.draw.rect(screen, WHITE, auto_button)
         pygame.draw.rect(screen, WHITE, fast_button)
+        
         start_text = font.render("Start Game", True, BLACK)
         auto_text = font.render("Autoplay", True, BLACK)
         fast_text = font.render("Fast Autoplay", True, BLACK)
@@ -178,8 +250,10 @@ def main():
     clock = pygame.time.Clock()
     font = pygame.font.SysFont(None, 36)
     
+    prev_stats = None  # Initialize previous game stats
+    
     while True:  # Outer loop to allow restarting the game
-        mode = show_modal(screen, font)
+        mode = show_modal(screen, font, prev_stats)
         
         # Initialize game variables
         paddle = Paddle()
@@ -192,16 +266,38 @@ def main():
         lives = STARTING_LIVES
         paddle_hits = 0  # Count of paddle hits
         start_time = pygame.time.get_ticks()
+        
+        # Initialize highlighted brick container for fast mode
+        chosen_brick = None
 
         running = True
         while running:
             clock.tick(FPS)
+            
+            # Get mouse position for hover effect
+            mouse_pos = pygame.mouse.get_pos()
+            
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     pygame.quit(); sys.exit()
+                elif event.type == pygame.MOUSEBUTTONDOWN and mode == "fast_autoplay":
+                    # Check if clicked on a brick
+                    for brick in bricks:
+                        if (brick.hit > 0 and 
+                            brick.x <= mouse_pos[0] <= brick.x + BRICK_WIDTH and
+                            brick.y <= mouse_pos[1] <= brick.y + BRICK_HEIGHT):
+                            chosen_brick = brick
+                            ball.last_distance_to_target = None  # Reset tracking for new target
+                            break
                 elif mode == "manual" and event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_SPACE and ball.dx == 0 and ball.dy == 0:
                         ball.launch()
+            
+            # Update brick hover states
+            for brick in bricks:
+                brick.hover = (brick.hit > 0 and mode == "fast_autoplay" and
+                             brick.x <= mouse_pos[0] <= brick.x + BRICK_WIDTH and
+                             brick.y <= mouse_pos[1] <= brick.y + BRICK_HEIGHT)
             
             if mode == "autoplay":
                 # Autopilot: move paddle toward ball
@@ -215,27 +311,47 @@ def main():
                 if ball.dx == 0 and ball.dy == 0:
                     ball.launch()
             elif mode == "fast_autoplay":
-                # Fast autopilot: aim for paddle side to get a more angled hit.
-                paddle_center = paddle.x + paddle.width / 2
-                ball_center = ball.x + BALL_SIZE / 2
-                if ball_center < paddle_center:
-                    target = paddle.x + 5  # lean towards left extreme
+                # Fast autopilot: keep a persistent target brick until it is broken
+                active_bricks = [brick for brick in bricks if brick.hit > 0]
+                if active_bricks:
+                    if chosen_brick is None or chosen_brick.hit <= 0 or chosen_brick not in active_bricks:
+                        chosen_brick = random.choice(active_bricks)
+                        ball.last_distance_to_target = None
+                    target_x = chosen_brick.x + (BRICK_WIDTH / 2)
+                    target_y = chosen_brick.y + (BRICK_HEIGHT / 2)
                 else:
-                    target = paddle.x + paddle.width - 5  # lean towards right extreme
-                current = paddle.x + paddle.width / 2
-                if abs(current - target) > 5:
-                    if current < target:
-                        paddle.move_right()
-                    else:
-                        paddle.move_left()
-                # If ball is moving nearly vertically, apply a random paddle shift
-                if abs(ball.dx) < 0.5:
-                    random_shift = random.randint(10, 20)
-                    if random.choice([True, False]):
-                        paddle.x = min(WINDOW_WIDTH - paddle.width, paddle.x + random_shift)
-                    else:
-                        paddle.x = max(0, paddle.x - random_shift)
-                # Launch ball if idle and then boost its speed.
+                    target_x = ball.x + BALL_SIZE/2
+                    target_y = 0
+                    chosen_brick = None
+                
+                # Calculate paddle position
+                desired_x = calculate_intercept_position(
+                    ball.x + BALL_SIZE/2, ball.y + BALL_SIZE/2,
+                    ball.dx, ball.dy,
+                    target_x, target_y,
+                    paddle.y,
+                    try_alternative=not ball.hits_getting_closer
+                )
+                
+                # Move paddle more aggressively for falling balls
+                paddle_center = paddle.x + paddle.width/2
+                if ball.dy > 0:  # Ball is falling
+                    # Double speed and use direct positioning for falling balls
+                    move_speed = paddle.speed * 2
+                    if abs(paddle_center - desired_x) > 2:
+                        if paddle_center < desired_x:
+                            paddle.x = min(paddle.x + move_speed, WINDOW_WIDTH - paddle.width)
+                        else:
+                            paddle.x = max(paddle.x - move_speed, 0)
+                else:
+                    # Normal movement for rising balls
+                    if abs(paddle_center - desired_x) > 5:
+                        if paddle_center < desired_x:
+                            paddle.move_right()
+                        else:
+                            paddle.move_left()
+
+                # Launch ball if stationary
                 if ball.dx == 0 and ball.dy == 0:
                     ball.launch()
                     ball.dx *= 1.5
@@ -279,27 +395,66 @@ def main():
             ball.draw(screen)
             for brick in bricks:
                 brick.draw(screen)
+                # Highlight the chosen and hovered bricks
+                if mode == "fast_autoplay":
+                    if chosen_brick is not None and brick is chosen_brick:
+                        pygame.draw.rect(screen, (255, 255, 0), 
+                                       (brick.x, brick.y, brick.width, brick.height), 3)
+            
+            # Draw scores in two lines with better spacing
+            # First line: Score, Lives, Time
             score_text = font.render(f"Score: {score}", True, WHITE)
             lives_text = font.render(f"Lives: {lives}", True, WHITE)
-            screen.blit(score_text, (10, 10))
-            screen.blit(lives_text, (120, 10))
-            # Draw added scoreboard information
             elapsed_sec = (pygame.time.get_ticks() - start_time) // 1000
-            pending_hits = sum(brick.hit for brick in bricks if brick.hit > 0)
             time_text = font.render(f"Time: {elapsed_sec} sec", True, WHITE)
+            
+            # Second line: Paddle hits, Misses, Remaining bricks
             hits_text = font.render(f"Paddle Hits: {paddle_hits}", True, WHITE)
             misses_text = font.render(f"Misses: {misses}", True, WHITE)
-            pending_text = font.render(f"Pending Brick Hits: {pending_hits}", True, WHITE)
-            screen.blit(time_text, (230, 10))
-            screen.blit(hits_text, (340, 10))
-            screen.blit(misses_text, (450, 10))
-            screen.blit(pending_text, (560, 10))
+            remaining_text = font.render(f"Remaining Bricks: {pending_hits}", True, WHITE)
+            
+            # First line positioning
+            screen.blit(score_text, (20, 10))
+            screen.blit(lives_text, (250, 10))
+            screen.blit(time_text, (480, 10))
+            
+            # Second line positioning
+            screen.blit(hits_text, (20, 40))
+            screen.blit(misses_text, (250, 40))
+            screen.blit(remaining_text, (480, 40))
+            
             pygame.display.flip()
         
-        # End screen before restarting
+        # Update prev_stats before showing end screen
+        prev_stats = {
+            'score': score,
+            'time': elapsed_sec,
+            'hits': paddle_hits,
+            'misses': misses
+        }
+        
+        # Enhanced end screen with detailed stats
         screen.fill(BLACK)
-        end_text = font.render("You Win!" if lives > 0 else "Game Over!", True, WHITE)
-        screen.blit(end_text, (WINDOW_WIDTH//2 - end_text.get_width()//2, WINDOW_HEIGHT//2))
+        if lives > 0:
+            title_text = font.render("You Win!", True, WHITE)
+        else:
+            title_text = font.render("Game Over!", True, WHITE)
+        
+        # Show detailed stats
+        final_score_text = font.render(f"Final Score: {score}", True, WHITE)
+        final_time = font.render(f"Time: {elapsed_sec} sec", True, WHITE)
+        final_hits = font.render(f"Total Hits: {paddle_hits}", True, WHITE)
+        final_misses = font.render(f"Total Misses: {misses}", True, WHITE)
+        restart_text = font.render("Press any button to restart", True, WHITE)
+        
+        # Position all end screen elements
+        screen.blit(title_text, (WINDOW_WIDTH//2 - title_text.get_width()//2, WINDOW_HEIGHT//2 - 100))
+        screen.blit(final_score_text, (WINDOW_WIDTH//2 - final_score_text.get_width()//2, WINDOW_HEIGHT//2 - 40))
+        screen.blit(final_time, (WINDOW_WIDTH//2 - final_time.get_width()//2, WINDOW_HEIGHT//2))
+        screen.blit(final_hits, (WINDOW_WIDTH//2 - final_hits.get_width()//2, WINDOW_HEIGHT//2 + 40))
+        screen.blit(final_misses, (WINDOW_WIDTH//2 - final_misses.get_width()//2, WINDOW_HEIGHT//2 + 80))
+        screen.blit(restart_text, (WINDOW_WIDTH//2 - restart_text.get_width()//2, WINDOW_HEIGHT//2 + 140))
+        
         pygame.display.flip()
         pygame.time.wait(3000)
 
