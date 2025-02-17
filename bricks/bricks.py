@@ -135,83 +135,116 @@ def create_bricks(level=1):
             bricks.append(Brick(x, y, hit_value))
     return bricks
 
+def show_modal(screen, font):
+    """Display a modal window with two buttons and return 'manual' or 'autoplay'."""
+    modal_rect = pygame.Rect(200, 150, 400, 300)
+    start_button = pygame.Rect(250, 250, 140, 50)
+    auto_button = pygame.Rect(410, 250, 140, 50)
+    
+    while True:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit(); sys.exit()
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                if start_button.collidepoint(event.pos):
+                    return "manual"
+                if auto_button.collidepoint(event.pos):
+                    return "autoplay"
+        
+        screen.fill(BLACK)
+        # Draw modal backdrop
+        pygame.draw.rect(screen, GRAY, modal_rect)
+        # Draw buttons
+        pygame.draw.rect(screen, WHITE, start_button)
+        pygame.draw.rect(screen, WHITE, auto_button)
+        # Render button texts
+        start_text = font.render("Start Game", True, BLACK)
+        auto_text = font.render("Autoplay", True, BLACK)
+        screen.blit(start_text, start_text.get_rect(center=start_button.center))
+        screen.blit(auto_text, auto_text.get_rect(center=auto_button.center))
+        pygame.display.flip()
+
 def main():
     pygame.init()
     screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
     pygame.display.set_caption("Brick Breaker")
     clock = pygame.time.Clock()
     font = pygame.font.SysFont(None, 36)
+    
+    while True:  # Outer loop to allow restarting the game
+        # Show modal window for mode selection at start/restart
+        mode = show_modal(screen, font)
+        
+        # Initialize game variables
+        paddle = Paddle()
+        ball = Ball()
+        bricks = create_bricks()
+        score = 0
+        lives = STARTING_LIVES
 
-    paddle = Paddle()
-    ball = Ball()
-    bricks = create_bricks()
-    score = 0
-    lives = STARTING_LIVES
-
-    running = True
-    while running:
-        clock.tick(FPS)
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                running = False
-            elif event.type == pygame.KEYDOWN:
-                # Launch the ball if it's stationary
-                if event.key == pygame.K_SPACE and ball.dx == 0 and ball.dy == 0:
+        running = True
+        while running:
+            clock.tick(FPS)
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit(); sys.exit()
+                elif mode == "manual" and event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_SPACE and ball.dx == 0 and ball.dy == 0:
+                        ball.launch()
+            
+            if mode == "autoplay":
+                # Autopilot: move paddle toward ball
+                paddle_center = paddle.x + paddle.width / 2
+                ball_center = ball.x + BALL_SIZE / 2
+                if abs(paddle_center - ball_center) > 5:
+                    if paddle_center < ball_center:
+                        paddle.move_right()
+                    elif paddle_center > ball_center:
+                        paddle.move_left()
+                if ball.dx == 0 and ball.dy == 0:
                     ball.launch()
+            else:
+                # Manual mode: use keyboard for paddle movement
+                keys = pygame.key.get_pressed()
+                if keys[pygame.K_LEFT]:
+                    paddle.move_left()
+                if keys[pygame.K_RIGHT]:
+                    paddle.move_right()
 
-        # Check continuous key presses for smoother movement
-        keys = pygame.key.get_pressed()
-        if keys[pygame.K_LEFT]:
-            paddle.move_left()
-        if keys[pygame.K_RIGHT]:
-            paddle.move_right()
+            # Update ball when in motion
+            if ball.dx != 0 or ball.dy != 0:
+                gained_points = ball.update(paddle, bricks)
+                score += gained_points
 
-        # Update ball
-        if ball.dy != 0 or ball.dx != 0:
-            gained_points = ball.update(paddle, bricks)
-            score += gained_points
+            # Check if ball fell below
+            if ball.y > WINDOW_HEIGHT:
+                lives -= 1
+                ball.reset()
+                if lives <= 0:
+                    running = False
 
-        # Check if ball fell below
-        if ball.y > WINDOW_HEIGHT:
-            lives -= 1
-            ball.reset()
-            if lives <= 0:
-                # Game Over
+            # Check if all bricks destroyed
+            if all(brick.hit <= 0 for brick in bricks):
                 running = False
 
-        # Check if all bricks destroyed
-        if all(brick.hit <= 0 for brick in bricks):
-            # Next level or game win
-            # For simplicity, show end screen
-            running = False
-
-        # Draw everything
+            # Drawing game
+            screen.fill(BLACK)
+            paddle.draw(screen)
+            ball.draw(screen)
+            for brick in bricks:
+                brick.draw(screen)
+            score_text = font.render(f"Score: {score}", True, WHITE)
+            lives_text = font.render(f"Lives: {lives}", True, WHITE)
+            screen.blit(score_text, (10, 10))
+            screen.blit(lives_text, (200, 10))
+            pygame.display.flip()
+        
+        # End screen before restarting
         screen.fill(BLACK)
-        paddle.draw(screen)
-        ball.draw(screen)
-        for brick in bricks:
-            brick.draw(screen)
-
-        # Draw score and lives
-        score_text = font.render(f"Score: {score}", True, WHITE)
-        lives_text = font.render(f"Lives: {lives}", True, WHITE)
-        screen.blit(score_text, (10, 10))
-        screen.blit(lives_text, (200, 10))
-
+        end_text = font.render("You Win!" if lives > 0 else "Game Over!", True, WHITE)
+        screen.blit(end_text, (WINDOW_WIDTH//2 - end_text.get_width()//2, WINDOW_HEIGHT//2))
         pygame.display.flip()
-
-    # End screen
-    screen.fill(BLACK)
-    if lives > 0:
-        end_text = font.render("You Win!", True, WHITE)
-    else:
-        end_text = font.render("Game Over!", True, WHITE)
-    screen.blit(end_text, (WINDOW_WIDTH // 2 - end_text.get_width() // 2, WINDOW_HEIGHT // 2))
-    pygame.display.flip()
-    pygame.time.wait(3000)
-
-    pygame.quit()
-    sys.exit()
+        pygame.time.wait(3000)
 
 if __name__ == "__main__":
     main()
