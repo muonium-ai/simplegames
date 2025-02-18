@@ -227,11 +227,14 @@ class Ball:
                     self.y + BALL_SIZE > brick.y and
                     self.y < brick.y + brick.height):
                     brick.hit -= 1
+                    # Update brick color based on remaining hits
+                    if brick.hit > 0:  # If brick still exists
+                        brick.color = get_brick_color(brick.hit)
                     if abs((self.x + BALL_SIZE) - brick.x) < 5 or abs(self.x - (brick.x + brick.width)) < 5:
                         self.dx = -self.dx
                     else:
                         self.dy = -self.dy
-                    return brick.points  # Return the points from the collision
+                    return brick.points
         if self.hit_paddle:
             # After paddle hit, if we have a last_distance, check if we're getting closer
             if self.last_distance_to_target is not None:
@@ -257,28 +260,25 @@ class Brick:
         self.points = 10 * hit
         self.hover = False  # Add hover state
         self.font = pygame.font.SysFont(None, 30)  # Add font for hit count
+        self.color = None  # Will be set by level loader
 
     def draw(self, surface):
-        if self.hit > 0:
-            # Draw the brick
-            color = BLUE if self.hit == 1 else RED
-            pygame.draw.rect(surface, color, (self.x, self.y, self.width, self.height))
+        if self.hit > 0 or self.hit == -1:  # Draw if breakable or unbreakable
+            # Draw the brick with its color
+            pygame.draw.rect(surface, self.color, (self.x, self.y, self.width, self.height))
             
-            # Draw the hit count if brick is breakable
+            # Draw the hit count or X
             if self.hit != -1:
                 hit_text = self.font.render(str(self.hit), True, WHITE)
-                # Center the text in the brick
-                text_x = self.x + (self.width - hit_text.get_width()) // 2
-                text_y = self.y + (self.height - hit_text.get_height()) // 2
-                surface.blit(hit_text, (text_x, text_y))
             else:
-                # Draw "X" for unbreakable bricks
-                x_text = self.font.render("X", True, WHITE)
-                text_x = self.x + (self.width - x_text.get_width()) // 2
-                text_y = self.y + (self.height - x_text.get_height()) // 2
-                surface.blit(x_text, (text_x, text_y))
+                hit_text = self.font.render("X", True, WHITE)
             
-            # Draw hover effect
+            # Center the text in the brick
+            text_x = self.x + (self.width - hit_text.get_width()) // 2
+            text_y = self.y + (self.height - hit_text.get_height()) // 2
+            surface.blit(hit_text, (text_x, text_y))
+            
+            # Draw hover effect if applicable
             if self.hover:
                 pygame.draw.rect(surface, WHITE, 
                                (self.x, self.y, self.width, self.height), 2)
@@ -288,7 +288,7 @@ class LevelManager:
         self.levels_dir = levels_dir
         self.current_level = 1
         self.max_level = self._count_levels()
-        
+
         # Create levels directory if it doesn't exist
         os.makedirs(levels_dir, exist_ok=True)
 
@@ -345,7 +345,6 @@ class LevelManager:
                 brick.points = 0
             brick.color = get_brick_color(brick_data["color"])
             bricks.append(brick)
-            
         return bricks
 
     def next_level(self):
@@ -373,7 +372,6 @@ class LevelManager:
                 for brick in bricks
             ]
         }
-
         with open(self.get_level_path(level_number), 'w') as f:
             json.dump(level_data, f, indent=4)
 
@@ -383,13 +381,12 @@ def main():
     pygame.display.set_caption("Brick Breaker")
     clock = pygame.time.Clock()
     font = pygame.font.SysFont(None, 36)
-    
+        
     prev_stats = None  # Initialize previous game stats
     level_manager = LevelManager()  # Create level manager once
-    
+
     while True:  # Outer loop to allow restarting the game
         mode = show_modal(screen, font, prev_stats)
-        
         game_completed = False
         while not game_completed:  # New loop for level progression
             # Initialize game variables
@@ -412,11 +409,9 @@ def main():
             pygame.display.flip()
             pygame.time.wait(2000)
 
-            running = True
+            running = True    
             while running:
                 clock.tick(FPS)
-            
-                # Get mouse position for hover effect
                 mouse_pos = pygame.mouse.get_pos()
                 
                 for event in pygame.event.get():
@@ -425,7 +420,7 @@ def main():
                     elif event.type == pygame.MOUSEBUTTONDOWN and mode == "fast_autoplay":
                         # Check if clicked on a brick
                         for brick in bricks:
-                            if (brick.hit > 0 and 
+                            if (brick.hit > 0 and
                                 brick.x <= mouse_pos[0] <= brick.x + BRICK_WIDTH and
                                 brick.y <= mouse_pos[1] <= brick.y + BRICK_HEIGHT):
                                 chosen_brick = brick
@@ -474,7 +469,6 @@ def main():
                         paddle.y,
                         try_alternative=not ball.hits_getting_closer
                     )
-                    
                     # Move paddle more aggressively for falling balls
                     paddle_center = paddle.x + paddle.width/2
                     if ball.dy > 0:  # Ball is falling
@@ -528,7 +522,6 @@ def main():
                 # Drawing game and HUD; compute pending hits as sum of remaining (current) brick hits.
                 pending_hits = sum(brick.hit for brick in bricks if brick.hit > 0)
                 # Compute misses = paddle_hits - (total hits achieved), where total achieved = total_initial_hits - pending_hits.
-                # So, misses = paddle_hits + pending_hits - total_initial_hits.
                 misses = max(0, paddle_hits + pending_hits - total_initial_hits)
 
                 # Drawing game
@@ -542,7 +535,7 @@ def main():
                         if chosen_brick is not None and brick is chosen_brick:
                             pygame.draw.rect(screen, (255, 255, 0), 
                                         (brick.x, brick.y, brick.width, brick.height), 3)
-                
+
                 # Draw scores in two lines with better spacing
                 # First line: Score, Lives, Time
                 score_text = font.render(f"Score: {score}", True, WHITE)
@@ -574,9 +567,8 @@ def main():
                 'score': score,
                 'time': elapsed_sec,
                 'hits': paddle_hits,
-                'misses': misses
+                'misses': misses,
             }
-            
             if lives <= 0:
                 game_completed = True  # Game over if no lives left
 
@@ -585,7 +577,6 @@ def main():
                 if level_manager.next_level():
                     running = False  # Go to next level
                 else:
-                    running = False
                     game_completed = True  # All levels completed
 
         # Enhanced end screen with detailed stats
@@ -594,7 +585,7 @@ def main():
             title_text = font.render("Congratulations! All Levels Completed!", True, WHITE)
         else:
             title_text = font.render("Game Over!", True, WHITE)
-        
+
         # Show detailed stats
         final_score_text = font.render(f"Final Score: {score}", True, WHITE)
         final_time = font.render(f"Time: {elapsed_sec} sec", True, WHITE)
