@@ -1,3 +1,85 @@
+def show_modal(screen, font, prev_stats=None):
+    """Display modal with level selection and game mode buttons"""
+    modal_rect = pygame.Rect(100, 200, 800, 250)  # Made taller for level selector
+    
+    # Level selector dropdown
+    level_button = pygame.Rect(modal_rect.x + 300, modal_rect.y + 30, 200, 40)
+    
+    # Game mode buttons
+    start_button = pygame.Rect(modal_rect.x + 50, modal_rect.y + 175, 200, 50)
+    auto_button = pygame.Rect(modal_rect.x + 300, modal_rect.y + 175, 200, 50)
+    fast_button = pygame.Rect(modal_rect.x + 550, modal_rect.y + 175, 200, 50)
+    
+    # Get available levels
+    level_manager = LevelManager()
+    available_levels = [f"Level {i}" for i in range(1, level_manager.max_level + 1)]
+    selected_level = 1
+    show_levels = False
+    
+    while True:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit(); sys.exit()
+            elif event.type == pygame.MOUSEBUTTONDOWN:
+                if level_button.collidepoint(event.pos):
+                    show_levels = not show_levels
+                elif show_levels:
+                    # Check level selection
+                    for i, level in enumerate(available_levels):
+                        level_rect = pygame.Rect(level_button.x, level_button.y + (i+1)*40, 200, 40)
+                        if level_rect.collidepoint(event.pos):
+                            selected_level = i + 1
+                            show_levels = False
+                            level_manager.current_level = selected_level
+                elif start_button.collidepoint(event.pos):
+                    return "manual"
+                elif auto_button.collidepoint(event.pos):
+                    return "autoplay"
+                elif fast_button.collidepoint(event.pos):
+                    return "fast_autoplay"
+        
+        screen.fill(BLACK)
+        # Draw title
+        title = font.render("BRICK BREAKER", True, WHITE)
+        screen.blit(title, (WINDOW_WIDTH//2 - title.get_width()//2, 100))
+        
+        # Draw previous game stats
+        if prev_stats:
+            # ...existing stats drawing code...
+            pass
+        
+        # Draw modal background
+        pygame.draw.rect(screen, GRAY, modal_rect)
+        
+        # Draw level selector
+        pygame.draw.rect(screen, WHITE, level_button)
+        level_text = font.render(f"Select Level: {selected_level}", True, BLACK)
+        screen.blit(level_text, (level_button.x + 10, level_button.y + 10))
+        
+        # Draw dropdown if open
+        if show_levels:
+            for i, level in enumerate(available_levels):
+                level_rect = pygame.Rect(level_button.x, level_button.y + (i+1)*40, 200, 40)
+                pygame.draw.rect(screen, WHITE, level_rect)
+                text = font.render(level, True, BLACK)
+                screen.blit(text, (level_rect.x + 10, level_rect.y + 10))
+        
+        # Draw game mode buttons
+        pygame.draw.rect(screen, WHITE, start_button)
+        pygame.draw.rect(screen, WHITE, auto_button)
+        pygame.draw.rect(screen, WHITE, fast_button)
+        
+        start_text = font.render("Start Game", True, BLACK)
+        auto_text = font.render("Autoplay", True, BLACK)
+        fast_text = font.render("Fast Autoplay", True, BLACK)
+        
+        screen.blit(start_text, start_text.get_rect(center=start_button.center))
+        screen.blit(auto_text, auto_text.get_rect(center=auto_button.center))
+        screen.blit(fast_text, fast_text.get_rect(center=fast_button.center))
+        
+        pygame.display.flip()
+
+
 from os import environ
 environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'  # Hide pygame support prompt
 
@@ -174,14 +256,31 @@ class Brick:
         self.initial = hit  # Save initial hit count for miss calculation
         self.points = 10 * hit
         self.hover = False  # Add hover state
+        self.font = pygame.font.SysFont(None, 30)  # Add font for hit count
 
     def draw(self, surface):
         if self.hit > 0:
+            # Draw the brick
             color = BLUE if self.hit == 1 else RED
             pygame.draw.rect(surface, color, (self.x, self.y, self.width, self.height))
+            
+            # Draw the hit count if brick is breakable
+            if self.hit != -1:
+                hit_text = self.font.render(str(self.hit), True, WHITE)
+                # Center the text in the brick
+                text_x = self.x + (self.width - hit_text.get_width()) // 2
+                text_y = self.y + (self.height - hit_text.get_height()) // 2
+                surface.blit(hit_text, (text_x, text_y))
+            else:
+                # Draw "X" for unbreakable bricks
+                x_text = self.font.render("X", True, WHITE)
+                text_x = self.x + (self.width - x_text.get_width()) // 2
+                text_y = self.y + (self.height - x_text.get_height()) // 2
+                surface.blit(x_text, (text_x, text_y))
+            
             # Draw hover effect
             if self.hover:
-                pygame.draw.rect(surface, (255, 255, 255), 
+                pygame.draw.rect(surface, WHITE, 
                                (self.x, self.y, self.width, self.height), 2)
 
 class LevelManager:
@@ -277,58 +376,6 @@ class LevelManager:
 
         with open(self.get_level_path(level_number), 'w') as f:
             json.dump(level_data, f, indent=4)
-
-def show_modal(screen, font, prev_stats=None):
-    """Display modal with three buttons and previous game stats if available"""
-    modal_rect = pygame.Rect(100, 200, 800, 200)  # Made taller for stats
-    # Define three buttons horizontally arranged
-    start_button = pygame.Rect(modal_rect.x + 50, modal_rect.y + 125, 200, 50)
-    auto_button = pygame.Rect(modal_rect.x + 300, modal_rect.y + 125, 200, 50)
-    fast_button = pygame.Rect(modal_rect.x + 550, modal_rect.y + 125, 200, 50)
-    
-    while True:
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                pygame.quit(); sys.exit()
-            if event.type == pygame.MOUSEBUTTONDOWN:
-                if start_button.collidepoint(event.pos):
-                    return "manual"
-                if auto_button.collidepoint(event.pos):
-                    return "autoplay"
-                if fast_button.collidepoint(event.pos):
-                    return "fast_autoplay"
-        
-        screen.fill(BLACK)
-        # Draw title
-        title = font.render("BRICK BREAKER", True, WHITE)
-        screen.blit(title, (WINDOW_WIDTH//2 - title.get_width()//2, 100))
-        
-        # Draw previous game stats if available
-        if prev_stats:
-            score_text = font.render(f"Previous Score: {prev_stats['score']}", True, WHITE)
-            time_text = font.render(f"Time: {prev_stats['time']} sec", True, WHITE)
-            hits_text = font.render(f"Hits: {prev_stats['hits']}", True, WHITE)
-            misses_text = font.render(f"Misses: {prev_stats['misses']}", True, WHITE)
-            
-            # Layout stats in two rows above the buttons
-            screen.blit(score_text, (WINDOW_WIDTH//2 - 300, 150))
-            screen.blit(time_text, (WINDOW_WIDTH//2 + 50, 150))
-            screen.blit(hits_text, (WINDOW_WIDTH//2 - 300, 180))
-            screen.blit(misses_text, (WINDOW_WIDTH//2 + 50, 180))
-        
-        # Draw buttons
-        pygame.draw.rect(screen, GRAY, modal_rect)
-        pygame.draw.rect(screen, WHITE, start_button)
-        pygame.draw.rect(screen, WHITE, auto_button)
-        pygame.draw.rect(screen, WHITE, fast_button)
-        
-        start_text = font.render("Start Game", True, BLACK)
-        auto_text = font.render("Autoplay", True, BLACK)
-        fast_text = font.render("Fast Autoplay", True, BLACK)
-        screen.blit(start_text, start_text.get_rect(center=start_button.center))
-        screen.blit(auto_text, auto_text.get_rect(center=auto_button.center))
-        screen.blit(fast_text, fast_text.get_rect(center=fast_button.center))
-        pygame.display.flip()
 
 def main():
     pygame.init()

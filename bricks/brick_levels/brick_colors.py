@@ -2,12 +2,12 @@ import pygame
 
 # Color definitions for different brick levels
 BRICK_COLORS = {
-    1: (135, 206, 235),  # Light Blue (1 hit)
-    2: (0, 100, 200),    # Medium Blue (2 hits)
-    3: (255, 165, 0),    # Orange (3 hits)
-    4: (255, 0, 0),      # Red (4 hits)
-    5: (128, 0, 128),    # Purple (5 hits)
-    6: (169, 169, 169)   # Gray (Unbreakable)
+    1: (0, 100, 200),     # Blue (1 hit)
+    2: (200, 0, 0),       # Red (2 hits)
+    3: (0, 200, 0),       # Green (3 hits)
+    4: (255, 255, 0),     # Yellow (4 hits)
+    5: (255, 165, 0),     # Orange (5 hits) - kept for compatibility
+    6: (128, 128, 128)    # Gray (Unbreakable)
 }
 
 def get_brick_color(color_level):

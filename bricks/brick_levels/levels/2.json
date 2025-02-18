@@ -1,0 +1,41 @@
+{
+    "level_name": "Level 2 - Advanced",
+    "background_color": [0, 0, 0],
+    "bricks": [
+        {"x": 0, "y": 50, "hits": 4, "color": 4},
+        {"x": 82, "y": 50, "hits": -1, "color": 6},
+        {"x": 164, "y": 50, "hits": 4, "color": 4},
+        {"x": 246, "y": 50, "hits": -1, "color": 6},
+        {"x": 328, "y": 50, "hits": 4, "color": 4},
+        {"x": 410, "y": 50, "hits": -1, "color": 6},
+        {"x": 492, "y": 50, "hits": 4, "color": 4},
+        {"x": 574, "y": 50, "hits": -1, "color": 6},
+
+        {"x": 0, "y": 77, "hits": 3, "color": 3},
+        {"x": 82, "y": 77, "hits": 3, "color": 3},
+        {"x": 164, "y": 77, "hits": 3, "color": 3},
+        {"x": 246, "y": 77, "hits": 3, "color": 3},
+        {"x": 328, "y": 77, "hits": 3, "color": 3},
+        {"x": 410, "y": 77, "hits": 3, "color": 3},
+        {"x": 492, "y": 77, "hits": 3, "color": 3},
+        {"x": 574, "y": 77, "hits": 3, "color": 3},
+
+        {"x": 0, "y": 104, "hits": 2, "color": 2},
+        {"x": 82, "y": 104, "hits": 2, "color": 2},
+        {"x": 164, "y": 104, "hits": 2, "color": 2},
+        {"x": 246, "y": 104, "hits": 2, "color": 2},
+        {"x": 328, "y": 104, "hits": 2, "color": 2},
+        {"x": 410, "y": 104, "hits": 2, "color": 2},
+        {"x": 492, "y": 104, "hits": 2, "color": 2},
+        {"x": 574, "y": 104, "hits": 2, "color": 2},
+
+        {"x": 0, "y": 131, "hits": 1, "color": 1},
+        {"x": 82, "y": 131, "hits": 1, "color": 1},
+        {"x": 164, "y": 131, "hits": 1, "color": 1},
+        {"x": 246, "y": 131, "hits": 1, "color": 1},
+        {"x": 328, "y": 131, "hits": 1, "color": 1},
+        {"x": 410, "y": 131, "hits": 1, "color": 1},
+        {"x": 492, "y": 131, "hits": 1, "color": 1},
+        {"x": 574, "y": 131, "hits": 1, "color": 1}
+    ]
+}
