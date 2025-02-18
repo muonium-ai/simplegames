@@ -1,84 +1,96 @@
 def show_modal(screen, font, prev_stats=None):
     """Display modal with level selection and game mode buttons"""
-    modal_rect = pygame.Rect(100, 200, 800, 250)  # Made taller for level selector
+    modal_rect = pygame.Rect(100, 200, 800, 300)  # Made taller
     
-    # Level selector dropdown
-    level_button = pygame.Rect(modal_rect.x + 300, modal_rect.y + 30, 200, 40)
+    # Level radio buttons - horizontally arranged
+    level_buttons = []
+    levels_dir = "levels"
+    available_levels = []
+    level_num = 1
     
-    # Game mode buttons
-    start_button = pygame.Rect(modal_rect.x + 50, modal_rect.y + 175, 200, 50)
-    auto_button = pygame.Rect(modal_rect.x + 300, modal_rect.y + 175, 200, 50)
-    fast_button = pygame.Rect(modal_rect.x + 550, modal_rect.y + 175, 200, 50)
+    # Find available levels
+    while os.path.exists(os.path.join(levels_dir, f"level{level_num}.json")):
+        available_levels.append(level_num)
+        # Position buttons with more space between them
+        button_rect = pygame.Rect(modal_rect.x + 100 + (level_num-1)*200, 
+                                modal_rect.y + 80,  # Moved down for better visibility
+                                40, 40)  # Made buttons bigger
+        level_buttons.append((button_rect, level_num))
+        level_num += 1
     
-    # Get available levels
-    level_manager = LevelManager()
-    available_levels = [f"Level {i}" for i in range(1, level_manager.max_level + 1)]
     selected_level = 1
-    show_levels = False
+    
+    # Game mode buttons (moved down further)
+    start_button = pygame.Rect(modal_rect.x + 50, modal_rect.y + 200, 200, 50)
+    auto_button = pygame.Rect(modal_rect.x + 300, modal_rect.y + 200, 200, 50)
+    fast_button = pygame.Rect(modal_rect.x + 550, modal_rect.y + 200, 200, 50)
     
     while True:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                pygame.quit(); sys.exit()
+                pygame.quit()
+                sys.exit()
             elif event.type == pygame.MOUSEBUTTONDOWN:
-                if level_button.collidepoint(event.pos):
-                    show_levels = not show_levels
-                elif show_levels:
-                    # Check level selection
-                    for i, level in enumerate(available_levels):
-                        level_rect = pygame.Rect(level_button.x, level_button.y + (i+1)*40, 200, 40)
-                        if level_rect.collidepoint(event.pos):
-                            selected_level = i + 1
-                            show_levels = False
-                            level_manager.current_level = selected_level
-                elif start_button.collidepoint(event.pos):
-                    return "manual"
+                # Check radio button clicks
+                for button, level in level_buttons:
+                    if button.collidepoint(event.pos):
+                        selected_level = level
+                        break
+                
+                # Check game mode button clicks
+                if start_button.collidepoint(event.pos):
+                    return "manual", selected_level
                 elif auto_button.collidepoint(event.pos):
-                    return "autoplay"
+                    return "autoplay", selected_level
                 elif fast_button.collidepoint(event.pos):
-                    return "fast_autoplay"
-        
+                    return "fast_autoplay", selected_level
+
+        # Draw everything
         screen.fill(BLACK)
+        
         # Draw title
         title = font.render("BRICK BREAKER", True, WHITE)
         screen.blit(title, (WINDOW_WIDTH//2 - title.get_width()//2, 100))
         
-        # Draw previous game stats
-        if prev_stats:
-            # ...existing stats drawing code...
-            pass
-        
         # Draw modal background
         pygame.draw.rect(screen, GRAY, modal_rect)
         
-        # Draw level selector
-        pygame.draw.rect(screen, WHITE, level_button)
-        level_text = font.render(f"Select Level: {selected_level}", True, BLACK)
-        screen.blit(level_text, (level_button.x + 10, level_button.y + 10))
+        # Draw "Select Level:" text
+        select_text = font.render("Select Level:", True, WHITE)
+        screen.blit(select_text, (modal_rect.x + 50, modal_rect.y + 30))
         
-        # Draw dropdown if open
-        if show_levels:
-            for i, level in enumerate(available_levels):
-                level_rect = pygame.Rect(level_button.x, level_button.y + (i+1)*40, 200, 40)
-                pygame.draw.rect(screen, WHITE, level_rect)
-                text = font.render(level, True, BLACK)
-                screen.blit(text, (level_rect.x + 10, level_rect.y + 10))
+        # Draw radio buttons and labels with improved visibility
+        for button, level in level_buttons:
+            # Draw outer circle (white)
+            pygame.draw.circle(screen, WHITE, button.center, 15)
+            # Draw inner circle (black)
+            pygame.draw.circle(screen, BLACK, button.center, 13)
+            # Draw selected dot
+            if level == selected_level:
+                pygame.draw.circle(screen, WHITE, button.center, 8)
+            
+            # Draw level number inside the radio button
+            level_num = font.render(str(level), True, WHITE)
+            num_x = button.centerx - level_num.get_width()//2
+            num_y = button.centery - level_num.get_height()//2
+            screen.blit(level_num, (num_x, num_y))
+            
+            # Draw "Level X" text below the button
+            level_text = font.render(f"Level {level}", True, WHITE)
+            text_x = button.centerx - level_text.get_width()//2
+            text_y = button.bottom + 10
+            screen.blit(level_text, (text_x, text_y))
         
         # Draw game mode buttons
-        pygame.draw.rect(screen, WHITE, start_button)
-        pygame.draw.rect(screen, WHITE, auto_button)
-        pygame.draw.rect(screen, WHITE, fast_button)
-        
-        start_text = font.render("Start Game", True, BLACK)
-        auto_text = font.render("Autoplay", True, BLACK)
-        fast_text = font.render("Fast Autoplay", True, BLACK)
-        
-        screen.blit(start_text, start_text.get_rect(center=start_button.center))
-        screen.blit(auto_text, auto_text.get_rect(center=auto_button.center))
-        screen.blit(fast_text, fast_text.get_rect(center=fast_button.center))
+        for btn, (text, color) in zip(
+            [start_button, auto_button, fast_button],
+            [("Start Game", BLACK), ("Autoplay", BLACK), ("Fast Autoplay", BLACK)]
+        ):
+            pygame.draw.rect(screen, WHITE, btn)
+            btn_text = font.render(text, True, color)
+            screen.blit(btn_text, btn_text.get_rect(center=btn.center))
         
         pygame.display.flip()
-
 
 from os import environ
 environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'  # Hide pygame support prompt
@@ -383,11 +395,14 @@ def main():
     font = pygame.font.SysFont(None, 36)
         
     prev_stats = None  # Initialize previous game stats
-    level_manager = LevelManager()  # Create level manager once
-
+    
     while True:  # Outer loop to allow restarting the game
-        mode = show_modal(screen, font, prev_stats)
+        mode, selected_level = show_modal(screen, font, prev_stats)  # Get both mode and level
+        
         game_completed = False
+        level_manager = LevelManager()
+        level_manager.current_level = selected_level  # Set the selected level
+        
         while not game_completed:  # New loop for level progression
             # Initialize game variables
             paddle = Paddle()
