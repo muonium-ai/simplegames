@@ -218,6 +218,7 @@ class Game:
         self.font = pygame.font.Font(None, 36)
         self.menu = Menu(self.screen, self.font)
         self.num_snakes = num_snakes
+        self.GRAY = (128, 128, 128)  # Add gray color for dead snake outline
         self.initialize_game()
 
     def initialize_game(self):
@@ -256,12 +257,21 @@ class Game:
                         (self.food_pos[0]*GRID_SIZE, self.food_pos[1]*GRID_SIZE, 
                          GRID_SIZE-2, GRID_SIZE-2))
         
-        # Draw snakes
+        # Draw snakes with outline for dead ones
         for snake in self.snakes:
             for segment in snake.body:
+                x = segment[0]*GRID_SIZE
+                y = segment[1]*GRID_SIZE
+                width = GRID_SIZE-2
+                
+                if not snake.alive:
+                    # Draw gray outline for dead snake
+                    pygame.draw.rect(self.screen, self.GRAY,
+                                   (x-1, y-1, width+2, width+2))
+                
+                # Draw snake segment
                 pygame.draw.rect(self.screen, snake.color,
-                               (segment[0]*GRID_SIZE, segment[1]*GRID_SIZE,
-                                GRID_SIZE-2, GRID_SIZE-2))
+                               (x, y, width, width))
         
         # Draw timer and debug info
         elapsed_time = int(time.time() - self.start_time)
