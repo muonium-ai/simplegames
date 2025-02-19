@@ -36,82 +36,55 @@ class Direction(Enum):
 
 class AIStrategy:
     @staticmethod
-    def get_safe_directions(snake_head: tuple, obstacles: List, next_positions: List[tuple]) -> List[Direction]:
-        """Return list of safe directions that won't result in immediate collision"""
-        safe_directions = []
-        
+    def basic_pathfinding(snake_head: tuple, food_pos: tuple, obstacles: List, 
+                         all_snakes: List['Snake']=None) -> Direction:
+        """Simplified pathfinding that prefers clear paths"""
+        x, y = snake_head
+        food_x, food_y = food_pos
+
+        # Get all possible moves
+        possible_moves = []
         for direction in Direction:
-            new_x = snake_head[0] + direction.value[0]
-            new_y = snake_head[1] + direction.value[1]
+            new_x = x + direction.value[0]
+            new_y = y + direction.value[1]
             
-            # Check wall collisions
+            # Skip if would hit wall
             if new_x < 0 or new_x >= GRID_WIDTH or new_y < 0 or new_y >= GRID_HEIGHT:
                 continue
                 
             new_pos = (new_x, new_y)
-            if new_pos not in obstacles and new_pos not in next_positions:
-                safe_directions.append(direction)
+            
+            # Skip if would hit obstacle
+            if new_pos in obstacles:
+                continue
                 
-        return safe_directions
-
-    @staticmethod
-    def predict_next_positions(snakes: List['Snake']) -> List[tuple]:
-        """Predict likely next positions of all snake heads"""
-        next_positions = []
-        for snake in snakes:
-            if snake.alive:
-                head = snake.body[0]
-                # Predict based on current direction
-                next_pos = (
-                    (head[0] + snake.direction.value[0]) % GRID_WIDTH,
-                    (head[1] + snake.direction.value[1]) % GRID_HEIGHT
-                )
-                next_positions.append(next_pos)
-        return next_positions
-
-    @staticmethod
-    def basic_pathfinding(snake_head: tuple, food_pos: tuple, obstacles: List, 
-                         all_snakes: List['Snake']=None) -> Direction:
-        x, y = snake_head
-        food_x, food_y = food_pos
+            # Skip if would hit own body (except tail)
+            current_snake = next((s for s in all_snakes if s.body[0] == snake_head), None)
+            if current_snake and new_pos in current_snake.body[:-1]:
+                continue
+            
+            # Calculate score for this move
+            food_dist = abs(food_x - new_x) + abs(food_y - new_y)
+            
+            # Count free spaces in this direction
+            free_spaces = 0
+            check_x, check_y = new_x, new_y
+            for _ in range(3):  # Look ahead 3 spaces
+                if (0 <= check_x < GRID_WIDTH and 
+                    0 <= check_y < GRID_HEIGHT and 
+                    (check_x, check_y) not in obstacles):
+                    free_spaces += 1
+                check_x += direction.value[0]
+                check_y += direction.value[1]
+            
+            score = free_spaces * 10 - food_dist
+            possible_moves.append((score, direction))
         
-        # Get safe directions
-        next_positions = AIStrategy.predict_next_positions(all_snakes) if all_snakes else []
-        safe_directions = AIStrategy.get_safe_directions(snake_head, obstacles, next_positions)
-        
-        if not safe_directions:
-            # Try to find any safe direction if no optimal path exists
-            for direction in Direction:
-                new_x = x + direction.value[0]
-                new_y = y + direction.value[1]
-                if 0 <= new_x < GRID_WIDTH and 0 <= new_y < GRID_HEIGHT:
-                    return direction
+        if not possible_moves:
             return Direction.RIGHT
             
-        # Calculate distances for each safe direction
-        direction_scores = []
-        for direction in safe_directions:
-            new_x = x + direction.value[0]
-            new_y = y + direction.value[1]
-            
-            # Calculate distance to food
-            distance = abs(food_x - new_x) + abs(food_y - new_y)
-            
-            # Calculate distance to nearest obstacle
-            min_obstacle_distance = float('inf')
-            for obs in obstacles:
-                obs_distance = abs(obs[0] - new_x) + abs(obs[1] - new_y)
-                min_obstacle_distance = min(min_obstacle_distance, obs_distance)
-            
-            # Calculate distance to walls
-            wall_distance = min(new_x, GRID_WIDTH - new_x, new_y, GRID_HEIGHT - new_y)
-            
-            # Score = food proximity - obstacle proximity - wall proximity (weighted)
-            score = -distance + min_obstacle_distance * 0.5 + wall_distance * 0.3
-            direction_scores.append((score, direction))
-        
-        # Choose direction with highest score
-        return max(direction_scores, key=lambda x: x[0])[1]
+        # Choose move with highest score
+        return max(possible_moves, key=lambda x: x[0])[1]
 
 class Snake:
     def __init__(self, start_pos: tuple, color: tuple, ai_strategy):
@@ -122,48 +95,68 @@ class Snake:
         self.alive = True
         self.length = 1
         self.survival_time = 0
-        self.all_snakes = []  # Will be set by Game class
+        self.all_snakes = []
         self.last_move_time = time.time()
-        self.stuck_timeout = 2.0  # Seconds before considering snake stuck
+        self.stuck_timeout = 2.0
+        self.last_positions = []
+        self.position_check_length = 5  # Track last 5 positions
+
+    def is_stuck(self) -> bool:
+        """Check if snake is stuck in a small area"""
+        if len(self.last_positions) < self.position_check_length:
+            return False
+        unique_positions = set(self.last_positions)
+        return len(unique_positions) <= 2
 
     def move(self, food_pos: tuple, obstacles: List):
         if not self.alive:
             return
 
         current_time = time.time()
-        
-        # Check if snake is stuck
         if current_time - self.last_move_time > self.stuck_timeout:
             self.alive = False
             return
 
-        # Get new direction from AI with additional snake information
         old_head = self.body[0]
-        self.direction = self.ai_strategy(self.body[0], food_pos, obstacles, self.all_snakes)
+        
+        # Get new direction from AI
+        new_direction = self.ai_strategy(self.body[0], food_pos, obstacles, self.all_snakes)
+        self.direction = new_direction
         
         # Calculate new head position
         new_x = self.body[0][0] + self.direction.value[0]
         new_y = self.body[0][1] + self.direction.value[1]
         
-        # Check wall collision
+        # Die if hitting wall
         if new_x < 0 or new_x >= GRID_WIDTH or new_y < 0 or new_y >= GRID_HEIGHT:
             self.alive = False
             return
             
         new_head = (new_x, new_y)
-
-        # Check collision with self or other snakes
-        if new_head in obstacles or new_head in self.body[:-1]:  # Allow tail movement
+        
+        # Die if hitting obstacle
+        if new_head in obstacles:
+            self.alive = False
+            return
+            
+        # Die if hitting self (except tail)
+        if new_head in self.body[:-1]:
             self.alive = False
             return
 
+        # Update body
         self.body.insert(0, new_head)
         if new_head != food_pos:
             self.body.pop()
         else:
             self.length += 1
 
-        # Update last move time only if position actually changed
+        # Track positions for stuck detection
+        self.last_positions.append(new_head)
+        if len(self.last_positions) > self.position_check_length:
+            self.last_positions.pop(0)
+
+        # Update last move time
         if new_head != old_head:
             self.last_move_time = current_time
 
