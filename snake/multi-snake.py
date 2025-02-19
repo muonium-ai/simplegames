@@ -230,7 +230,23 @@ class Game:
         self.menu = Menu(self.screen, self.font)
         self.num_snakes = num_snakes
         self.GRAY = (128, 128, 128)  # Add gray color for dead snake outline
+        self.food_spawn_time = 0
+        self.food_timeout = 15.0  # Food expires after 15 seconds
+        self.food_wall_margin = 2  # Minimum distance from walls for food
         self.initialize_game()
+
+    def is_position_safe(self, pos: tuple) -> bool:
+        """Check if position is safe for food placement"""
+        x, y = pos
+        # Check wall margins
+        if (x < self.food_wall_margin or 
+            x >= GRID_WIDTH - self.food_wall_margin or 
+            y < self.food_wall_margin or 
+            y >= GRID_HEIGHT - self.food_wall_margin):
+            return False
+            
+        # Check if any snake is at this position
+        return not any(pos in snake.body for snake in self.snakes)
 
     def initialize_game(self):
         # Initialize snakes
@@ -248,10 +264,21 @@ class Game:
         self.start_time = time.time()
 
     def generate_food(self) -> tuple:
-        while True:
-            pos = (random.randint(0, GRID_WIDTH-1), random.randint(0, GRID_HEIGHT-1))
-            if not any(pos in snake.body for snake in self.snakes):
+        """Generate food in safe location away from walls"""
+        attempts = 100  # Prevent infinite loop
+        while attempts > 0:
+            x = random.randint(self.food_wall_margin, GRID_WIDTH - self.food_wall_margin - 1)
+            y = random.randint(self.food_wall_margin, GRID_HEIGHT - self.food_wall_margin - 1)
+            pos = (x, y)
+            
+            if self.is_position_safe(pos):
+                self.food_spawn_time = time.time()
                 return pos
+                
+            attempts -= 1
+            
+        # If no safe spot found, pick center-ish location
+        return (GRID_WIDTH // 2, GRID_HEIGHT // 2)
 
     def get_all_obstacles(self, current_snake: Snake) -> List:
         obstacles = []
@@ -318,6 +345,12 @@ class Game:
                             running = False
 
             elif game_state == "playing":
+                current_time = time.time()
+                
+                # Check if food needs to be relocated
+                if current_time - self.food_spawn_time > self.food_timeout:
+                    self.food_pos = self.generate_food()
+
                 for event in pygame.event.get():
                     if event.type == pygame.QUIT:
                         running = False
@@ -327,7 +360,7 @@ class Game:
                     if snake.alive:  # Only move alive snakes
                         obstacles = self.get_all_obstacles(snake)
                         snake.move(self.food_pos, obstacles)
-                        snake.survival_time = time.time() - self.start_time
+                        snake.survival_time = current_time - self.start_time
 
                 # Check if food is eaten by any alive snake
                 for snake in self.snakes:
