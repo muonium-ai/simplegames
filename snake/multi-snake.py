@@ -311,10 +311,15 @@ class Game:
                 pygame.draw.rect(self.screen, snake.color,
                                (x, y, width, width))
         
-        # Draw timer and debug info
+        # Draw timer and total length
         elapsed_time = int(time.time() - self.start_time)
+        total_length = sum(snake.length for snake in self.snakes)
+        
         timer_text = self.font.render(f"Time: {elapsed_time}", True, WHITE)
+        length_text = self.font.render(f"Total Length: {total_length}", True, WHITE)
+        
         self.screen.blit(timer_text, (WINDOW_WIDTH - 150, 10))
+        self.screen.blit(length_text, (WINDOW_WIDTH - 350, 10))
         
         # Draw snake status
         y_pos = 10
