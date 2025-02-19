@@ -110,12 +110,22 @@ class Snake:
         self.length = 1
         self.survival_time = 0
         self.all_snakes = []  # Will be set by Game class
+        self.last_move_time = time.time()
+        self.stuck_timeout = 2.0  # Seconds before considering snake stuck
 
     def move(self, food_pos: tuple, obstacles: List):
         if not self.alive:
             return
 
+        current_time = time.time()
+        
+        # Check if snake is stuck
+        if current_time - self.last_move_time > self.stuck_timeout:
+            self.alive = False
+            return
+
         # Get new direction from AI with additional snake information
+        old_head = self.body[0]
         self.direction = self.ai_strategy(self.body[0], food_pos, obstacles, self.all_snakes)
         
         # Calculate new head position
@@ -125,7 +135,7 @@ class Snake:
         )
 
         # Check collision with self or other snakes
-        if new_head in obstacles:
+        if new_head in obstacles or new_head in self.body:
             self.alive = False
             return
 
@@ -134,6 +144,10 @@ class Snake:
             self.body.pop()
         else:
             self.length += 1
+
+        # Update last move time only if position actually changed
+        if new_head != old_head:
+            self.last_move_time = current_time
 
 class Menu:
     def __init__(self, screen, font):
@@ -249,10 +263,18 @@ class Game:
                                (segment[0]*GRID_SIZE, segment[1]*GRID_SIZE,
                                 GRID_SIZE-2, GRID_SIZE-2))
         
-        # Draw timer
+        # Draw timer and debug info
         elapsed_time = int(time.time() - self.start_time)
         timer_text = self.font.render(f"Time: {elapsed_time}", True, WHITE)
         self.screen.blit(timer_text, (WINDOW_WIDTH - 150, 10))
+        
+        # Draw snake status
+        y_pos = 10
+        for i, snake in enumerate(self.snakes):
+            status = "Alive" if snake.alive else "Dead"
+            status_text = self.font.render(f"Snake {i+1}: {status} L:{snake.length}", True, snake.color)
+            self.screen.blit(status_text, (10, y_pos))
+            y_pos += 25
         
         pygame.display.flip()
 
@@ -281,14 +303,16 @@ class Game:
 
                 # Update snake positions
                 for snake in self.snakes:
-                    obstacles = self.get_all_obstacles(snake)
-                    snake.move(self.food_pos, obstacles)
-                    snake.survival_time = time.time() - self.start_time
+                    if snake.alive:  # Only move alive snakes
+                        obstacles = self.get_all_obstacles(snake)
+                        snake.move(self.food_pos, obstacles)
+                        snake.survival_time = time.time() - self.start_time
 
-                # Check if food is eaten
+                # Check if food is eaten by any alive snake
                 for snake in self.snakes:
-                    if snake.body[0] == self.food_pos:
+                    if snake.alive and snake.body[0] == self.food_pos:
                         self.food_pos = self.generate_food()
+                        break
 
                 # Check game over condition
                 alive_snakes = [snake for snake in self.snakes if snake.alive]
