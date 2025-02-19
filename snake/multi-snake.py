@@ -36,15 +36,69 @@ class Direction(Enum):
 
 class AIStrategy:
     @staticmethod
-    def basic_pathfinding(snake_head: tuple, food_pos: tuple, obstacles: List) -> Direction:
+    def get_safe_directions(snake_head: tuple, obstacles: List, next_positions: List[tuple]) -> List[Direction]:
+        """Return list of safe directions that won't result in immediate collision"""
+        safe_directions = []
+        
+        for direction in Direction:
+            new_pos = (
+                (snake_head[0] + direction.value[0]) % GRID_WIDTH,
+                (snake_head[1] + direction.value[1]) % GRID_HEIGHT
+            )
+            if new_pos not in obstacles and new_pos not in next_positions:
+                safe_directions.append(direction)
+                
+        return safe_directions
+
+    @staticmethod
+    def predict_next_positions(snakes: List['Snake']) -> List[tuple]:
+        """Predict likely next positions of all snake heads"""
+        next_positions = []
+        for snake in snakes:
+            if snake.alive:
+                head = snake.body[0]
+                # Predict based on current direction
+                next_pos = (
+                    (head[0] + snake.direction.value[0]) % GRID_WIDTH,
+                    (head[1] + snake.direction.value[1]) % GRID_HEIGHT
+                )
+                next_positions.append(next_pos)
+        return next_positions
+
+    @staticmethod
+    def basic_pathfinding(snake_head: tuple, food_pos: tuple, obstacles: List, 
+                         all_snakes: List['Snake']=None) -> Direction:
         x, y = snake_head
         food_x, food_y = food_pos
         
-        # Simple direction choice based on food position
-        if abs(food_x - x) > abs(food_y - y):
-            return Direction.RIGHT if food_x > x else Direction.LEFT
-        else:
-            return Direction.DOWN if food_y > y else Direction.UP
+        # Get safe directions
+        next_positions = AIStrategy.predict_next_positions(all_snakes) if all_snakes else []
+        safe_directions = AIStrategy.get_safe_directions(snake_head, obstacles, next_positions)
+        
+        if not safe_directions:
+            return Direction.RIGHT  # Default direction if no safe moves
+            
+        # Calculate distances for each safe direction
+        direction_scores = []
+        for direction in safe_directions:
+            new_x = (x + direction.value[0]) % GRID_WIDTH
+            new_y = (y + direction.value[1]) % GRID_HEIGHT
+            
+            # Calculate distance to food
+            distance = abs(food_x - new_x) + abs(food_y - new_y)
+            
+            # Calculate distance to nearest obstacle
+            min_obstacle_distance = float('inf')
+            for obs in obstacles:
+                obs_distance = abs(obs[0] - new_x) + abs(obs[1] - new_y)
+                min_obstacle_distance = min(min_obstacle_distance, obs_distance)
+            
+            # Score = food proximity - obstacle proximity (weighted)
+            score = -distance + 0.5 * min_obstacle_distance
+            direction_scores.append((score, direction))
+        
+        # Choose direction with highest score
+        return max(direction_scores, key=lambda x: x[0])[1]
 
 class Snake:
     def __init__(self, start_pos: tuple, color: tuple, ai_strategy):
@@ -55,13 +109,14 @@ class Snake:
         self.alive = True
         self.length = 1
         self.survival_time = 0
+        self.all_snakes = []  # Will be set by Game class
 
     def move(self, food_pos: tuple, obstacles: List):
         if not self.alive:
             return
 
-        # Get new direction from AI
-        self.direction = self.ai_strategy(self.body[0], food_pos, obstacles)
+        # Get new direction from AI with additional snake information
+        self.direction = self.ai_strategy(self.body[0], food_pos, obstacles, self.all_snakes)
         
         # Calculate new head position
         new_head = (
@@ -156,7 +211,12 @@ class Game:
         self.snakes = []
         for i in range(self.num_snakes):
             start_pos = (random.randint(0, GRID_WIDTH-1), random.randint(0, GRID_HEIGHT-1))
-            self.snakes.append(Snake(start_pos, SNAKE_COLORS[i], AIStrategy.basic_pathfinding))
+            new_snake = Snake(start_pos, SNAKE_COLORS[i], AIStrategy.basic_pathfinding)
+            self.snakes.append(new_snake)
+        
+        # Set all_snakes reference for each snake
+        for snake in self.snakes:
+            snake.all_snakes = self.snakes
         
         self.food_pos = self.generate_food()
         self.start_time = time.time()
