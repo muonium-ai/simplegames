@@ -80,16 +80,81 @@ class Snake:
         else:
             self.length += 1
 
+class Menu:
+    def __init__(self, screen, font):
+        self.screen = screen
+        self.font = font
+        
+        # Position buttons side by side
+        button_width = 150
+        button_height = 50
+        button_spacing = 20
+        total_width = (button_width * 2) + button_spacing
+        start_x = WINDOW_WIDTH//2 - total_width//2
+        
+        self.buttons = {
+            'start': pygame.Rect(start_x, 200, button_width, button_height),
+            'quit': pygame.Rect(start_x + button_width + button_spacing, 200, button_width, button_height)
+        }
+
+    def draw(self, game_over=False, scores=None):
+        self.screen.fill(BLACK)
+        
+        # Title
+        title = "Game Over!" if game_over else "Multi-Snake Game"
+        title_text = self.font.render(title, True, WHITE)
+        title_rect = title_text.get_rect(centerx=WINDOW_WIDTH//2, y=100)
+        self.screen.blit(title_text, title_rect)
+
+        # Draw buttons with better styling
+        for text, rect in self.buttons.items():
+            pygame.draw.rect(self.screen, WHITE, rect, 2)
+            button_text = self.font.render(text.title(), True, WHITE)
+            text_rect = button_text.get_rect(center=rect.center)
+            self.screen.blit(button_text, text_rect)
+
+        # Show scores in a box below buttons
+        if scores:
+            score_box = pygame.Rect(WINDOW_WIDTH//4, 300, WINDOW_WIDTH//2, 200)
+            pygame.draw.rect(self.screen, WHITE, score_box, 2)
+            
+            # Draw "Scores" header
+            header = self.font.render("Scores", True, WHITE)
+            header_rect = header.get_rect(centerx=WINDOW_WIDTH//2, y=310)
+            self.screen.blit(header, header_rect)
+            
+            # Draw scores
+            y_pos = 350
+            for i, score in enumerate(scores):
+                text = f"#{i+1}: Length={score[0]}, Time={int(score[1])}s"
+                score_text = self.font.render(text, True, SNAKE_COLORS[i % len(SNAKE_COLORS)])
+                text_rect = score_text.get_rect(centerx=WINDOW_WIDTH//2, y=y_pos)
+                self.screen.blit(score_text, text_rect)
+                y_pos += 30
+
+        pygame.display.flip()
+
+    def handle_click(self, pos):
+        """Check if any button was clicked and return the button name"""
+        for button_name, rect in self.buttons.items():
+            if rect.collidepoint(pos):
+                return button_name
+        return None
+
 class Game:
     def __init__(self, num_snakes=4):
         self.screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
         pygame.display.set_caption("Multi-Snake Game")
         self.clock = pygame.time.Clock()
         self.font = pygame.font.Font(None, 36)
-        
+        self.menu = Menu(self.screen, self.font)
+        self.num_snakes = num_snakes
+        self.initialize_game()
+
+    def initialize_game(self):
         # Initialize snakes
         self.snakes = []
-        for i in range(num_snakes):
+        for i in range(self.num_snakes):
             start_pos = (random.randint(0, GRID_WIDTH-1), random.randint(0, GRID_HEIGHT-1))
             self.snakes.append(Snake(start_pos, SNAKE_COLORS[i], AIStrategy.basic_pathfinding))
         
@@ -133,51 +198,64 @@ class Game:
 
     def run(self):
         running = True
+        game_state = "menu"  # States: menu, playing, game_over
+
         while running:
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    running = False
+            if game_state == "menu":
+                self.menu.draw()
+                for event in pygame.event.get():
+                    if event.type == pygame.QUIT:
+                        running = False
+                    if event.type == pygame.MOUSEBUTTONDOWN:
+                        action = self.menu.handle_click(event.pos)
+                        if action == "start":
+                            game_state = "playing"
+                            self.initialize_game()
+                        elif action == "quit":
+                            running = False
 
-            # Update snake positions
-            for snake in self.snakes:
-                obstacles = self.get_all_obstacles(snake)
-                snake.move(self.food_pos, obstacles)
-                snake.survival_time = time.time() - self.start_time
+            elif game_state == "playing":
+                for event in pygame.event.get():
+                    if event.type == pygame.QUIT:
+                        running = False
 
-            # Check if food is eaten
-            for snake in self.snakes:
-                if snake.body[0] == self.food_pos:
-                    self.food_pos = self.generate_food()
+                # Update snake positions
+                for snake in self.snakes:
+                    obstacles = self.get_all_obstacles(snake)
+                    snake.move(self.food_pos, obstacles)
+                    snake.survival_time = time.time() - self.start_time
 
-            # Check game over condition
-            alive_snakes = [snake for snake in self.snakes if snake.alive]
-            if len(alive_snakes) == 0:  # Changed condition to check for no surviving snakes
-                self.show_winner_screen()
-                running = False
+                # Check if food is eaten
+                for snake in self.snakes:
+                    if snake.body[0] == self.food_pos:
+                        self.food_pos = self.generate_food()
 
-            self.draw()
+                # Check game over condition
+                alive_snakes = [snake for snake in self.snakes if snake.alive]
+                if len(alive_snakes) == 0:
+                    game_state = "game_over"
+                
+                self.draw()
+
+            elif game_state == "game_over":
+                scores = [(snake.length, snake.survival_time) 
+                         for snake in sorted(self.snakes, 
+                                          key=lambda x: (x.length, x.survival_time),
+                                          reverse=True)]
+                self.menu.draw(game_over=True, scores=scores)
+                
+                for event in pygame.event.get():
+                    if event.type == pygame.QUIT:
+                        running = False
+                    if event.type == pygame.MOUSEBUTTONDOWN:
+                        action = self.menu.handle_click(event.pos)
+                        if action == "start":
+                            game_state = "playing"
+                            self.initialize_game()
+                        elif action == "quit":
+                            running = False
+
             self.clock.tick(10)
-
-    def show_winner_screen(self):  # Removed alive_snakes parameter as it's no longer needed
-        self.screen.fill(BLACK)
-        y_pos = 100
-        
-        title = self.font.render("Game Over - Final Results", True, WHITE)  # Updated title
-        self.screen.blit(title, (WINDOW_WIDTH//2 - 100, 50))
-
-        # Sort snakes by length and survival time
-        all_snakes = sorted(self.snakes, 
-                          key=lambda x: (x.length, x.survival_time), 
-                          reverse=True)
-
-        for i, snake in enumerate(all_snakes):
-            text = f"#{i+1}: Length={snake.length}, Survived={int(snake.survival_time)}s"  # Simplified text
-            text_surface = self.font.render(text, True, snake.color)
-            self.screen.blit(text_surface, (100, y_pos))
-            y_pos += 50
-
-        pygame.display.flip()
-        pygame.time.wait(5000)
 
 if __name__ == "__main__":
     game = Game()
