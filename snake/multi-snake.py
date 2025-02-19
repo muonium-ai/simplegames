@@ -41,10 +41,14 @@ class AIStrategy:
         safe_directions = []
         
         for direction in Direction:
-            new_pos = (
-                (snake_head[0] + direction.value[0]) % GRID_WIDTH,
-                (snake_head[1] + direction.value[1]) % GRID_HEIGHT
-            )
+            new_x = snake_head[0] + direction.value[0]
+            new_y = snake_head[1] + direction.value[1]
+            
+            # Check wall collisions
+            if new_x < 0 or new_x >= GRID_WIDTH or new_y < 0 or new_y >= GRID_HEIGHT:
+                continue
+                
+            new_pos = (new_x, new_y)
             if new_pos not in obstacles and new_pos not in next_positions:
                 safe_directions.append(direction)
                 
@@ -76,13 +80,19 @@ class AIStrategy:
         safe_directions = AIStrategy.get_safe_directions(snake_head, obstacles, next_positions)
         
         if not safe_directions:
-            return Direction.RIGHT  # Default direction if no safe moves
+            # Try to find any safe direction if no optimal path exists
+            for direction in Direction:
+                new_x = x + direction.value[0]
+                new_y = y + direction.value[1]
+                if 0 <= new_x < GRID_WIDTH and 0 <= new_y < GRID_HEIGHT:
+                    return direction
+            return Direction.RIGHT
             
         # Calculate distances for each safe direction
         direction_scores = []
         for direction in safe_directions:
-            new_x = (x + direction.value[0]) % GRID_WIDTH
-            new_y = (y + direction.value[1]) % GRID_HEIGHT
+            new_x = x + direction.value[0]
+            new_y = y + direction.value[1]
             
             # Calculate distance to food
             distance = abs(food_x - new_x) + abs(food_y - new_y)
@@ -93,8 +103,11 @@ class AIStrategy:
                 obs_distance = abs(obs[0] - new_x) + abs(obs[1] - new_y)
                 min_obstacle_distance = min(min_obstacle_distance, obs_distance)
             
-            # Score = food proximity - obstacle proximity (weighted)
-            score = -distance + 0.5 * min_obstacle_distance
+            # Calculate distance to walls
+            wall_distance = min(new_x, GRID_WIDTH - new_x, new_y, GRID_HEIGHT - new_y)
+            
+            # Score = food proximity - obstacle proximity - wall proximity (weighted)
+            score = -distance + min_obstacle_distance * 0.5 + wall_distance * 0.3
             direction_scores.append((score, direction))
         
         # Choose direction with highest score
@@ -129,13 +142,18 @@ class Snake:
         self.direction = self.ai_strategy(self.body[0], food_pos, obstacles, self.all_snakes)
         
         # Calculate new head position
-        new_head = (
-            (self.body[0][0] + self.direction.value[0]) % GRID_WIDTH,
-            (self.body[0][1] + self.direction.value[1]) % GRID_HEIGHT
-        )
+        new_x = self.body[0][0] + self.direction.value[0]
+        new_y = self.body[0][1] + self.direction.value[1]
+        
+        # Check wall collision
+        if new_x < 0 or new_x >= GRID_WIDTH or new_y < 0 or new_y >= GRID_HEIGHT:
+            self.alive = False
+            return
+            
+        new_head = (new_x, new_y)
 
         # Check collision with self or other snakes
-        if new_head in obstacles or new_head in self.body:
+        if new_head in obstacles or new_head in self.body[:-1]:  # Allow tail movement
             self.alive = False
             return
 
