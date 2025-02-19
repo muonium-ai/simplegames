@@ -151,18 +151,18 @@ class Game:
 
             # Check game over condition
             alive_snakes = [snake for snake in self.snakes if snake.alive]
-            if len(alive_snakes) <= 1:
-                self.show_winner_screen(alive_snakes)
+            if len(alive_snakes) == 0:  # Changed condition to check for no surviving snakes
+                self.show_winner_screen()
                 running = False
 
             self.draw()
             self.clock.tick(10)
 
-    def show_winner_screen(self, alive_snakes):
+    def show_winner_screen(self):  # Removed alive_snakes parameter as it's no longer needed
         self.screen.fill(BLACK)
         y_pos = 100
         
-        title = self.font.render("Game Over - Winners", True, WHITE)
+        title = self.font.render("Game Over - Final Results", True, WHITE)  # Updated title
         self.screen.blit(title, (WINDOW_WIDTH//2 - 100, 50))
 
         # Sort snakes by length and survival time
@@ -171,8 +171,7 @@ class Game:
                           reverse=True)
 
         for i, snake in enumerate(all_snakes):
-            status = "Alive" if snake.alive else "Dead"
-            text = f"Snake {i+1}: Length={snake.length}, Time={int(snake.survival_time)}s, {status}"
+            text = f"#{i+1}: Length={snake.length}, Survived={int(snake.survival_time)}s"  # Simplified text
             text_surface = self.font.render(text, True, snake.color)
             self.screen.blit(text_surface, (100, y_pos))
             y_pos += 50
