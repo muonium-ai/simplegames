@@ -1,111 +1,186 @@
 from os import environ
-environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'
+environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'  # Hide pygame support prompt
+
 import pygame
 import random
-import sys
+import time
+from enum import Enum
+from typing import List, Tuple
 
 # Initialize Pygame
 pygame.init()
 
-# Window dimensions
-WINDOW_SIZE = (800, 600)
-screen = pygame.display.set_mode(WINDOW_SIZE)
-pygame.display.set_caption("Multi-Snake Game")
+# Constants
+WINDOW_WIDTH = 800
+WINDOW_HEIGHT = 600
+GRID_SIZE = 20
+GRID_WIDTH = WINDOW_WIDTH // GRID_SIZE
+GRID_HEIGHT = WINDOW_HEIGHT // GRID_SIZE
 
 # Colors
-BLACK = (0, 0, 0)
 WHITE = (255, 255, 255)
+BLACK = (0, 0, 0)
 RED = (255, 0, 0)
-GREEN = (0, 255, 0)
-BLUE = (0, 0, 255)
+SNAKE_COLORS = [
+    (0, 255, 0),    # Green
+    (0, 0, 255),    # Blue
+    (255, 165, 0),  # Orange
+    (128, 0, 128)   # Purple
+]
 
-# Snake properties
-SNAKE_SIZE = 20
-SPEED = 15
+class Direction(Enum):
+    UP = (0, -1)
+    DOWN = (0, 1)
+    LEFT = (-1, 0)
+    RIGHT = (1, 0)
 
-# Snake class
+class AIStrategy:
+    @staticmethod
+    def basic_pathfinding(snake_head: tuple, food_pos: tuple, obstacles: List) -> Direction:
+        x, y = snake_head
+        food_x, food_y = food_pos
+        
+        # Simple direction choice based on food position
+        if abs(food_x - x) > abs(food_y - y):
+            return Direction.RIGHT if food_x > x else Direction.LEFT
+        else:
+            return Direction.DOWN if food_y > y else Direction.UP
+
 class Snake:
-    def __init__(self, color):
-        self.length = 1
-        self.positions = [((WINDOW_SIZE[0] // 2), (WINDOW_SIZE[1] // 2))]
-        self.direction = random.choice([(0, -SNAKE_SIZE), (0, SNAKE_SIZE), (-SNAKE_SIZE, 0), (SNAKE_SIZE, 0)])
+    def __init__(self, start_pos: tuple, color: tuple, ai_strategy):
+        self.body = [start_pos]
         self.color = color
-
-    def get_head_position(self):
-        return self.positions[0]
-
-    def turn(self, point):
-        if self.length > 1 and (point[0] * -1, point[1] * -1) == self.direction:
-            return
-        else:
-            self.direction = point
-
-    def move(self):
-        cur = self.get_head_position()
-        x, y = self.direction
-        new = (((cur[0] + x) % WINDOW_SIZE[0]), (cur[1] + y) % WINDOW_SIZE[1])
-        
-        if len(self.positions) > 2 and new in self.positions[2:]:
-            self.reset()
-        else:
-            self.positions.insert(0, new)
-            if len(self.positions) > self.length:
-                self.positions.pop()
-
-    def reset(self):
+        self.direction = Direction.RIGHT
+        self.ai_strategy = ai_strategy
+        self.alive = True
         self.length = 1
-        self.positions = [((WINDOW_SIZE[0] // 2), (WINDOW_SIZE[1] // 2))]
-        self.direction = random.choice([(0, -SNAKE_SIZE), (0, SNAKE_SIZE), (-SNAKE_SIZE, 0), (SNAKE_SIZE, 0)])
+        self.survival_time = 0
 
-    def draw(self, surface):
-        for p in self.positions:
-            pygame.draw.rect(surface, self.color, (p[0], p[1], SNAKE_SIZE, SNAKE_SIZE))
+    def move(self, food_pos: tuple, obstacles: List):
+        if not self.alive:
+            return
 
-    def handle_keys(self):
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                pygame.quit()
-                sys.exit()
-            elif event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_UP and self.direction != (0, SNAKE_SIZE):
-                    self.direction = (0, -SNAKE_SIZE)
-                elif event.key == pygame.K_DOWN and self.direction != (0, -SNAKE_SIZE):
-                    self.direction = (0, SNAKE_SIZE)
-                elif event.key == pygame.K_LEFT and self.direction != (SNAKE_SIZE, 0):
-                    self.direction = (-SNAKE_SIZE, 0)
-                elif event.key == pygame.K_RIGHT and self.direction != (-SNAKE_SIZE, 0):
-                    self.direction = (SNAKE_SIZE, 0)
-
-# Function to place food
-def place_food():
-    return (random.randint(0, (WINDOW_SIZE[0] - SNAKE_SIZE) // SNAKE_SIZE) * SNAKE_SIZE,
-            random.randint(0, (WINDOW_SIZE[1] - SNAKE_SIZE) // SNAKE_SIZE) * SNAKE_SIZE)
-
-# Main game loop
-def main(snake_count=3):
-    snakes = [Snake(color) for color in [RED, GREEN, BLUE][:snake_count]]
-    food = place_food()
-    
-    clock = pygame.time.Clock()
-    
-    while True:
-        screen.fill(BLACK)
+        # Get new direction from AI
+        self.direction = self.ai_strategy(self.body[0], food_pos, obstacles)
         
-        for snake in snakes:
-            snake.move()
-            snake.handle_keys()
-            snake.draw(screen)
-            
-            # Check if snake has eaten the food
-            if snake.get_head_position() == food:
-                snake.length += 1
-                food = place_food()
+        # Calculate new head position
+        new_head = (
+            (self.body[0][0] + self.direction.value[0]) % GRID_WIDTH,
+            (self.body[0][1] + self.direction.value[1]) % GRID_HEIGHT
+        )
 
+        # Check collision with self or other snakes
+        if new_head in obstacles:
+            self.alive = False
+            return
+
+        self.body.insert(0, new_head)
+        if new_head != food_pos:
+            self.body.pop()
+        else:
+            self.length += 1
+
+class Game:
+    def __init__(self, num_snakes=4):
+        self.screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
+        pygame.display.set_caption("Multi-Snake Game")
+        self.clock = pygame.time.Clock()
+        self.font = pygame.font.Font(None, 36)
+        
+        # Initialize snakes
+        self.snakes = []
+        for i in range(num_snakes):
+            start_pos = (random.randint(0, GRID_WIDTH-1), random.randint(0, GRID_HEIGHT-1))
+            self.snakes.append(Snake(start_pos, SNAKE_COLORS[i], AIStrategy.basic_pathfinding))
+        
+        self.food_pos = self.generate_food()
+        self.start_time = time.time()
+
+    def generate_food(self) -> tuple:
+        while True:
+            pos = (random.randint(0, GRID_WIDTH-1), random.randint(0, GRID_HEIGHT-1))
+            if not any(pos in snake.body for snake in self.snakes):
+                return pos
+
+    def get_all_obstacles(self, current_snake: Snake) -> List:
+        obstacles = []
+        for snake in self.snakes:
+            if snake != current_snake:
+                obstacles.extend(snake.body)
+        return obstacles
+
+    def draw(self):
+        self.screen.fill(BLACK)
+        
         # Draw food
-        pygame.draw.rect(screen, WHITE, pygame.Rect(food[0], food[1], SNAKE_SIZE, SNAKE_SIZE))
+        pygame.draw.rect(self.screen, RED, 
+                        (self.food_pos[0]*GRID_SIZE, self.food_pos[1]*GRID_SIZE, 
+                         GRID_SIZE-2, GRID_SIZE-2))
+        
+        # Draw snakes
+        for snake in self.snakes:
+            for segment in snake.body:
+                pygame.draw.rect(self.screen, snake.color,
+                               (segment[0]*GRID_SIZE, segment[1]*GRID_SIZE,
+                                GRID_SIZE-2, GRID_SIZE-2))
+        
+        # Draw timer
+        elapsed_time = int(time.time() - self.start_time)
+        timer_text = self.font.render(f"Time: {elapsed_time}", True, WHITE)
+        self.screen.blit(timer_text, (WINDOW_WIDTH - 150, 10))
+        
+        pygame.display.flip()
 
-        pygame.display.update()
-        clock.tick(SPEED)
+    def run(self):
+        running = True
+        while running:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    running = False
+
+            # Update snake positions
+            for snake in self.snakes:
+                obstacles = self.get_all_obstacles(snake)
+                snake.move(self.food_pos, obstacles)
+                snake.survival_time = time.time() - self.start_time
+
+            # Check if food is eaten
+            for snake in self.snakes:
+                if snake.body[0] == self.food_pos:
+                    self.food_pos = self.generate_food()
+
+            # Check game over condition
+            alive_snakes = [snake for snake in self.snakes if snake.alive]
+            if len(alive_snakes) <= 1:
+                self.show_winner_screen(alive_snakes)
+                running = False
+
+            self.draw()
+            self.clock.tick(10)
+
+    def show_winner_screen(self, alive_snakes):
+        self.screen.fill(BLACK)
+        y_pos = 100
+        
+        title = self.font.render("Game Over - Winners", True, WHITE)
+        self.screen.blit(title, (WINDOW_WIDTH//2 - 100, 50))
+
+        # Sort snakes by length and survival time
+        all_snakes = sorted(self.snakes, 
+                          key=lambda x: (x.length, x.survival_time), 
+                          reverse=True)
+
+        for i, snake in enumerate(all_snakes):
+            status = "Alive" if snake.alive else "Dead"
+            text = f"Snake {i+1}: Length={snake.length}, Time={int(snake.survival_time)}s, {status}"
+            text_surface = self.font.render(text, True, snake.color)
+            self.screen.blit(text_surface, (100, y_pos))
+            y_pos += 50
+
+        pygame.display.flip()
+        pygame.time.wait(5000)
 
 if __name__ == "__main__":
-    main()
+    game = Game()
+    game.run()
+    pygame.quit()
