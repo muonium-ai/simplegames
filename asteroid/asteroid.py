@@ -56,10 +56,25 @@ class GameConfig:
     AUTOPLAY_SHOOT_DELAY = 0.5
     AUTOPLAY_SAFETY_DISTANCE = 100
 
+    # Add victory text settings
+    VICTORY_TEXT_SIZE = 64
+    STATS_TEXT_SIZE = 36
+    
+    # Add stats tracking
+    ASTEROID_COUNTS = {
+        "large": 0,
+        "medium": 0,
+        "small": 0
+    }
+
+    # Add score display position
+    SCORE_BOX_TOP = 150
+    BUTTON_TOP = 400  # Move buttons lower
+
 class Vector2D:
     def __init__(self, x: float, y: float):
         self.x = x
-        self.y = y
+        self.y = y  # Fix: This line was incomplete
     
     def __add__(self, other):
         return Vector2D(self.x + other.x, self.y + other.y)
@@ -165,23 +180,26 @@ class Menu:
         self.screen = screen
         self.font = pygame.font.Font(None, 48)
         center_x = GameConfig.WINDOW_WIDTH // 2
-        center_y = GameConfig.WINDOW_HEIGHT // 2
         
-        # Create buttons
+        # Create buttons with new vertical position
         self.buttons = {
             'start': pygame.Rect(
                 center_x - GameConfig.BUTTON_WIDTH - 20,
-                center_y,
+                GameConfig.BUTTON_TOP,  # Use new button position
                 GameConfig.BUTTON_WIDTH,
                 GameConfig.BUTTON_HEIGHT
             ),
             'autoplay': pygame.Rect(
                 center_x + 20,
-                center_y,
+                GameConfig.BUTTON_TOP,  # Use new button position
                 GameConfig.BUTTON_WIDTH,
                 GameConfig.BUTTON_HEIGHT
             )
         }
+
+        # Add victory text font
+        self.victory_font = pygame.font.Font(None, GameConfig.VICTORY_TEXT_SIZE)
+        self.stats_font = pygame.font.Font(None, GameConfig.STATS_TEXT_SIZE)
 
     def draw(self):
         self.screen.fill(GameConfig.BLACK)
@@ -206,6 +224,42 @@ class Menu:
                 return button_name
         return None
 
+    def draw_victory(self, score: int, stats: dict, time_elapsed: int, shots_fired: int):
+        """Draw victory screen with stats"""
+        self.screen.fill(GameConfig.BLACK)
+        
+        # Draw victory text
+        victory_text = self.victory_font.render("VICTORY!", True, GameConfig.WHITE)
+        victory_rect = victory_text.get_rect(center=(GameConfig.WINDOW_WIDTH//2, 100))
+        self.screen.blit(victory_text, victory_rect)
+        
+        # Draw stats with time and shots
+        y_pos = GameConfig.SCORE_BOX_TOP
+        stats_texts = [
+            f"Final Score: {score}",
+            f"Time: {time_elapsed} seconds",
+            f"Shots Fired: {shots_fired}",
+            f"Large Asteroids: {stats['large']}",
+            f"Medium Asteroids: {stats['medium']}",
+            f"Small Asteroids: {stats['small']}",
+            f"Total Asteroids: {sum(stats.values())}"
+        ]
+        
+        for text in stats_texts:
+            stat_surface = self.stats_font.render(text, True, GameConfig.WHITE)
+            stat_rect = stat_surface.get_rect(center=(GameConfig.WINDOW_WIDTH//2, y_pos))
+            self.screen.blit(stat_surface, stat_rect)
+            y_pos += 40
+        
+        # Draw buttons
+        for text, rect in self.buttons.items():
+            pygame.draw.rect(self.screen, GameConfig.WHITE, rect, 2)
+            button_text = self.font.render(text.title(), True, GameConfig.WHITE)
+            text_rect = button_text.get_rect(center=rect.center)
+            self.screen.blit(button_text, text_rect)
+        
+        pygame.display.flip()
+
 class Game:
     def __init__(self):
         self.screen = pygame.display.set_mode(
@@ -213,11 +267,16 @@ class Game:
         )
         pygame.display.set_caption("Asteroids")
         self.clock = pygame.time.Clock()
+        self.font = pygame.font.Font(None, GameConfig.STATS_TEXT_SIZE)  # Add font initialization
         self.reset_game()
         self.menu = Menu(self.screen)
         self.game_state = "menu"
         self.autoplay = False
         self.last_shot_time = 0
+        self.asteroid_stats = GameConfig.ASTEROID_COUNTS.copy()
+        self.shots_fired = 0
+        self.start_time = time.time()
+        self.final_time = 0  # Add final time variable
 
     def reset_game(self):
         self.player = Player(Vector2D(
@@ -230,6 +289,10 @@ class Game:
         self.game_state = "playing"
         self.autoplay = False
         self.last_shot_time = 0
+        self.asteroid_stats = GameConfig.ASTEROID_COUNTS.copy()
+        self.shots_fired = 0
+        self.start_time = time.time()
+        self.final_time = 0
 
     def create_initial_asteroids(self) -> List:
         asteroids = []
@@ -330,11 +393,31 @@ class Game:
                 # Update game state
                 self.update()
                 
-                # Draw everything
-                self.draw()
+                # Check victory condition
+                if not self.asteroids:
+                    self.final_time = int(time.time() - self.start_time)  # Store final time
+                    self.game_state = "victory"
                 
-                # Maintain frame rate
-                self.clock.tick(GameConfig.FPS)
+                self.draw()
+
+            elif self.game_state == "victory":
+                self.menu.draw_victory(self.score, self.asteroid_stats, 
+                                     self.final_time, self.shots_fired)  # Use final_time
+                for event in pygame.event.get():
+                    if event.type == pygame.QUIT:
+                        running = False
+                    elif event.type == pygame.MOUSEBUTTONDOWN:
+                        action = self.menu.handle_click(event.pos)
+                        if action == "start":
+                            self.reset_game()
+                            self.game_state = "playing"
+                        elif action == "autoplay":
+                            self.reset_game()
+                            self.autoplay = True
+                            self.game_state = "playing"
+
+            # Maintain frame rate
+            self.clock.tick(GameConfig.FPS)
 
         pygame.quit()
 
@@ -363,6 +446,7 @@ class Game:
                 Vector2D(self.player.position.x, self.player.position.y),
                 velocity
             ))
+            self.shots_fired += 1
 
     def check_collisions(self):
         # Check projectile-asteroid collisions
@@ -379,6 +463,9 @@ class Game:
                     break
 
     def split_asteroid(self, asteroid):
+        # Track destroyed asteroid
+        self.asteroid_stats[asteroid["size"]] += 1
+        
         self.asteroids.remove(asteroid)
         self.score += GameConfig.ASTEROID_SCORES[asteroid["size"]]
         
@@ -426,16 +513,24 @@ class Game:
                 1
             )
         
-        # Draw HUD
-        score_text = f"Score: {self.score}"
-        lives_text = f"Lives: {self.player.lives}"
-        font = pygame.font.Font(None, 36)
+        # Draw HUD with additional stats
+        y_pos = 10
+        # Use final_time if game is won, otherwise use current time
+        elapsed_time = self.final_time if self.game_state == "victory" else int(time.time() - self.start_time)
+        hud_texts = [
+            f"Score: {self.score}",
+            f"Lives: {self.player.lives}",
+            f"Time: {elapsed_time}s",
+            f"Shots: {self.shots_fired}",
+            f"Large: {self.asteroid_stats['large']}",
+            f"Medium: {self.asteroid_stats['medium']}",
+            f"Small: {self.asteroid_stats['small']}"
+        ]
         
-        score_surface = font.render(score_text, True, GameConfig.WHITE)
-        lives_surface = font.render(lives_text, True, GameConfig.WHITE)
-        
-        self.screen.blit(score_surface, (10, 10))
-        self.screen.blit(lives_surface, (GameConfig.WINDOW_WIDTH - 100, 10))
+        for text in hud_texts:
+            surface = self.font.render(text, True, GameConfig.WHITE)
+            self.screen.blit(surface, (10, y_pos))
+            y_pos += 25
         
         pygame.display.flip()
 
