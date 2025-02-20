@@ -6,6 +6,7 @@ import math
 import random
 from typing import List, Tuple, Optional
 from enum import Enum
+import time
 
 # Initialize Pygame
 pygame.init()
@@ -38,6 +39,22 @@ class GameConfig:
     ASTEROID_SIZES = {"large": 40, "medium": 20, "small": 10}
     ASTEROID_SCORES = {"large": 20, "medium": 50, "small": 100}
     INITIAL_ASTEROIDS = 4
+
+    # Menu settings
+    BUTTON_WIDTH = 200
+    BUTTON_HEIGHT = 50
+    
+    # Asteroid colors by size
+    ASTEROID_COLORS = {
+        "large": (255, 100, 100),    # Red
+        "medium": (100, 255, 100),   # Green
+        "small": (100, 100, 255)     # Blue
+    }
+    
+    # Autoplay settings
+    AUTOPLAY_ROTATION_SPEED = 3
+    AUTOPLAY_SHOOT_DELAY = 0.5
+    AUTOPLAY_SAFETY_DISTANCE = 100
 
 class Vector2D:
     def __init__(self, x: float, y: float):
@@ -143,6 +160,52 @@ class Projectile:
         pygame.draw.circle(screen, GameConfig.WHITE, 
                          (int(self.position.x), int(self.position.y)), 2)
 
+class Menu:
+    def __init__(self, screen):
+        self.screen = screen
+        self.font = pygame.font.Font(None, 48)
+        center_x = GameConfig.WINDOW_WIDTH // 2
+        center_y = GameConfig.WINDOW_HEIGHT // 2
+        
+        # Create buttons
+        self.buttons = {
+            'start': pygame.Rect(
+                center_x - GameConfig.BUTTON_WIDTH - 20,
+                center_y,
+                GameConfig.BUTTON_WIDTH,
+                GameConfig.BUTTON_HEIGHT
+            ),
+            'autoplay': pygame.Rect(
+                center_x + 20,
+                center_y,
+                GameConfig.BUTTON_WIDTH,
+                GameConfig.BUTTON_HEIGHT
+            )
+        }
+
+    def draw(self):
+        self.screen.fill(GameConfig.BLACK)
+        
+        # Draw title
+        title = self.font.render("ASTEROIDS", True, GameConfig.WHITE)
+        title_rect = title.get_rect(center=(GameConfig.WINDOW_WIDTH//2, GameConfig.WINDOW_HEIGHT//3))
+        self.screen.blit(title, title_rect)
+        
+        # Draw buttons
+        for text, rect in self.buttons.items():
+            pygame.draw.rect(self.screen, GameConfig.WHITE, rect, 2)
+            button_text = self.font.render(text.title(), True, GameConfig.WHITE)
+            text_rect = button_text.get_rect(center=rect.center)
+            self.screen.blit(button_text, text_rect)
+        
+        pygame.display.flip()
+
+    def handle_click(self, pos):
+        for button_name, rect in self.buttons.items():
+            if rect.collidepoint(pos):
+                return button_name
+        return None
+
 class Game:
     def __init__(self):
         self.screen = pygame.display.set_mode(
@@ -151,6 +214,10 @@ class Game:
         pygame.display.set_caption("Asteroids")
         self.clock = pygame.time.Clock()
         self.reset_game()
+        self.menu = Menu(self.screen)
+        self.game_state = "menu"
+        self.autoplay = False
+        self.last_shot_time = 0
 
     def reset_game(self):
         self.player = Player(Vector2D(
@@ -161,6 +228,8 @@ class Game:
         self.asteroids = self.create_initial_asteroids()
         self.score = 0
         self.game_state = "playing"
+        self.autoplay = False
+        self.last_shot_time = 0
 
     def create_initial_asteroids(self) -> List:
         asteroids = []
@@ -183,34 +252,89 @@ class Game:
             })
         return asteroids
 
+    def auto_control(self):
+        """AI control for autoplay mode"""
+        if not self.asteroids:
+            return
+            
+        # Find nearest asteroid
+        nearest = min(self.asteroids, 
+                     key=lambda a: math.hypot(a["position"].x - self.player.position.x,
+                                            a["position"].y - self.player.position.y))
+        
+        # Calculate angle to asteroid
+        dx = nearest["position"].x - self.player.position.x
+        dy = nearest["position"].y - self.player.position.y
+        target_angle = math.degrees(math.atan2(-dy, dx)) - 90
+        
+        # Adjust angle
+        current_angle = self.player.angle % 360
+        angle_diff = (target_angle - current_angle) % 360
+        if angle_diff > 180:
+            angle_diff -= 360
+            
+        # Rotate towards asteroid
+        if abs(angle_diff) > 5:
+            if angle_diff > 0:
+                self.player.rotate(GameConfig.AUTOPLAY_ROTATION_SPEED)
+            else:
+                self.player.rotate(-GameConfig.AUTOPLAY_ROTATION_SPEED)
+        
+        # Shoot if aiming at asteroid
+        current_time = time.time()
+        if (abs(angle_diff) < 10 and 
+            current_time - self.last_shot_time > GameConfig.AUTOPLAY_SHOOT_DELAY):
+            self.fire_projectile()
+            self.last_shot_time = current_time
+
     def run(self):
         running = True
         while running:
-            # Handle events
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    running = False
-                elif event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_SPACE:
-                        self.fire_projectile()
+            if self.game_state == "menu":
+                self.menu.draw()
+                for event in pygame.event.get():
+                    if event.type == pygame.QUIT:
+                        running = False
+                    elif event.type == pygame.MOUSEBUTTONDOWN:
+                        action = self.menu.handle_click(event.pos)
+                        if action == "start":
+                            self.reset_game()
+                            self.game_state = "playing"
+                        elif action == "autoplay":
+                            self.reset_game()
+                            self.autoplay = True
+                            self.game_state = "playing"
 
-            # Handle continuous key presses
-            keys = pygame.key.get_pressed()
-            if keys[pygame.K_LEFT]:
-                self.player.rotate(-GameConfig.PLAYER_ROTATION_SPEED)
-            if keys[pygame.K_RIGHT]:
-                self.player.rotate(GameConfig.PLAYER_ROTATION_SPEED)
-            if keys[pygame.K_UP]:
-                self.player.thrust()
+            elif self.game_state == "playing":
+                # Handle events
+                for event in pygame.event.get():
+                    if event.type == pygame.QUIT:
+                        running = False
+                    elif event.type == pygame.KEYDOWN:
+                        if event.key == pygame.K_SPACE:
+                            self.fire_projectile()
 
-            # Update game state
-            self.update()
-            
-            # Draw everything
-            self.draw()
-            
-            # Maintain frame rate
-            self.clock.tick(GameConfig.FPS)
+                if not self.autoplay:
+                    # Manual control
+                    keys = pygame.key.get_pressed()
+                    if keys[pygame.K_LEFT]:
+                        self.player.rotate(-GameConfig.PLAYER_ROTATION_SPEED)
+                    if keys[pygame.K_RIGHT]:
+                        self.player.rotate(GameConfig.PLAYER_ROTATION_SPEED)
+                    if keys[pygame.K_UP]:
+                        self.player.thrust()
+                else:
+                    # Auto control
+                    self.auto_control()
+
+                # Update game state
+                self.update()
+                
+                # Draw everything
+                self.draw()
+                
+                # Maintain frame rate
+                self.clock.tick(GameConfig.FPS)
 
         pygame.quit()
 
@@ -291,11 +415,12 @@ class Game:
         for projectile in self.projectiles:
             projectile.draw(self.screen)
         
-        # Draw asteroids
+        # Draw asteroids with colors
         for asteroid in self.asteroids:
+            color = GameConfig.ASTEROID_COLORS[asteroid["size"]]
             pygame.draw.circle(
                 self.screen,
-                GameConfig.WHITE,
+                color,
                 (int(asteroid["position"].x), int(asteroid["position"].y)),
                 GameConfig.ASTEROID_SIZES[asteroid["size"]],
                 1
