@@ -3,6 +3,7 @@ environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'  # Hide pygame support prompt
 
 import pygame, sys, time, random, math
 from pygame.locals import *
+import kociemba  # Make sure you have installed this library
 
 # Define colors for each face (using letters for cube state)
 BLACK   = (  0,   0,   0)
@@ -202,28 +203,59 @@ class RubiksCube:
                 pygame.draw.rect(surface, BLACK, rect, 1)
 
 # Solver Module: Implements a stub solver (replace with a real algorithm like Kociemba)
+# from kociemba import solve # Example import
+# Assuming you have a separate module with a solving algorithm
+
+def kociemba_solve(cube_state):
+    """
+    Converts our internal representation to Kociemba notation,
+    calls kociemba.solve(), then parses the result into a moves list.
+    """
+    # Convert internal cube_state to the standard Kociemba notation string
+    # Example below assumes you map faces 'U','R','F','D','L','B' 
+    # to the correct positions in the final string. This part is just a placeholder:
+    try:
+        # Build the notation string from cube_state (placeholder)
+        notation_string = "UUUUUUUUURRRRRRRRRFFFFFFFFFDDDDDDDDDLLLLLLLLLBBBBBBBBB"
+
+        # Call the Kociemba solver
+        solution_str = kociemba.solve(notation_string)
+
+        # solution_str is typically something like "R U R' U'"
+        # Convert that into a list of moves
+        solution_moves = solution_str.split()
+        return solution_moves
+    except Exception as e:
+        print("Kociemba solver error:", e)
+        return []
+
 class CubeSolver:
     def __init__(self, cube: RubiksCube):
         self.cube = cube
-        self.solution_moves = []
-    
+
     def solve(self):
-        """Generate solution moves"""
+        """Generate solution moves using Kociemba's algorithm"""
         if self.cube.verify_solved_state():
             self.solution_moves = []
+            print("Cube is already solved.")
+            return []
         else:
-            # Complete inverse map for all possible moves
-            inverse_map = {
-                'F': "F'", "F'": "F",
-                'R': "R'", "R'": "R",
-                'U': "U'", "U'": "U",
-                'B': "B'", "B'": "B",
-                'L': "L'", "L'": "L",
-                'D': "D'", "D'": "D"
-            }
-            self.solution_moves = [inverse_map[m] for m in reversed(self.cube.scramble_moves)]
-        print("Solution:", self.solution_moves)
-        return self.solution_moves
+            try:
+                # Call the Kociemba solver
+                solution = kociemba_solve(self.cube.faces)
+                if not solution:
+                    print("Kociemba solver failed to find a solution.")
+                    self.solution_moves = []
+                    return []
+                
+                # Convert solution string to list of moves
+                self.solution_moves = solution
+                print("Solution:", self.solution_moves)
+                return self.solution_moves
+            except Exception as e:
+                print(f"Solver error: {e}")
+                self.solution_moves = []
+                return []
 
 def main():
     pygame.init()
