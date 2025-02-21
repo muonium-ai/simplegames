@@ -148,7 +148,9 @@ class RubiksCube:
 
     def scramble(self, moves=20):
         """Scramble the cube with random moves"""
-        valid_moves = ['F', 'R', 'U', "F'", "R'", "U'"]  # Simplified move set
+        # Use all valid moves, not just simplified set
+        valid_moves = ['F', 'R', 'U', 'B', 'L', 'D',
+                      "F'", "R'", "U'", "B'", "L'", "D'"]
         self.scramble_moves = []
         
         for _ in range(moves):
@@ -157,6 +159,17 @@ class RubiksCube:
             self.scramble_moves.append(move)
         
         return f"Scrambled with {moves} moves"
+
+    def verify_solved_state(self) -> bool:
+        """Verify if cube is in completely solved state"""
+        # Check each face has all stickers matching center sticker
+        for face in "UDFBLR":
+            center = self.faces[face][1][1]  # Center sticker
+            for row in self.faces[face]:
+                for sticker in row:
+                    if sticker != center:
+                        return False
+        return True
 
     def is_solved(self):
         for face in self.faces:
@@ -194,14 +207,17 @@ class CubeSolver:
     
     def solve(self):
         """Generate solution moves"""
-        if self.cube.is_solved():
+        if self.cube.verify_solved_state():
             self.solution_moves = []
         else:
-            # Generate inverse moves for each scramble move
+            # Complete inverse map for all possible moves
             inverse_map = {
                 'F': "F'", "F'": "F",
                 'R': "R'", "R'": "R",
-                'U': "U'", "U'": "U"
+                'U': "U'", "U'": "U",
+                'B': "B'", "B'": "B",
+                'L': "L'", "L'": "L",
+                'D': "D'", "D'": "D"
             }
             self.solution_moves = [inverse_map[m] for m in reversed(self.cube.scramble_moves)]
         print("Solution:", self.solution_moves)
@@ -299,8 +315,15 @@ def main():
                 # Instead of blocking time.sleep, you can use pygame.time.delay if preferred:
                 pygame.time.delay(500)
             else:
+                # Verify solution is complete
+                if cube.verify_solved_state():
+                    status_message = "Solved Successfully!"
+                else:
+                    status_message = "Solution incomplete - trying again..."
+                    moves = solver.solve()  # Try solving again if needed
+                    solution_index = 0
+                    continue
                 solving = False
-                status_message = "Solved!"
         
         draw_interface()  # Update display each frame
         clock.tick(10)
