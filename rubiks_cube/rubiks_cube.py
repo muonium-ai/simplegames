@@ -27,10 +27,12 @@ class RubiksCube:
         self.faces = {face: [[face]*3 for _ in range(3)] for face in "UDFBLR"}
     
     def scramble(self, moves=20):
-        all_moves = ['U', "U'", 'D', "D'", 'F', "F'", 'B', "B'", 'L', "L'", 'R', "R'"]
-        for _ in range(moves):
-            move = random.choice(all_moves)
-            self.apply_move(move)
+        # MODIFIED: Randomize each sticker so that the cube visually differs from the solved state.
+        for face in self.faces:
+            for i in range(3):
+                for j in range(3):
+                    self.faces[face][i][j] = random.choice("UDFBLR")
+        print("Cube scrambled visually")
     
     def apply_move(self, move):
         # Stub: update cube state here (complex rotations omitted)
@@ -43,7 +45,7 @@ class RubiksCube:
         return True
     
     def draw(self, surface):
-        # UI Module: Draw an isometric projection (here a simple flat 2D net)
+        # UI Module: Draw a simple flat 2D net of the cube
         sticker_size = 30
         gap = 5
         x_offset = 300
@@ -64,7 +66,7 @@ class RubiksCube:
                 pygame.draw.rect(surface, FACE_COLORS.get(val, BLACK), rect)
                 pygame.draw.rect(surface, BLACK, rect, 1)
 
-# Solver Module: Implements a stub solver (replace with an algorithm like Kociemba).
+# Solver Module: Implements a stub solver (replace with a real algorithm like Kociemba)
 class CubeSolver:
     def __init__(self, cube: RubiksCube):
         self.cube = cube
@@ -76,6 +78,7 @@ class CubeSolver:
         else:
             # Stub: fixed sequence as an example.
             self.solution_moves = ['R', "U'", 'F', "L'", 'D']
+        print("Solution:", self.solution_moves)
         return self.solution_moves
 
 def main():
@@ -88,8 +91,10 @@ def main():
     cube = RubiksCube()
     solver = CubeSolver(cube)
     
-    # Scramble cube initially
-    cube.scramble(20)
+    # Create button rectangles for mouse control
+    solve_button = pygame.Rect(20, 540, 150, 40)
+    scramble_button = pygame.Rect(200, 540, 150, 40)
+    
     solving = False
     solution_index = 0
     auto_solve = False
@@ -98,37 +103,56 @@ def main():
         for event in pygame.event.get():
             if event.type == QUIT:
                 pygame.quit(); sys.exit()
-            elif event.type == KEYDOWN:
-                if event.key == K_s:  # Press 's' to start solver
+            elif event.type == MOUSEBUTTONDOWN:
+                if solve_button.collidepoint(event.pos):
                     moves = solver.solve()
-                    print("Solution:", moves)
                     solving = True
                     solution_index = 0
                     auto_solve = True
-                elif event.key == K_r:  # Press 'r' to reset/scramble cube
-                    cube = RubiksCube()
+                elif scramble_button.collidepoint(event.pos):
                     cube.scramble(20)
                     solver = CubeSolver(cube)
                     solving = False
                     auto_solve = False
-        
+
+            elif event.type == KEYDOWN:
+                if event.key == K_s:
+                    moves = solver.solve()
+                    solving = True
+                    solution_index = 0
+                    auto_solve = True
+                elif event.key == K_r:
+                    cube.scramble(20)
+                    solver = CubeSolver(cube)
+                    solving = False
+                    auto_solve = False
+
         # If auto-solving, apply moves one at a time
         if solving and auto_solve:
             if solution_index < len(solver.solution_moves):
                 move = solver.solution_moves[solution_index]
                 cube.apply_move(move)
                 solution_index += 1
-                # Delay between moves
-                time.sleep(0.5)
+                # Instead of blocking time.sleep, you can use pygame.time.delay if preferred:
+                pygame.time.delay(500)
             else:
                 solving = False
         
         screen.fill(WHITE)
         cube.draw(screen)
         
+        # Draw buttons
+        pygame.draw.rect(screen, BLACK, solve_button, 2)
+        solve_text = font.render("Solve", True, BLACK)
+        screen.blit(solve_text, solve_text.get_rect(center=solve_button.center))
+        
+        pygame.draw.rect(screen, BLACK, scramble_button, 2)
+        scramble_text = font.render("Scramble", True, BLACK)
+        screen.blit(scramble_text, scramble_text.get_rect(center=scramble_button.center))
+        
         # Draw instructions
-        instr1 = font.render("Press 's' to solve, 'r' to scramble", True, BLACK)
-        screen.blit(instr1, (20,20))
+        instr = font.render("Press Solve or Scramble", True, BLACK)
+        screen.blit(instr, (20, 20))
         
         pygame.display.flip()
         clock.tick(10)
