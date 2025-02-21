@@ -31,6 +31,8 @@ class RubiksCube:
         self.scramble_moves = []
         self.move_history = []
         self.current_move = ""
+        self.solution_attempt = 0  # NEW: Track number of solution attempts
+        self.max_solution_attempts = 3  # NEW: Limit solution attempts
 
     def rotate_face(self, face_matrix, clockwise=True):
         """Rotate a face clockwise or counterclockwise"""
@@ -256,22 +258,27 @@ def main():
         scramble_text = font.render("Scramble", True, BLACK)
         screen.blit(scramble_text, scramble_text.get_rect(center=scramble_button.center))
         
-        # NEW: Draw status and current move
+        # Draw status and current move
         status = font.render(status_message, True, BLACK)
         screen.blit(status, (20, 20))
         
         if cube.current_move:
-            move_text = font.render(f"Move: {cube.current_move}", True, BLACK)
+            if solving and auto_solve:
+                move_text = font.render(f"Move: {cube.current_move} ({solution_index}/{len(solver.solution_moves)})", True, BLACK)
+            else:
+                move_text = font.render(f"Move: {cube.current_move}", True, BLACK)
             screen.blit(move_text, (20, 60))
         
-        # NEW: Draw move history
+        # Draw move history with count
         history_y = 100
-        history_text = small_font.render("Move History:", True, BLACK)
+        history_text = small_font.render(f"Move History: (Total: {len(cube.move_history)})", True, BLACK)
         screen.blit(history_text, (20, history_y))
         
-        # Show last 10 moves
+        # Show last 10 moves with numbers
+        start_index = max(0, len(cube.move_history) - 10)
         for i, move in enumerate(cube.move_history[-10:]):
-            move_text = small_font.render(move, True, BLACK)
+            move_num = start_index + i + 1
+            move_text = small_font.render(f"#{move_num}: {move}", True, BLACK)
             screen.blit(move_text, (20, history_y + 20 + i*20))
         
         pygame.display.flip()
