@@ -277,6 +277,7 @@ class Game:
         self.shots_fired = 0
         self.start_time = time.time()
         self.final_time = 0  # Add final time variable
+        self.target_asteroid = None  # NEW: Holds the targeted asteroid dictionary
 
     def reset_game(self):
         self.player = Player(Vector2D(
@@ -293,6 +294,7 @@ class Game:
         self.shots_fired = 0
         self.start_time = time.time()
         self.final_time = 0
+        self.target_asteroid = None  # NEW: Reset target
 
     def create_initial_asteroids(self) -> List:
         asteroids = []
@@ -315,35 +317,46 @@ class Game:
             })
         return asteroids
 
+    # NEW: Helper to detect if a click was on an asteroid.
+    def get_asteroid_at(self, pos: Tuple[int, int]) -> Optional[dict]:
+        for asteroid in self.asteroids:
+            ax, ay = int(asteroid["position"].x), int(asteroid["position"].y)
+            radius = GameConfig.ASTEROID_SIZES[asteroid["size"]]
+            if math.hypot(pos[0] - ax, pos[1] - ay) <= radius:
+                return asteroid
+        return None
+
+    # Modified auto_control method to use target if set.
     def auto_control(self):
-        """AI control for autoplay mode"""
-        if not self.asteroids:
-            return
-            
-        # Find nearest asteroid
-        nearest = min(self.asteroids, 
+        """AI control for autoplay mode with target selection"""
+        target = None
+        if self.target_asteroid and self.target_asteroid in self.asteroids:
+            target = self.target_asteroid
+        else:
+            # Find nearest asteroid if no target selected
+            if self.asteroids:
+                target = min(self.asteroids, 
                      key=lambda a: math.hypot(a["position"].x - self.player.position.x,
-                                            a["position"].y - self.player.position.y))
-        
-        # Calculate angle to asteroid
-        dx = nearest["position"].x - self.player.position.x
-        dy = nearest["position"].y - self.player.position.y
+                                               a["position"].y - self.player.position.y))
+            else:
+                return
+            
+        # Calculate angle to the target asteroid
+        dx = target["position"].x - self.player.position.x
+        dy = target["position"].y - self.player.position.y
         target_angle = math.degrees(math.atan2(-dy, dx)) - 90
         
-        # Adjust angle
         current_angle = self.player.angle % 360
         angle_diff = (target_angle - current_angle) % 360
         if angle_diff > 180:
             angle_diff -= 360
             
-        # Rotate towards asteroid
         if abs(angle_diff) > 5:
             if angle_diff > 0:
                 self.player.rotate(GameConfig.AUTOPLAY_ROTATION_SPEED)
             else:
                 self.player.rotate(-GameConfig.AUTOPLAY_ROTATION_SPEED)
         
-        # Shoot if aiming at asteroid
         current_time = time.time()
         if (abs(angle_diff) < 10 and 
             current_time - self.last_shot_time > GameConfig.AUTOPLAY_SHOOT_DELAY):
@@ -376,6 +389,10 @@ class Game:
                     elif event.type == pygame.KEYDOWN:
                         if event.key == pygame.K_SPACE:
                             self.fire_projectile()
+                    # NEW: Use right-click to target an asteroid
+                    elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 3:
+                        target = self.get_asteroid_at(event.pos)
+                        self.target_asteroid = target  # Can be None if click misses
 
                 if not self.autoplay:
                     # Manual control
