@@ -207,33 +207,51 @@ class RubiksCube:
 # Assuming you have a separate module with a solving algorithm
 
 def kociemba_solve(cube_state):
-    """Convert internal cube faces to valid Kociemba string, then call kociemba.solve()."""
+    """Convert cube state to Kociemba notation, validate it, then solve."""
     def convert_to_kociemba_notation(state):
-        face_order = ['U','R','F','D','L','B']
-        # Force each face center to match its label for Kociemba
-        for face in face_order:
-            state[face][1][1] = face
-        # Ensure faces are oriented and labeled as U, R, F, D, L, B
-        # reading rows left-to-right, top-to-bottom
-        face_order = ['U','R','F','D','L','B']
-        
-        # Validate center stickers to match letters:
-        # e.g. state['U'][1][1] should be 'U', etc.
-
-        notation = ""
-        for face in face_order:
-            # Read each 3x3 face row-wise
+        kociemba_map = {
+            'U': 'U',  # White
+            'D': 'D',  # Yellow
+            'F': 'F',  # Green
+            'B': 'B',  # Blue
+            'L': 'L',  # Orange
+            'R': 'R'   # Red
+        }
+        # Deep copy and fix centers
+        state_copy = {face: [row[:] for row in face_matrix] for face, face_matrix in state.items()}
+        centers = {'U': 'U', 'R': 'R', 'F': 'F', 'D': 'D', 'L': 'L', 'B': 'B'}
+        for face in centers:
+            state_copy[face][1][1] = centers[face]
+        cube_str = ""
+        for face in ['U', 'R', 'F', 'D', 'L', 'B']:
             for row in range(3):
                 for col in range(3):
-                    notation += state[face][row][col]
-        return notation
+                    cube_str += kociemba_map[state_copy[face][row][col]]
+        
+        print("Generated cube string:", cube_str)
+        # Validate: should be 54 characters and each letter appears 9 times.
+        if len(cube_str) != 54:
+            print("Error: Cube string length invalid.")
+            return None
+        counts = {letter: cube_str.count(letter) for letter in "URFDLB"}
+        print("Letter counts:", counts)
+        if any(count != 9 for count in counts.values()):
+            print("Error: Cube string invalid. Each face must appear 9 times.")
+            return None
+        return cube_str
 
     try:
         notation_string = convert_to_kociemba_notation(cube_state)
+        if notation_string is None:
+            return []  # Abort solving if invalid string
+        print("Calling kociemba.solve with:", notation_string)
         solution_str = kociemba.solve(notation_string)
+        print("Kociemba solution:", solution_str)
         return solution_str.split()
     except Exception as e:
-        print("Kociemba solver error:", e)
+        print(f"Kociemba solver error: {e}")
+        for face in "URFDLB":
+            print(f"Face {face}:", cube_state[face])
         return []
 
 class CubeSolver:
