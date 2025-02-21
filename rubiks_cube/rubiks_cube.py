@@ -26,45 +26,138 @@ FACE_COLORS = {
 # Cube Module: Represents cube state as 6 faces (each 3x3)
 class RubiksCube:
     def __init__(self):
-        # Create solved state: each face represented by its key letter
+        # Initialize cube faces
         self.faces = {face: [[face]*3 for _ in range(3)] for face in "UDFBLR"}
-    
-    def scramble(self, moves=20):
-        # Randomize each sticker so that the cube looks scrambled
-        for face in self.faces:
-            for i in range(3):
-                for j in range(3):
-                    self.faces[face][i][j] = random.choice("UDFBLR")
-        print("Cube scrambled visually")
-    
-    def apply_move(self, move):
-        # If move is "reset", update cube state to solved configuration
-        if move == 'reset':
-            self.faces = {face: [[face]*3 for _ in range(3)] for face in "UDFBLR"}
-            print("Cube reset to solved state")
-            return
+        self.scramble_moves = []
+        self.move_history = []
+        self.current_move = ""
 
-        # Otherwise, use a stub rotation for selected moves
-        def rotate_face(face_matrix, clockwise=True):
-            if clockwise:
-                return [list(row) for row in zip(*face_matrix[::-1])]
-            else:
-                return [list(row) for row in zip(*face_matrix)][::-1]
-        
-        if move == 'R':
-            self.faces['R'] = rotate_face(self.faces['R'], True)
-        elif move == "U'":
-            self.faces['U'] = rotate_face(self.faces['U'], False)
-        elif move == 'F':
-            self.faces['F'] = rotate_face(self.faces['F'], True)
-        elif move == "L'":
-            self.faces['L'] = rotate_face(self.faces['L'], False)
-        elif move == 'D':
-            self.faces['D'] = rotate_face(self.faces['D'], True)
+    def rotate_face(self, face_matrix, clockwise=True):
+        """Rotate a face clockwise or counterclockwise"""
+        if clockwise:
+            return [list(row) for row in zip(*face_matrix[::-1])]
         else:
-            print("Move not implemented:", move)
-        print("Applied move:", move)
-    
+            return [list(row) for row in zip(*face_matrix)][::-1]
+
+    def update_adjacent_faces(self, face: str, clockwise: bool):
+        """Update adjacent faces when rotating a face"""
+        if face == 'F':
+            temp = self.faces['U'][2].copy()
+            if clockwise:
+                self.faces['U'][2] = [self.faces['L'][2][2], self.faces['L'][1][2], self.faces['L'][0][2]]
+                for i in range(3):
+                    self.faces['L'][i][2] = self.faces['D'][0][2-i]
+                self.faces['D'][0] = [self.faces['R'][0][0], self.faces['R'][1][0], self.faces['R'][2][0]]
+                for i in range(3):
+                    self.faces['R'][i][0] = temp[i]
+            else:
+                self.faces['U'][2] = [self.faces['R'][0][0], self.faces['R'][1][0], self.faces['R'][2][0]]
+                for i in range(3):
+                    self.faces['R'][i][0] = self.faces['D'][0][2-i]
+                self.faces['D'][0] = [self.faces['L'][2][2], self.faces['L'][1][2], self.faces['L'][0][2]]
+                for i in range(3):
+                    self.faces['L'][i][2] = temp[2-i]
+
+        elif face == 'R':
+            temp = [self.faces['F'][i][2] for i in range(3)]
+            if clockwise:
+                for i in range(3):
+                    self.faces['F'][i][2] = self.faces['D'][i][2]
+                    self.faces['D'][i][2] = self.faces['B'][2-i][0]
+                    self.faces['B'][2-i][0] = self.faces['U'][i][2]
+                    self.faces['U'][i][2] = temp[i]
+            else:
+                for i in range(3):
+                    self.faces['F'][i][2] = self.faces['U'][i][2]
+                    self.faces['U'][i][2] = self.faces['B'][2-i][0]
+                    self.faces['B'][2-i][0] = self.faces['D'][i][2]
+                    self.faces['D'][i][2] = temp[i]
+
+        elif face == 'U':
+            temp = self.faces['F'][0].copy()
+            if clockwise:
+                self.faces['F'][0] = self.faces['R'][0]
+                self.faces['R'][0] = self.faces['B'][0]
+                self.faces['B'][0] = self.faces['L'][0]
+                self.faces['L'][0] = temp
+            else:
+                self.faces['F'][0] = self.faces['L'][0]
+                self.faces['L'][0] = self.faces['B'][0]
+                self.faces['B'][0] = self.faces['R'][0]
+                self.faces['R'][0] = temp
+
+        elif face == 'L':
+            temp = [self.faces['F'][i][0] for i in range(3)]
+            if clockwise:
+                for i in range(3):
+                    self.faces['F'][i][0] = self.faces['U'][i][0]
+                    self.faces['U'][i][0] = self.faces['B'][2-i][2]
+                    self.faces['B'][2-i][2] = self.faces['D'][i][0]
+                    self.faces['D'][i][0] = temp[i]
+            else:
+                for i in range(3):
+                    self.faces['F'][i][0] = self.faces['D'][i][0]
+                    self.faces['D'][i][0] = self.faces['B'][2-i][2]
+                    self.faces['B'][2-i][2] = self.faces['U'][i][0]
+                    self.faces['U'][i][0] = temp[i]
+
+        elif face == 'D':
+            temp = self.faces['F'][2].copy()
+            if clockwise:
+                self.faces['F'][2] = self.faces['L'][2]
+                self.faces['L'][2] = self.faces['B'][2]
+                self.faces['B'][2] = self.faces['R'][2]
+                self.faces['R'][2] = temp
+            else:
+                self.faces['F'][2] = self.faces['R'][2]
+                self.faces['R'][2] = self.faces['B'][2]
+                self.faces['B'][2] = self.faces['L'][2]
+                self.faces['L'][2] = temp
+
+        elif face == 'B':
+            temp = self.faces['U'][0].copy()
+            if clockwise:
+                self.faces['U'][0] = [self.faces['R'][0][2], self.faces['R'][1][2], self.faces['R'][2][2]]
+                for i in range(3):
+                    self.faces['R'][i][2] = self.faces['D'][2][2-i]
+                self.faces['D'][2] = [self.faces['L'][2][0], self.faces['L'][1][0], self.faces['L'][0][0]]
+                for i in range(3):
+                    self.faces['L'][i][0] = temp[2-i]
+            else:
+                self.faces['U'][0] = [self.faces['L'][0][0], self.faces['L'][1][0], self.faces['L'][2][0]]
+                for i in range(3):
+                    self.faces['L'][i][0] = self.faces['D'][2][i]
+                self.faces['D'][2] = [self.faces['R'][2][2], self.faces['R'][1][2], self.faces['R'][0][2]]
+                for i in range(3):
+                    self.faces['R'][i][2] = temp[i]
+
+    def apply_move(self, move):
+        """Apply a move to the cube state"""
+        self.current_move = move
+        self.move_history.append(move)
+        
+        face = move[0]  # Get the face to rotate (F, R, U, etc.)
+        clockwise = "'" not in move  # Check if it's a counter-clockwise move
+        
+        # Rotate the main face
+        self.faces[face] = self.rotate_face(self.faces[face], clockwise)
+        
+        # Update adjacent faces
+        self.update_adjacent_faces(face, clockwise)
+        print(f"Applied move: {move}")
+
+    def scramble(self, moves=20):
+        """Scramble the cube with random moves"""
+        valid_moves = ['F', 'R', 'U', "F'", "R'", "U'"]  # Simplified move set
+        self.scramble_moves = []
+        
+        for _ in range(moves):
+            move = random.choice(valid_moves)
+            self.apply_move(move)
+            self.scramble_moves.append(move)
+        
+        return f"Scrambled with {moves} moves"
+
     def is_solved(self):
         for face in self.faces:
             if any(cell != self.faces[face][0][0] for row in self.faces[face] for cell in row):
@@ -100,11 +193,17 @@ class CubeSolver:
         self.solution_moves = []
     
     def solve(self):
+        """Generate solution moves"""
         if self.cube.is_solved():
-            self.solution_moves = []  # Already solved
+            self.solution_moves = []
         else:
-            # Instead of a fixed move sequence, return a "reset" move that "solves" the cube.
-            self.solution_moves = ['reset']
+            # Generate inverse moves for each scramble move
+            inverse_map = {
+                'F': "F'", "F'": "F",
+                'R': "R'", "R'": "R",
+                'U': "U'", "U'": "U"
+            }
+            self.solution_moves = [inverse_map[m] for m in reversed(self.cube.scramble_moves)]
         print("Solution:", self.solution_moves)
         return self.solution_moves
 
@@ -114,6 +213,7 @@ def main():
     pygame.display.set_caption("Rubik's Cube Solver")
     clock = pygame.time.Clock()
     font = pygame.font.SysFont(None, 36)
+    small_font = pygame.font.SysFont(None, 24)  # NEW: For move history
     
     cube = RubiksCube()
     solver = CubeSolver(cube)
@@ -125,6 +225,40 @@ def main():
     solving = False
     solution_index = 0
     auto_solve = False
+    status_message = "Ready"  # NEW: Status message for display
+    
+    def draw_interface():
+        screen.fill(WHITE)
+        cube.draw(screen)
+        
+        # Draw buttons
+        pygame.draw.rect(screen, BLACK, solve_button, 2)
+        solve_text = font.render("Solve", True, BLACK)
+        screen.blit(solve_text, solve_text.get_rect(center=solve_button.center))
+        
+        pygame.draw.rect(screen, BLACK, scramble_button, 2)
+        scramble_text = font.render("Scramble", True, BLACK)
+        screen.blit(scramble_text, scramble_text.get_rect(center=scramble_button.center))
+        
+        # NEW: Draw status and current move
+        status = font.render(status_message, True, BLACK)
+        screen.blit(status, (20, 20))
+        
+        if cube.current_move:
+            move_text = font.render(f"Move: {cube.current_move}", True, BLACK)
+            screen.blit(move_text, (20, 60))
+        
+        # NEW: Draw move history
+        history_y = 100
+        history_text = small_font.render("Move History:", True, BLACK)
+        screen.blit(history_text, (20, history_y))
+        
+        # Show last 10 moves
+        for i, move in enumerate(cube.move_history[-10:]):
+            move_text = small_font.render(move, True, BLACK)
+            screen.blit(move_text, (20, history_y + 20 + i*20))
+        
+        pygame.display.flip()
     
     while True:
         for event in pygame.event.get():
@@ -136,8 +270,9 @@ def main():
                     solving = True
                     solution_index = 0
                     auto_solve = True
+                    status_message = "Solving..."
                 elif scramble_button.collidepoint(event.pos):
-                    cube.scramble(20)
+                    status_message = cube.scramble(20)
                     solver = CubeSolver(cube)
                     solving = False
                     auto_solve = False
@@ -148,8 +283,9 @@ def main():
                     solving = True
                     solution_index = 0
                     auto_solve = True
+                    status_message = "Solving..."
                 elif event.key == K_r:
-                    cube.scramble(20)
+                    status_message = cube.scramble(20)
                     solver = CubeSolver(cube)
                     solving = False
                     auto_solve = False
@@ -164,24 +300,9 @@ def main():
                 pygame.time.delay(500)
             else:
                 solving = False
+                status_message = "Solved!"
         
-        screen.fill(WHITE)
-        cube.draw(screen)
-        
-        # Draw buttons
-        pygame.draw.rect(screen, BLACK, solve_button, 2)
-        solve_text = font.render("Solve", True, BLACK)
-        screen.blit(solve_text, solve_text.get_rect(center=solve_button.center))
-        
-        pygame.draw.rect(screen, BLACK, scramble_button, 2)
-        scramble_text = font.render("Scramble", True, BLACK)
-        screen.blit(scramble_text, scramble_text.get_rect(center=scramble_button.center))
-        
-        # Draw instructions
-        instr = font.render("Press Solve or Scramble", True, BLACK)
-        screen.blit(instr, (20, 20))
-        
-        pygame.display.flip()
+        draw_interface()  # Update display each frame
         clock.tick(10)
 
 if __name__ == "__main__":
