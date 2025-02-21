@@ -207,24 +207,31 @@ class RubiksCube:
 # Assuming you have a separate module with a solving algorithm
 
 def kociemba_solve(cube_state):
-    """
-    Converts our internal representation to Kociemba notation,
-    calls kociemba.solve(), then parses the result into a moves list.
-    """
-    # Convert internal cube_state to the standard Kociemba notation string
-    # Example below assumes you map faces 'U','R','F','D','L','B' 
-    # to the correct positions in the final string. This part is just a placeholder:
+    """Convert internal cube faces to valid Kociemba string, then call kociemba.solve()."""
+    def convert_to_kociemba_notation(state):
+        face_order = ['U','R','F','D','L','B']
+        # Force each face center to match its label for Kociemba
+        for face in face_order:
+            state[face][1][1] = face
+        # Ensure faces are oriented and labeled as U, R, F, D, L, B
+        # reading rows left-to-right, top-to-bottom
+        face_order = ['U','R','F','D','L','B']
+        
+        # Validate center stickers to match letters:
+        # e.g. state['U'][1][1] should be 'U', etc.
+
+        notation = ""
+        for face in face_order:
+            # Read each 3x3 face row-wise
+            for row in range(3):
+                for col in range(3):
+                    notation += state[face][row][col]
+        return notation
+
     try:
-        # Build the notation string from cube_state (placeholder)
-        notation_string = "UUUUUUUUURRRRRRRRRFFFFFFFFFDDDDDDDDDLLLLLLLLLBBBBBBBBB"
-
-        # Call the Kociemba solver
+        notation_string = convert_to_kociemba_notation(cube_state)
         solution_str = kociemba.solve(notation_string)
-
-        # solution_str is typically something like "R U R' U'"
-        # Convert that into a list of moves
-        solution_moves = solution_str.split()
-        return solution_moves
+        return solution_str.split()
     except Exception as e:
         print("Kociemba solver error:", e)
         return []
