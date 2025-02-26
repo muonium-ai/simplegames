@@ -54,6 +54,60 @@ solve_button = pygame.Rect(
     button_height
 )
 
+# Define row/column controls - arranged in a 3x3 grid on each side
+control_size = 30
+control_margin = 5
+
+# Row controls (for x-axis rotations) - on the left side
+row_buttons = []
+for i in range(3):  # 3 rows
+    for direction in [-1, 1]:  # Two directions: counter-clockwise (-1) and clockwise (1)
+        row_buttons.append({
+            'rect': pygame.Rect(
+                button_margin + (direction + 1) * (control_size + control_margin),  # x position
+                button_margin + i * (control_size + control_margin),  # y position
+                control_size,
+                control_size
+            ),
+            'row': i - 1,  # Convert to -1, 0, 1
+            'direction': direction,
+            'axis': 1  # y-axis
+        })
+
+# Column controls (for y-axis rotations) - on the right side
+col_buttons = []
+for i in range(3):  # 3 columns
+    for direction in [-1, 1]:  # Two directions
+        col_buttons.append({
+            'rect': pygame.Rect(
+                WIDTH - button_margin - 2 * (control_size + control_margin) + 
+                (direction + 1) * (control_size + control_margin),  # x position
+                button_margin + i * (control_size + control_margin),  # y position
+                control_size,
+                control_size
+            ),
+            'col': i - 1,  # Convert to -1, 0, 1
+            'direction': direction,
+            'axis': 0  # x-axis
+        })
+
+# Depth controls (for z-axis rotations) - on the top
+depth_buttons = []
+for i in range(3):  # 3 depths
+    for direction in [-1, 1]:  # Two directions
+        depth_buttons.append({
+            'rect': pygame.Rect(
+                WIDTH // 2 - control_size - control_margin + 
+                i * (control_size + control_margin),  # x position
+                button_margin + (direction + 1) * (control_size + control_margin),  # y position
+                control_size,
+                control_size
+            ),
+            'depth': i - 1,  # Convert to -1, 0, 1
+            'direction': direction,
+            'axis': 2  # z-axis
+        })
+
 # Setup OpenGL
 glEnable(GL_DEPTH_TEST)
 glMatrixMode(GL_PROJECTION)
@@ -188,24 +242,34 @@ class Cubelet:
         """Draw the cubelet at its current position and orientation"""
         glPushMatrix()
         
-        # Apply the current rotation matrix
-        # This is for the whole cube rotation, not slice rotations
-        # The actual position is handled by the face vertices
-        
-        # Draw each face
+        # Draw each face with fixed color intensities
         for face in self.faces:
+            # Use immediate mode but with improved color handling
             glBegin(GL_QUADS)
+            
+            # Set material properties for better lighting consistency
+            glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE, 
+                        face.color + (1.0,))  # Adding alpha=1.0
+            glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, (0.3, 0.3, 0.3, 1.0))
+            glMaterialf(GL_FRONT_AND_BACK, GL_SHININESS, 30.0)
+            
+            # Set color directly as well for compatibility
             glColor3fv(face.color)
+            
+            # Draw face with normal for proper lighting
+            glNormal3fv(face.normal)
             for vertex in face.vertices:
                 glVertex3fv(vertex)
             glEnd()
             
-            # Draw black edges
+            # Draw black edges with lighting disabled
+            glDisable(GL_LIGHTING)
             glColor3fv(colors['black'])
             glBegin(GL_LINE_LOOP)
             for vertex in face.vertices:
                 glVertex3fv(vertex)
             glEnd()
+            glEnable(GL_LIGHTING)
             
         glPopMatrix()
         
@@ -380,8 +444,8 @@ class RubiksCube:
             # Queue the move if already animating
             self.animation_moves.append(move)
             return
-            
-        # Parse move notation (e.g., "R", "L'", "U2")
+        
+        # Parse move notation (e.g., "R", "L'", "U2", "M", "E", "S")
         face = move[0]
         direction = -1 if "'" in move else 1
         double = "2" in move
@@ -391,17 +455,23 @@ class RubiksCube:
             axis, slice_val = 0, 1
         elif face == "L":
             axis, slice_val = 0, -1
+        elif face == "M":  # Middle slice between L and R
+            axis, slice_val = 0, 0
         elif face == "U":
             axis, slice_val = 1, 1
         elif face == "D":
             axis, slice_val = 1, -1
+        elif face == "E":  # Equatorial slice between U and D
+            axis, slice_val = 1, 0
         elif face == "F":
             axis, slice_val = 2, 1
         elif face == "B":
             axis, slice_val = 2, -1
+        elif face == "S":  # Standing slice between F and B
+            axis, slice_val = 2, 0
         else:
             return  # Invalid move
-            
+        
         # Set up animation
         self.animating = True
         self.current_angle = 0
@@ -410,8 +480,72 @@ class RubiksCube:
         self.current_slice = slice_val
         self.current_direction = direction
         
-        # Record the move
+        # Record the move in history
         self.move_history.append(move)
+    
+    def rotate_row(self, row_index, direction):
+        """Rotate a horizontal row of the cube
+        
+        row_index: -1, 0, or 1 for bottom, middle, or top row
+        direction: 1 for clockwise, -1 for counter-clockwise
+        """
+        if self.animating:
+            return
+        
+        # Convert row to a move in cube notation
+        if row_index == 1:  # Top row = U
+            move = "U" if direction == 1 else "U'"
+        elif row_index == -1:  # Bottom row = D
+            move = "D" if direction == -1 else "D'"  # D is opposite orientation
+        else:  # Middle row - this doesn't have standard notation
+            # We'll handle it as a special case
+            # Use E notation (equator) - rotates like D
+            move = "E" if direction == -1 else "E'"
+        
+        # Animate the move
+        self.animate_move(move)
+    
+    def rotate_column(self, col_index, direction):
+        """Rotate a vertical column of the cube
+        
+        col_index: -1, 0, or 1 for left, middle, or right column
+        direction: 1 for clockwise, -1 for counter-clockwise
+        """
+        if self.animating:
+            return
+        
+        # Convert column to a move in cube notation
+        if col_index == 1:  # Right column = R
+            move = "R" if direction == 1 else "R'"
+        elif col_index == -1:  # Left column = L
+            move = "L" if direction == 1 else "L'"
+        else:  # Middle column 
+            # Use M notation (middle) - rotates like L
+            move = "M" if direction == 1 else "M'"
+        
+        # Animate the move
+        self.animate_move(move)
+    
+    def rotate_depth(self, depth_index, direction):
+        """Rotate a depth layer of the cube
+        
+        depth_index: -1, 0, or 1 for back, middle, or front layer
+        direction: 1 for clockwise, -1 for counter-clockwise
+        """
+        if self.animating:
+            return
+        
+        # Convert depth to a move in cube notation
+        if depth_index == 1:  # Front face = F
+            move = "F" if direction == 1 else "F'"
+        elif depth_index == -1:  # Back face = B
+            move = "B" if direction == 1 else "B'"
+        else:  # Middle layer
+            # Use S notation (standing) - rotates like F
+            move = "S" if direction == 1 else "S'"
+        
+        # Animate the move
+        self.animate_move(move)
         
     def scramble(self, num_moves=20):
         """Scramble the cube with random moves"""
@@ -470,25 +604,66 @@ class RubiksCube:
         self.animating = False
 
 def render_buttons():
-    """Render buttons for cube controls"""
-    # Create a transparent overlay for buttons
+    """Render all buttons for cube controls"""
+    # Create a solid overlay for buttons (not transparent)
     overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
     
-    # Draw buttons
-    for button, text in [(reset_button, "Reset"), 
-                         (scramble_button, "Scramble"),
-                         (solve_button, "Solve")]:
+    # Fill with a very transparent background to see overlay boundaries (for debugging)
+    overlay.fill((200, 200, 200, 10))
+    
+    # Draw main action buttons with more opaque colors
+    for button, text in [
+        (reset_button, "Reset"), 
+        (scramble_button, "Scramble"),
+        (solve_button, "Solve")
+    ]:
         # Check if mouse is over the button
         mouse_pos = pygame.mouse.get_pos()
-        color = button_hover_color if button.collidepoint(mouse_pos) else button_color
+        # Use more visible colors (fully opaque)
+        color = (150, 150, 220, 255) if button.collidepoint(mouse_pos) else (100, 100, 180, 255)
         
         # Draw button background
         pygame.draw.rect(overlay, color, button)
+        # Add a border for better visibility
+        pygame.draw.rect(overlay, (50, 50, 50, 255), button, 2)
         
-        # Draw button text
+        # Draw button text in black for better contrast
         font = pygame.font.SysFont(None, 24)
-        text_surface = font.render(text, True, text_color)
+        text_surface = font.render(text, True, (0, 0, 0, 255))
         text_rect = text_surface.get_rect(center=button.center)
+        overlay.blit(text_surface, text_rect)
+    
+    # Draw row control buttons with improved visibility
+    for btn in row_buttons:
+        color = (200, 150, 150, 255) if btn['rect'].collidepoint(pygame.mouse.get_pos()) else (180, 100, 100, 255)
+        pygame.draw.rect(overlay, color, btn['rect'])
+        pygame.draw.rect(overlay, (50, 50, 50, 255), btn['rect'], 2)  # Add border
+        direction_text = "↑" if btn['direction'] == 1 else "↓"
+        font = pygame.font.SysFont(None, 20)
+        text_surface = font.render(direction_text, True, (0, 0, 0, 255))
+        text_rect = text_surface.get_rect(center=btn['rect'].center)
+        overlay.blit(text_surface, text_rect)
+    
+    # Draw column control buttons
+    for btn in col_buttons:
+        color = (150, 200, 150, 255) if btn['rect'].collidepoint(pygame.mouse.get_pos()) else (100, 180, 100, 255)
+        pygame.draw.rect(overlay, color, btn['rect'])
+        pygame.draw.rect(overlay, (50, 50, 50, 255), btn['rect'], 2)  # Add border
+        direction_text = "→" if btn['direction'] == 1 else "←"
+        font = pygame.font.SysFont(None, 20)
+        text_surface = font.render(direction_text, True, (0, 0, 0, 255))
+        text_rect = text_surface.get_rect(center=btn['rect'].center)
+        overlay.blit(text_surface, text_rect)
+    
+    # Draw depth control buttons
+    for btn in depth_buttons:
+        color = (150, 150, 200, 255) if btn['rect'].collidepoint(pygame.mouse.get_pos()) else (100, 100, 180, 255)
+        pygame.draw.rect(overlay, color, btn['rect'])
+        pygame.draw.rect(overlay, (50, 50, 50, 255), btn['rect'], 2)  # Add border
+        direction_text = "⟳" if btn['direction'] == 1 else "⟲"
+        font = pygame.font.SysFont(None, 20)
+        text_surface = font.render(direction_text, True, (0, 0, 0, 255))
+        text_rect = text_surface.get_rect(center=btn['rect'].center)
         overlay.blit(text_surface, text_rect)
     
     # Blit overlay onto screen
@@ -504,6 +679,47 @@ def main():
     
     clock = pygame.time.Clock()
     
+    # Set up OpenGL clear color (background color)
+    glClearColor(0.9, 0.9, 0.9, 1.0)  # Light gray background
+    
+    # Configure OpenGL for optimal rendering
+    glEnable(GL_DEPTH_TEST)
+    glDepthFunc(GL_LEQUAL)  # Change depth function for more accurate depth testing
+    
+    # Improve line rendering
+    glEnable(GL_LINE_SMOOTH)
+    glHint(GL_LINE_SMOOTH_HINT, GL_NICEST)
+    glLineWidth(1.5)  # Slightly thicker lines for better visibility
+    
+    # Better polygon rendering
+    glEnable(GL_POLYGON_SMOOTH)
+    glHint(GL_POLYGON_SMOOTH_HINT, GL_NICEST)
+    
+    # More stable lighting setup
+    glEnable(GL_LIGHTING)
+    glEnable(GL_LIGHT0)
+    glEnable(GL_COLOR_MATERIAL)
+    glColorMaterial(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE)
+    
+    # Better light positioning (from the front top right)
+    light_position = [5.0, 5.0, 5.0, 0.0]  # Directional light
+    glLightfv(GL_LIGHT0, GL_POSITION, light_position)
+    
+    # Improved ambient and diffuse settings for more consistent colors
+    ambient_light = [0.4, 0.4, 0.4, 1.0]  # More ambient for less contrast
+    diffuse_light = [0.7, 0.7, 0.7, 1.0]  # Less intense diffuse
+    specular_light = [0.2, 0.2, 0.2, 1.0]  # Low specular to reduce glare
+    
+    glLightfv(GL_LIGHT0, GL_AMBIENT, ambient_light)
+    glLightfv(GL_LIGHT0, GL_DIFFUSE, diffuse_light)
+    glLightfv(GL_LIGHT0, GL_SPECULAR, specular_light)
+    
+    # Enable normalization of normals for proper lighting
+    glEnable(GL_NORMALIZE)
+    
+    # Disable color tracking to ensure stable colors
+    glDisable(GL_COLOR_MATERIAL)
+    
     while True:
         for event in pygame.event.get():
             if event.type == QUIT:
@@ -512,15 +728,32 @@ def main():
                 
             elif event.type == MOUSEBUTTONDOWN:
                 if event.button == 1:  # Left click
-                    # Check for button clicks
+                    # Check for main button clicks
                     if reset_button.collidepoint(event.pos):
                         cube.reset()
                     elif scramble_button.collidepoint(event.pos):
-                        cube.scramble()
+                        cube.scramble(20)  # Scramble with 20 moves
                     elif solve_button.collidepoint(event.pos):
                         cube.solve()
-                    else:
-                        # Start dragging for cube rotation
+                    
+                    # Check for row controls
+                    for btn in row_buttons:
+                        if btn['rect'].collidepoint(event.pos):
+                            cube.rotate_row(btn['row'], btn['direction'])
+                    
+                    # Check for column controls
+                    for btn in col_buttons:
+                        if btn['rect'].collidepoint(event.pos):
+                            cube.rotate_column(btn['col'], btn['direction'])
+                    
+                    # Check for depth controls
+                    for btn in depth_buttons:
+                        if btn['rect'].collidepoint(event.pos):
+                            cube.rotate_depth(btn['depth'], btn['direction'])
+                    
+                    # If no button was clicked, start cube rotation
+                    if not any(b.collidepoint(event.pos) for b in [reset_button, scramble_button, solve_button]) and \
+                       not any(b['rect'].collidepoint(event.pos) for b in row_buttons + col_buttons + depth_buttons):
                         dragging = True
                         last_mouse_pos = event.pos
                         
@@ -551,17 +784,98 @@ def main():
         # Update animation state
         cube.update_animation()
         
-        # Draw everything
+        # Clear both the color and depth buffer completely
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
+        
+        # Draw the cube with stable OpenGL state
+        glEnable(GL_LIGHTING)
+        glEnable(GL_DEPTH_TEST)
         cube.draw()
         
-        # Swap from OpenGL to Pygame context to draw buttons
-        pygame.display.flip()
-        glClear(GL_DEPTH_BUFFER_BIT)
+        # Completely disable all OpenGL features for UI rendering
+        glDisable(GL_DEPTH_TEST)
+        glDisable(GL_LIGHTING)
+        glDisable(GL_COLOR_MATERIAL)
+        glDisable(GL_CULL_FACE)
         
-        # Draw buttons
-        render_buttons()
+        # Use a more reliable approach for 2D rendering
+        glMatrixMode(GL_PROJECTION)
+        glPushMatrix()
+        glLoadIdentity()
+        glOrtho(0, WIDTH, HEIGHT, 0, -1, 1)
         
-        # Display final frame and maintain frame rate
+        glMatrixMode(GL_MODELVIEW)
+        glPushMatrix()
+        glLoadIdentity()
+        
+        # Clear any potential OpenGL errors
+        while glGetError() != GL_NO_ERROR:
+            pass
+        
+        # Ensure the rendering pipeline is clear
+        glFinish()
+        
+        # Separate rendering pass for UI
+        # Using a separate Surface ensures clean 2D drawing
+        ui_surface = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+        ui_surface.fill((0, 0, 0, 0))  # Transparent background
+        
+        # Draw buttons on the UI surface
+        # Main action buttons
+        for button, text in [
+            (reset_button, "Reset"), 
+            (scramble_button, "Scramble"),
+            (solve_button, "Solve")
+        ]:
+            # Button background
+            pygame.draw.rect(ui_surface, (100, 100, 180), button)
+            pygame.draw.rect(ui_surface, (0, 0, 0), button, 2)  # Border
+            
+            # Button text
+            font = pygame.font.SysFont(None, 24)
+            text_surface = font.render(text, True, (255, 255, 255))
+            ui_surface.blit(text_surface, text_surface.get_rect(center=button.center))
+        
+        # Row control buttons and label
+        row_label = pygame.font.SysFont(None, 20).render("Row Controls", True, (0, 0, 0))
+        ui_surface.blit(row_label, (10, 10))
+        for btn in row_buttons:
+            pygame.draw.rect(ui_surface, (180, 100, 100), btn['rect'])
+            pygame.draw.rect(ui_surface, (0, 0, 0), btn['rect'], 2)
+            direction_text = "↑" if btn['direction'] == 1 else "↓"
+            text_surface = pygame.font.SysFont(None, 20).render(direction_text, True, (0, 0, 0))
+            ui_surface.blit(text_surface, text_surface.get_rect(center=btn['rect'].center))
+            
+        # Column control buttons and label   
+        col_label = pygame.font.SysFont(None, 20).render("Column Controls", True, (0, 0, 0))
+        ui_surface.blit(col_label, (WIDTH - 130, 10))
+        for btn in col_buttons:
+            pygame.draw.rect(ui_surface, (100, 180, 100), btn['rect'])
+            pygame.draw.rect(ui_surface, (0, 0, 0), btn['rect'], 2)
+            direction_text = "→" if btn['direction'] == 1 else "←"
+            text_surface = pygame.font.SysFont(None, 20).render(direction_text, True, (0, 0, 0))
+            ui_surface.blit(text_surface, text_surface.get_rect(center=btn['rect'].center))
+            
+        # Depth control buttons and label
+        depth_label = pygame.font.SysFont(None, 20).render("Depth", True, (0, 0, 0))
+        ui_surface.blit(depth_label, (WIDTH // 2 - 20, 10))
+        for btn in depth_buttons:
+            pygame.draw.rect(ui_surface, (100, 100, 180), btn['rect'])
+            pygame.draw.rect(ui_surface, (0, 0, 0), btn['rect'], 2)
+            direction_text = "⟳" if btn['direction'] == 1 else "⟲"
+            text_surface = pygame.font.SysFont(None, 20).render(direction_text, True, (0, 0, 0))
+            ui_surface.blit(text_surface, text_surface.get_rect(center=btn['rect'].center))
+        
+        # Draw UI surface to screen
+        screen.blit(ui_surface, (0, 0))
+        
+        # Restore OpenGL state
+        glMatrixMode(GL_PROJECTION)
+        glPopMatrix()
+        glMatrixMode(GL_MODELVIEW)
+        glPopMatrix()
+        
+        # Final display update - single flip to avoid tearing
         pygame.display.flip()
         clock.tick(60)
 
