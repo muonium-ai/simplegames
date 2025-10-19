@@ -394,6 +394,7 @@ final class GameScene: SKScene {
     private var movesLabel = SKLabelNode(fontNamed: "AvenirNext-Medium")
     private var statusLabel = SKLabelNode(fontNamed: "AvenirNext-Medium")
     private var solverLabel = SKLabelNode(fontNamed: "AvenirNext-DemiBold")
+    private var startLabel = SKLabelNode(fontNamed: "AvenirNext-DemiBold")
     private var newGameLabel = SKLabelNode(fontNamed: "AvenirNext-DemiBold")
 
     private var touchStartPoint: CGPoint?
@@ -405,11 +406,26 @@ final class GameScene: SKScene {
 
     private let solvers: [SolverStrategy] = [CornerTrapSolver(), SmoothnessSolver(), RandomSolver()]
     private var solverIndex: Int = 0 {
-        didSet { updateSolverLabel() }
+        didSet {
+            isAutoplayActive = false
+            updateSolverLabel()
+            updateStartLabel()
+        }
+    }
+
+    private var isAutoplayActive = false {
+        didSet {
+            if !isAutoplayActive {
+                solverAccumulator = 0
+            }
+            updateSolverLabel()
+            updateStartLabel()
+        }
     }
 
     private var activeSolver: SolverStrategy? {
-        return solverIndex == 0 ? nil : solvers[solverIndex - 1]
+        guard solverIndex > 0, isAutoplayActive else { return nil }
+        return solvers[solverIndex - 1]
     }
 
     private let solverMenuContainer = SKNode()
@@ -457,6 +473,13 @@ final class GameScene: SKScene {
         solverLabel.name = "solverButton"
         addChild(solverLabel)
 
+    startLabel.fontSize = 18
+    startLabel.fontColor = SKColor(red: 0.46, green: 0.78, blue: 0.94, alpha: 1.0)
+    startLabel.name = "startButton"
+    startLabel.horizontalAlignmentMode = .center
+    startLabel.verticalAlignmentMode = .center
+    addChild(startLabel)
+
         setupSolverMenu()
 
         newGameLabel.fontSize = 18
@@ -465,6 +488,8 @@ final class GameScene: SKScene {
         newGameLabel.name = "newGameButton"
         newGameLabel.text = "New Game"
         addChild(newGameLabel)
+
+        updateStartLabel()
     }
 
     private func setupSolverMenu() {
@@ -487,11 +512,11 @@ final class GameScene: SKScene {
         let itemHeight: CGFloat = 34
         let padding: CGFloat = 14
         let width: CGFloat = 220
-        let height = padding * 2 + itemHeight * CGFloat(options.count)
-        let backgroundRect = CGRect(x: -width / 2, y: 0, width: width, height: height)
+    let height = padding * 2 + itemHeight * CGFloat(options.count)
+    let backgroundRect = CGRect(x: -width / 2, y: -height, width: width, height: height)
         solverMenuBackground.path = CGPath(roundedRect: backgroundRect, cornerWidth: 16, cornerHeight: 16, transform: nil)
 
-        var yPosition = height - padding - itemHeight / 2
+    var yPosition = -padding - itemHeight / 2
         for (index, title) in options.enumerated() {
             let optionLabel = SKLabelNode(fontNamed: "AvenirNext-Medium")
             optionLabel.fontSize = 18
@@ -633,12 +658,13 @@ final class GameScene: SKScene {
             }
         }
 
-        scoreLabel.position = CGPoint(x: size.width / 2, y: size.height - 80)
-        movesLabel.position = CGPoint(x: size.width / 2, y: size.height - 118)
-        statusLabel.position = CGPoint(x: size.width / 2, y: 80)
-        solverLabel.position = CGPoint(x: size.width / 2, y: 40)
-        solverMenuContainer.position = CGPoint(x: solverLabel.position.x, y: solverLabel.position.y + 28)
+        scoreLabel.position = CGPoint(x: size.width / 2, y: size.height - 72)
+        movesLabel.position = CGPoint(x: size.width / 2, y: size.height - 110)
+        solverLabel.position = CGPoint(x: size.width / 2, y: size.height - 148)
+        startLabel.position = CGPoint(x: size.width / 2, y: size.height - 178)
+        solverMenuContainer.position = CGPoint(x: solverLabel.position.x, y: solverLabel.position.y - 16)
         newGameLabel.position = CGPoint(x: 24, y: size.height - 44)
+        statusLabel.position = CGPoint(x: size.width / 2, y: 84)
         arrowContainer.position = CGPoint(x: size.width / 2, y: 72)
         layoutArrowButtons()
     }
@@ -647,6 +673,7 @@ final class GameScene: SKScene {
         hideSolverMenu()
         board.reset()
         solverAccumulator = 0
+        isAutoplayActive = false
         updateHUD()
         updateTiles(animated: false)
     }
@@ -677,15 +704,32 @@ final class GameScene: SKScene {
                 statusMessage = "No moves left. Tap New Game."
             }
         }
+        if board.status != .inProgress {
+            isAutoplayActive = false
+        }
         statusLabel.text = statusMessage
         updateSolverLabel()
     }
 
     private func updateSolverLabel() {
-        let solverName = solverIndex == 0 ? "Manual" : activeSolver?.name ?? "Unknown"
-        let extra = solverIndex == 0 ? "(tap to choose solver)" : "(auto-playing)"
+        let solverName = solverIndex == 0 ? "Manual" : solvers[solverIndex - 1].name
+        let extra: String
+        if solverIndex == 0 {
+            extra = "(tap to choose solver)"
+        } else {
+            extra = isAutoplayActive ? "(auto-playing)" : "(tap Start to run)"
+        }
         solverLabel.text = "Solver: \(solverName) \(extra)"
         updateSolverOptionHighlight()
+        updateStartLabel()
+    }
+
+    private func updateStartLabel() {
+        if solverIndex == 0 {
+            startLabel.text = "Start: Manual control"
+        } else {
+            startLabel.text = isAutoplayActive ? "Stop Solver" : "Start Solver"
+        }
     }
 
     private func updateTiles(animated: Bool) {
@@ -822,6 +866,10 @@ final class GameScene: SKScene {
             toggleSolverMenu()
             return
         }
+        if nodes.contains(where: { $0.name == "startButton" }) {
+            handleStartTapped()
+            return
+        }
         if let optionNode = nodes.first(where: { $0.name?.hasPrefix("solverOption_") == true }),
            let name = optionNode.name,
            let indexString = name.split(separator: "_").last,
@@ -829,6 +877,7 @@ final class GameScene: SKScene {
             solverIndex = min(max(selectedIndex, 0), solvers.count)
             solverAccumulator = 0
             hideSolverMenu()
+            updateHUD()
             return
         }
         if let direction = nodes.compactMap({ directionForNodeName($0.name) }).first {
@@ -836,7 +885,9 @@ final class GameScene: SKScene {
             if solverIndex != 0 {
                 solverIndex = 0
             }
+            isAutoplayActive = false
             hideSolverMenu()
+            updateHUD()
             return
         }
 
@@ -864,6 +915,8 @@ final class GameScene: SKScene {
         if solverIndex != 0 {
             solverIndex = 0
         }
+        isAutoplayActive = false
+        updateHUD()
     }
 
     func handleExternalInput(_ direction: MoveDirection) {
@@ -872,6 +925,8 @@ final class GameScene: SKScene {
         if solverIndex != 0 {
             solverIndex = 0
         }
+        isAutoplayActive = false
+        updateHUD()
     }
 
     override func update(_ currentTime: TimeInterval) {
@@ -897,6 +952,22 @@ final class GameScene: SKScene {
             updateHUD()
             updateTiles(animated: true)
         }
+    }
+
+    private func handleStartTapped() {
+        hideSolverMenu()
+        if solverIndex == 0 {
+            isAutoplayActive = false
+            updateHUD()
+            return
+        }
+
+        let shouldActivate = !isAutoplayActive
+        isAutoplayActive = shouldActivate
+        if shouldActivate {
+            solverAccumulator = 0
+        }
+        updateHUD()
     }
 }
 
