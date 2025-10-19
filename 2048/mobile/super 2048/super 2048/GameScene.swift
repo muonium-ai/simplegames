@@ -18,6 +18,19 @@ private enum MoveDirection: CaseIterable {
     var isReversed: Bool {
         return self == .right || self == .down
     }
+
+    var nodeName: String {
+        switch self {
+        case .up: return "arrow_up"
+        case .right: return "arrow_right"
+        case .down: return "arrow_down"
+        case .left: return "arrow_left"
+        }
+    }
+
+    static func from(nodeName: String) -> MoveDirection? {
+        return Self.allCases.first { $0.nodeName == nodeName }
+    }
 }
 
 private enum GameStatus {
@@ -401,11 +414,16 @@ final class GameScene: SKScene {
 
     private let tileSpacing: CGFloat = 12.0
     private var tileSize: CGFloat = 64.0
+    private var arrowButtons: [MoveDirection: SKShapeNode] = [:]
+    private let arrowContainer = SKNode()
+    private let arrowButtonSize: CGFloat = 54.0
+    private let arrowButtonSpacing: CGFloat = 12.0
 
     override func didMove(to view: SKView) {
         backgroundColor = SKColor(red: 0.18, green: 0.17, blue: 0.16, alpha: 1.0)
         setupHUD()
         setupBoard()
+        setupControls()
         layoutScene()
         startNewGame()
     }
@@ -461,6 +479,65 @@ final class GameScene: SKScene {
         }
     }
 
+    private func setupControls() {
+        if arrowContainer.parent == nil {
+            arrowContainer.zPosition = 5
+            addChild(arrowContainer)
+        }
+        arrowContainer.removeAllChildren()
+        arrowButtons.removeAll()
+
+        for direction in MoveDirection.allCases {
+            let button = createArrowButton(for: direction)
+            arrowButtons[direction] = button
+            arrowContainer.addChild(button)
+        }
+    }
+
+    private func createArrowButton(for direction: MoveDirection) -> SKShapeNode {
+        let button = SKShapeNode(rectOf: CGSize(width: arrowButtonSize, height: arrowButtonSize), cornerRadius: 12)
+        button.fillColor = SKColor(red: 0.32, green: 0.31, blue: 0.30, alpha: 1.0)
+        button.strokeColor = SKColor.clear
+        button.name = direction.nodeName
+
+        let arrowPath = CGMutablePath()
+        let tipHeight = arrowButtonSize * 0.26
+        let baseWidth = arrowButtonSize * 0.26
+        arrowPath.move(to: CGPoint(x: 0, y: tipHeight / 2))
+        arrowPath.addLine(to: CGPoint(x: baseWidth / 2, y: -tipHeight / 2))
+        arrowPath.addLine(to: CGPoint(x: -baseWidth / 2, y: -tipHeight / 2))
+        arrowPath.closeSubpath()
+
+        let arrowShape = SKShapeNode(path: arrowPath)
+        arrowShape.fillColor = SKColor.white
+        arrowShape.strokeColor = SKColor.clear
+        arrowShape.zPosition = 1
+        arrowShape.name = direction.nodeName
+
+        switch direction {
+        case .up:
+            arrowShape.zRotation = 0
+        case .right:
+            arrowShape.zRotation = -.pi / 2
+        case .down:
+            arrowShape.zRotation = .pi
+        case .left:
+            arrowShape.zRotation = .pi / 2
+        }
+
+        button.addChild(arrowShape)
+        return button
+    }
+
+    private func layoutArrowButtons() {
+        guard !arrowButtons.isEmpty else { return }
+        let offset = (arrowButtonSize + arrowButtonSpacing) * 0.8
+        arrowButtons[.up]?.position = CGPoint(x: 0, y: offset)
+        arrowButtons[.down]?.position = CGPoint(x: 0, y: -offset)
+        arrowButtons[.left]?.position = CGPoint(x: -offset, y: 0)
+        arrowButtons[.right]?.position = CGPoint(x: offset, y: 0)
+    }
+
     private func layoutScene() {
         guard tileNodes.count == GameBoard.size,
               tileNodes.allSatisfy({ $0.count == GameBoard.size }) else {
@@ -493,6 +570,8 @@ final class GameScene: SKScene {
         statusLabel.position = CGPoint(x: size.width / 2, y: 80)
         solverLabel.position = CGPoint(x: size.width / 2, y: 40)
         newGameLabel.position = CGPoint(x: 24, y: size.height - 44)
+        arrowContainer.position = CGPoint(x: size.width / 2, y: 72)
+        layoutArrowButtons()
     }
 
     private func startNewGame() {
@@ -647,6 +726,18 @@ final class GameScene: SKScene {
             cycleSolver()
             return
         }
+        if let direction = nodes.compactMap({ directionForNodeName($0.name) }).first {
+            attemptMove(direction)
+            if solverIndex != 0 {
+                solverIndex = 0
+            }
+            return
+        }
+    }
+
+    private func directionForNodeName(_ name: String?) -> MoveDirection? {
+        guard let name = name else { return nil }
+        return MoveDirection.from(nodeName: name)
     }
 
     private func handleSwipe(dx: CGFloat, dy: CGFloat) {
