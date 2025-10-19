@@ -455,7 +455,7 @@ private struct RandomSolver: SolverStrategy {
     }
 }
 
-final class GameScene: SKScene {
+public final class GameScene: SKScene {
 
     private static let highScoreDateFormatter: DateFormatter = {
         let formatter = DateFormatter()
@@ -547,7 +547,7 @@ final class GameScene: SKScene {
     private var lastAutoplaySolverName: String?
     private var isPresentingSeedPrompt = false
 
-    override func didMove(to view: SKView) {
+    public override func didMove(to view: SKView) {
         backgroundColor = SKColor(red: 0.18, green: 0.17, blue: 0.16, alpha: 1.0)
         setupHUD()
         setupBoard()
@@ -556,7 +556,7 @@ final class GameScene: SKScene {
         startNewGame()
     }
 
-    override func didChangeSize(_ oldSize: CGSize) {
+    public override func didChangeSize(_ oldSize: CGSize) {
         super.didChangeSize(oldSize)
         layoutScene()
     }
@@ -1069,6 +1069,19 @@ final class GameScene: SKScene {
             solverAccumulator = 0
             updateHUD()
             updateTiles(animated: true)
+            highlightArrow(direction)
+        }
+    }
+
+    func highlightArrow(_ direction: MoveDirection) {
+        for (dir, button) in arrowButtons {
+            if let arrowShape = button.children.first(where: { $0.name == dir.nodeName }) as? SKShapeNode {
+                if dir == direction {
+                    arrowShape.fillColor = SKColor(red: 0.46, green: 0.78, blue: 0.94, alpha: 1.0) // highlight color
+                } else {
+                    arrowShape.fillColor = SKColor.white
+                }
+            }
         }
     }
 
@@ -1146,6 +1159,12 @@ final class GameScene: SKScene {
             ]))
         }
         board.clearLastSpawn()
+        // Reset arrow highlight after move animation
+        for (dir, button) in arrowButtons {
+            if let arrowShape = button.children.first(where: { $0.name == dir.nodeName }) as? SKShapeNode {
+                arrowShape.fillColor = SKColor.white
+            }
+        }
     }
 
     private func configure(tile: TileNode, with value: Int) {
@@ -1221,7 +1240,7 @@ final class GameScene: SKScene {
         solverMenuContainer.run(SKAction.sequence([fadeOut, hideAction]))
     }
 
-    override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
+    public override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
         let location = touches.first?.location(in: self)
         touchStartPoint = location
 
@@ -1254,11 +1273,11 @@ final class GameScene: SKScene {
         controller.present(alert, animated: true)
     }
 
-    override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
+    public override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
         // No-op; movement handled in touchesEnded.
     }
 
-    override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
+    public override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
         guard let touch = touches.first else { return }
         let endPoint = touch.location(in: self)
 
@@ -1277,7 +1296,7 @@ final class GameScene: SKScene {
         touchStartPoint = nil
     }
 
-    override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent?) {
+    public override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent?) {
         touchStartPoint = nil
     }
 
@@ -1365,7 +1384,7 @@ final class GameScene: SKScene {
         updateHUD()
     }
 
-    override func update(_ currentTime: TimeInterval) {
+    public override func update(_ currentTime: TimeInterval) {
         if lastUpdateTimestamp == 0 {
             lastUpdateTimestamp = currentTime
         }
