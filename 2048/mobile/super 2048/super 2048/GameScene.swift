@@ -302,7 +302,7 @@ private struct GameBoard {
         lastSpawnPosition = (row, col)
     }
 
-    private mutating func updateMaxTile() {
+    mutating func updateMaxTile() {
         let previousMax = maxTile
         maxTile = grid.flatMap { $0 }.max() ?? 0
         guard maxTile > previousMax else { return }
@@ -455,6 +455,349 @@ private struct RandomSolver: SolverStrategy {
     }
 }
 
+private final class GrokSolver: SolverStrategy {
+    let name = "Grok Solver"
+    
+    // Weight matrices
+    private let cornerWeights: [[Double]] = [
+        [2048, 1024, 512, 256],
+        [16, 32, 64, 128],
+        [8, 4, 2, 4],
+        [0, 0, 0, 0]
+    ]
+    
+    private let snakeWeights: [[Double]] = [
+        [pow(2, 15), pow(2, 14), pow(2, 13), pow(2, 12)],
+        [pow(2, 8), pow(2, 9), pow(2, 10), pow(2, 11)],
+        [pow(2, 7), pow(2, 6), pow(2, 5), pow(2, 4)],
+        [pow(2, 0), pow(2, 1), pow(2, 2), pow(2, 3)]
+    ]
+    
+    private let baseDepth = 3
+    private static var transpositionTable: [String: Double] = [:]
+    private static var moveHistory: [MoveDirection: Int] = [.up: 0, .right: 0, .down: 0, .left: 0]
+    
+    func nextMove(for board: GameBoard) -> MoveDirection? {
+        Self.pruneTranspositionTable()
+        let depth = getDynamicDepth(for: board)
+        let (_, bestMove) = expectimax(board: board, depth: depth, isMax: true)
+        
+        if let move = bestMove {
+            Self.moveHistory[move, default: 0] += 1
+        }
+        
+        // Decay history
+        for key in Self.moveHistory.keys {
+            Self.moveHistory[key] = Int(Double(Self.moveHistory[key] ?? 0) * 0.9)
+        }
+        
+        return bestMove ?? board.availableMoves().first
+    }
+    
+    private func expectimax(board: GameBoard, depth: Int, isMax: Bool, alpha: Double = -Double.infinity) -> (Double, MoveDirection?) {
+        if depth == 0 {
+            return (evaluatePosition(board, remainingDepth: depth), nil)
+        }
+        
+        if isMax {
+            var maxScore = -Double.infinity
+            var bestMove: MoveDirection? = nil
+            
+            let moves = orderMoves(for: board)
+            
+            for direction in moves {
+                guard let newBoard = board.simulatedBoard(for: direction) else { continue }
+                let (score, _) = expectimax(board: newBoard, depth: depth - 1, isMax: false, alpha: alpha)
+                if score > maxScore {
+                    maxScore = score
+                    bestMove = direction
+                }
+            }
+            
+            return (maxScore, bestMove)
+        } else {
+            // Chance node for tile spawns
+            let emptyPositions = board.emptyPositions()
+            guard !emptyPositions.isEmpty else {
+                return (evaluatePosition(board, remainingDepth: depth), nil)
+            }
+            
+            var avgScore = 0.0
+            var totalWeight = 0.0
+            
+            for (row, col) in emptyPositions {
+                for (value, prob) in [(2, 0.9), (4, 0.1)] {
+                    var newBoard = board
+                    newBoard.grid[row][col] = value
+                    newBoard.updateMaxTile()
+                    let (score, _) = expectimax(board: newBoard, depth: depth - 1, isMax: true, alpha: alpha)
+                    avgScore += score * prob
+                    totalWeight += prob
+                }
+            }
+            
+            return (avgScore / totalWeight, nil)
+        }
+    }
+    
+    private func evaluatePosition(_ board: GameBoard, remainingDepth: Int) -> Double {
+        let stage = getStage(for: board)
+        let cacheKey = "\(board.grid.map { $0.map { String($0) }.joined() }.joined(separator: ","))_\(remainingDepth)_\(stage)"
+        
+        if let cached = Self.transpositionTable[cacheKey] {
+            return cached
+        }
+        
+        let emptyCells = Double(board.emptyCount())
+        let maxTile = Double(board.maxTile)
+        
+        let cornerScore = calculateCornerScore(board)
+        let snakeScore = calculateSnakeScore(board)
+        let gradientScore = calculateGradientScore(board)
+        let mergeChains = calculateMergeChains(board)
+        let monotonicity = calculateMonotonicity(board)
+        let smoothness = calculateSmoothness(board)
+        let alignment = maxCornerAlignment(board)
+        
+        let weights = getStageWeights(stage)
+        
+        let score = cornerScore * weights["corner"]! +
+                   snakeScore * weights["snake"]! +
+                   gradientScore * weights["gradient"]! +
+                   mergeChains * weights["merge"]! +
+                   emptyCells * weights["empty"]! +
+                   maxTile * weights["maxTile"]! +
+                   Double(remainingDepth) * weights["depth"]! +
+                   monotonicity * weights["monotonicity"]! +
+                   smoothness * weights["smoothness"]! +
+                   alignment * weights["alignment"]!
+        
+        Self.transpositionTable[cacheKey] = score
+        return score
+    }
+    
+    private func getStageWeights(_ stage: String) -> [String: Double] {
+        switch stage {
+        case "early":
+            return [
+                "corner": 2.0, "snake": 1.0, "gradient": 1.5,
+                "merge": 1.0, "empty": 2.5, "maxTile": 1.0,
+                "depth": 0.1, "monotonicity": 1.5, "smoothness": 1.0,
+                "alignment": 1.0
+            ]
+        case "mid":
+            return [
+                "corner": 2.5, "snake": 2.0, "gradient": 2.0,
+                "merge": 1.5, "empty": 2.0, "maxTile": 1.5,
+                "depth": 0.2, "monotonicity": 2.0, "smoothness": 1.5,
+                "alignment": 1.5
+            ]
+        default: // late
+            return [
+                "corner": 3.0, "snake": 2.5, "gradient": 2.5,
+                "merge": 2.0, "empty": 1.5, "maxTile": 2.0,
+                "depth": 0.3, "monotonicity": 2.5, "smoothness": 2.0,
+                "alignment": 2.5
+            ]
+        }
+    }
+    
+    private func calculateCornerScore(_ board: GameBoard) -> Double {
+        var score = 0.0
+        for i in 0..<4 {
+            for j in 0..<4 {
+                score += Double(board.grid[i][j]) * cornerWeights[i][j]
+            }
+        }
+        return score
+    }
+    
+    private func calculateSnakeScore(_ board: GameBoard) -> Double {
+        var score = 0.0
+        for i in 0..<4 {
+            for j in 0..<4 {
+                score += Double(board.grid[i][j]) * snakeWeights[i][j]
+            }
+        }
+        return score
+    }
+    
+    private func calculateGradientScore(_ board: GameBoard) -> Double {
+        var score = 0.0
+        for i in 0..<3 {
+            for j in 0..<3 {
+                if board.grid[i][j] != 0 {
+                    // Horizontal gradient
+                    if board.grid[i][j] >= board.grid[i][j+1] {
+                        score += log2(Double(board.grid[i][j]))
+                    }
+                    // Vertical gradient
+                    if board.grid[i][j] >= board.grid[i+1][j] {
+                        score += log2(Double(board.grid[i][j]))
+                    }
+                }
+            }
+        }
+        return score
+    }
+    
+    private func calculateMergeChains(_ board: GameBoard) -> Double {
+        var score = 0.0
+        
+        // Horizontal chains
+        for i in 0..<4 {
+            var chain = 0
+            var prev = 0
+            for j in 0..<4 {
+                if board.grid[i][j] != 0 {
+                    if board.grid[i][j] == prev {
+                        chain += 1
+                        score += Double(chain) * log2(Double(board.grid[i][j]))
+                    }
+                    prev = board.grid[i][j]
+                }
+            }
+        }
+        
+        // Vertical chains
+        for j in 0..<4 {
+            var chain = 0
+            var prev = 0
+            for i in 0..<4 {
+                if board.grid[i][j] != 0 {
+                    if board.grid[i][j] == prev {
+                        chain += 1
+                        score += Double(chain) * log2(Double(board.grid[i][j]))
+                    }
+                    prev = board.grid[i][j]
+                }
+            }
+        }
+        return score
+    }
+    
+    private func calculateMonotonicity(_ board: GameBoard) -> Double {
+        var score = 0.0
+        
+        // Rows
+        for row in board.grid {
+            for i in 0..<3 {
+                let current = row[i]
+                let next = row[i + 1]
+                if current != 0 && next != 0 {
+                    let currentLog = log2(Double(current))
+                    let nextLog = log2(Double(next))
+                    score += current >= next ? currentLog : -nextLog
+                }
+            }
+        }
+        
+        // Columns
+        for col in 0..<4 {
+            for i in 0..<3 {
+                let current = board.grid[i][col]
+                let next = board.grid[i + 1][col]
+                if current != 0 && next != 0 {
+                    let currentLog = log2(Double(current))
+                    let nextLog = log2(Double(next))
+                    score += current >= next ? currentLog : -nextLog
+                }
+            }
+        }
+        return score
+    }
+    
+    private func calculateSmoothness(_ board: GameBoard) -> Double {
+        var score = 0.0
+        for i in 0..<4 {
+            for j in 0..<4 {
+                if board.grid[i][j] == 0 { continue }
+                let valueLog = log2(Double(board.grid[i][j]))
+                
+                // Right neighbor
+                if j < 3 && board.grid[i][j + 1] != 0 {
+                    score -= abs(valueLog - log2(Double(board.grid[i][j + 1])))
+                }
+                // Down neighbor
+                if i < 3 && board.grid[i + 1][j] != 0 {
+                    score -= abs(valueLog - log2(Double(board.grid[i + 1][j])))
+                }
+            }
+        }
+        return score
+    }
+    
+    private func maxCornerAlignment(_ board: GameBoard) -> Double {
+        let maxTile = board.maxTile
+        let maxPositions = board.grid.enumerated().flatMap { (i, row) in
+            row.enumerated().compactMap { (j, value) in
+                value == maxTile ? (i, j) : nil
+            }
+        }
+        
+        guard let (i, j) = maxPositions.first else { return 0.0 }
+        
+        let isCorner = (i == 0 || i == 3) && (j == 0 || j == 3)
+        let cornerBonus = isCorner ? 4.0 : 1.0
+        
+        let threshold = max(maxTile / 2, 2)
+        let alignedRow = board.grid[i].filter { $0 >= threshold }.count
+        let alignedCol = (0..<4).map { board.grid[$0][j] }.filter { $0 >= threshold }.count
+        
+        return cornerBonus * log2(Double(maxTile)) + Double(alignedRow + alignedCol)
+    }
+    
+    private func getDynamicDepth(for board: GameBoard) -> Int {
+        let emptyCells = board.emptyCount()
+        let maxTile = board.maxTile
+        
+        if maxTile >= 1024 || emptyCells <= 4 {
+            return baseDepth + 2
+        } else if maxTile >= 512 || emptyCells <= 6 {
+            return baseDepth + 1
+        }
+        return baseDepth
+    }
+    
+    private func orderMoves(for board: GameBoard) -> [MoveDirection] {
+        let moveScores = MoveDirection.allCases.compactMap { direction -> (MoveDirection, Double)? in
+            guard let candidate = board.simulatedBoard(for: direction) else { return nil }
+            let empties = Double(candidate.emptyCount())
+            let _ = Double(candidate.maxTile)
+            let alignment = maxCornerAlignment(candidate)
+            let immediateScore = Double(candidate.score - board.score) + empties * 1.5 + alignment + calculateMonotonicity(candidate)
+            let heuristic = immediateScore + Double(Self.moveHistory[direction, default: 0])
+            return (direction, heuristic)
+        }
+        
+        return moveScores.sorted { $0.1 > $1.1 }.map { $0.0 }
+    }
+    
+    private static func pruneTranspositionTable() {
+        let maxEntries = 5000
+        if Self.transpositionTable.count <= maxEntries { return }
+        
+        let keys = Array(Self.transpositionTable.keys)
+        let toRemove = keys.dropFirst(maxEntries)
+        for key in toRemove {
+            Self.transpositionTable.removeValue(forKey: key)
+        }
+    }
+    
+    private func getStage(for board: GameBoard) -> String {
+        let maxTile = board.maxTile
+        let emptyCount = board.emptyCount()
+        
+        if maxTile < 512 && emptyCount > 8 {
+            return "early"
+        } else if maxTile < 1024 && emptyCount > 4 {
+            return "mid"
+        } else {
+            return "late"
+        }
+    }
+}
+
 public final class GameScene: SKScene {
 
     private static let highScoreDateFormatter: DateFormatter = {
@@ -497,7 +840,7 @@ public final class GameScene: SKScene {
     private var solverAccumulator: TimeInterval = 0
     private let solverInterval: TimeInterval = 0.18
 
-    private let solvers: [SolverStrategy] = [CornerTrapSolver(), SmoothnessSolver(), RandomSolver()]
+    private let solvers: [SolverStrategy] = [CornerTrapSolver(), SmoothnessSolver(), RandomSolver(), GrokSolver()]
     private var solverIndex: Int = 0 {
         didSet {
             isAutoplayActive = false
@@ -862,7 +1205,7 @@ public final class GameScene: SKScene {
         addChild(boardContainer)
 
         tileNodes = []
-        for row in 0..<GameBoard.size {
+        for _ in 0..<GameBoard.size {
             var rowNodes: [TileNode] = []
             for _ in 0..<GameBoard.size {
                 let tile = TileNode()
