@@ -412,6 +412,11 @@ final class GameScene: SKScene {
         return solverIndex == 0 ? nil : solvers[solverIndex - 1]
     }
 
+    private let solverMenuContainer = SKNode()
+    private let solverMenuBackground = SKShapeNode()
+    private var solverOptionLabels: [SKLabelNode] = []
+    private var isSolverMenuVisible = false
+
     private let tileSpacing: CGFloat = 12.0
     private var tileSize: CGFloat = 64.0
     private var arrowButtons: [MoveDirection: SKShapeNode] = [:]
@@ -452,12 +457,75 @@ final class GameScene: SKScene {
         solverLabel.name = "solverButton"
         addChild(solverLabel)
 
+        setupSolverMenu()
+
         newGameLabel.fontSize = 18
         newGameLabel.fontColor = SKColor(red: 0.96, green: 0.73, blue: 0.28, alpha: 1.0)
         newGameLabel.horizontalAlignmentMode = .left
         newGameLabel.name = "newGameButton"
         newGameLabel.text = "New Game"
         addChild(newGameLabel)
+    }
+
+    private func setupSolverMenu() {
+        if solverMenuContainer.parent == nil {
+            solverMenuContainer.zPosition = 20
+            addChild(solverMenuContainer)
+        }
+
+        solverMenuContainer.removeAllChildren()
+        solverOptionLabels.removeAll()
+
+        solverMenuBackground.fillColor = SKColor(red: 0.16, green: 0.15, blue: 0.14, alpha: 0.95)
+        solverMenuBackground.strokeColor = SKColor(white: 1.0, alpha: 0.08)
+        solverMenuBackground.lineWidth = 2
+        solverMenuBackground.name = "solverMenuBackground"
+        solverMenuBackground.isAntialiased = true
+        solverMenuContainer.addChild(solverMenuBackground)
+
+        let options = solverOptions()
+        let itemHeight: CGFloat = 34
+        let padding: CGFloat = 14
+        let width: CGFloat = 220
+        let height = padding * 2 + itemHeight * CGFloat(options.count)
+        let backgroundRect = CGRect(x: -width / 2, y: 0, width: width, height: height)
+        solverMenuBackground.path = CGPath(roundedRect: backgroundRect, cornerWidth: 16, cornerHeight: 16, transform: nil)
+
+        var yPosition = height - padding - itemHeight / 2
+        for (index, title) in options.enumerated() {
+            let optionLabel = SKLabelNode(fontNamed: "AvenirNext-Medium")
+            optionLabel.fontSize = 18
+            optionLabel.fontColor = SKColor(white: 0.9, alpha: 1.0)
+            optionLabel.text = title
+            optionLabel.verticalAlignmentMode = .center
+            optionLabel.horizontalAlignmentMode = .center
+            optionLabel.position = CGPoint(x: 0, y: yPosition)
+            optionLabel.name = "solverOption_\(index)"
+            solverMenuContainer.addChild(optionLabel)
+            solverOptionLabels.append(optionLabel)
+            yPosition -= itemHeight
+        }
+
+        solverMenuContainer.alpha = 0
+        solverMenuContainer.isHidden = true
+        isSolverMenuVisible = false
+        updateSolverOptionHighlight()
+    }
+
+    private func solverOptions() -> [String] {
+        var options = ["Manual"]
+        options.append(contentsOf: solvers.map { $0.name })
+        return options
+    }
+
+    private func updateSolverOptionHighlight() {
+        guard !solverOptionLabels.isEmpty else { return }
+        let selectedColor = SKColor(red: 0.96, green: 0.73, blue: 0.28, alpha: 1.0)
+        let normalColor = SKColor(white: 0.9, alpha: 1.0)
+        for (index, label) in solverOptionLabels.enumerated() {
+            label.fontColor = index == solverIndex ? selectedColor : normalColor
+            label.fontName = index == solverIndex ? "AvenirNext-DemiBold" : "AvenirNext-Medium"
+        }
     }
 
     private func setupBoard() {
@@ -569,12 +637,14 @@ final class GameScene: SKScene {
         movesLabel.position = CGPoint(x: size.width / 2, y: size.height - 118)
         statusLabel.position = CGPoint(x: size.width / 2, y: 80)
         solverLabel.position = CGPoint(x: size.width / 2, y: 40)
+        solverMenuContainer.position = CGPoint(x: solverLabel.position.x, y: solverLabel.position.y + 28)
         newGameLabel.position = CGPoint(x: 24, y: size.height - 44)
         arrowContainer.position = CGPoint(x: size.width / 2, y: 72)
         layoutArrowButtons()
     }
 
     private func startNewGame() {
+        hideSolverMenu()
         board.reset()
         solverAccumulator = 0
         updateHUD()
@@ -613,8 +683,9 @@ final class GameScene: SKScene {
 
     private func updateSolverLabel() {
         let solverName = solverIndex == 0 ? "Manual" : activeSolver?.name ?? "Unknown"
-        let extra = solverIndex == 0 ? "(tap to cycle solvers)" : "(auto-playing)"
+        let extra = solverIndex == 0 ? "(tap to choose solver)" : "(auto-playing)"
         solverLabel.text = "Solver: \(solverName) \(extra)"
+        updateSolverOptionHighlight()
     }
 
     private func updateTiles(animated: Bool) {
@@ -680,9 +751,34 @@ final class GameScene: SKScene {
         }
     }
 
-    private func cycleSolver() {
-        solverIndex = (solverIndex + 1) % (solvers.count + 1)
-        solverAccumulator = 0
+    private func toggleSolverMenu() {
+        if isSolverMenuVisible {
+            hideSolverMenu()
+        } else {
+            showSolverMenu()
+        }
+    }
+
+    private func showSolverMenu() {
+        guard !isSolverMenuVisible else { return }
+        isSolverMenuVisible = true
+        solverMenuContainer.removeAllActions()
+        solverMenuContainer.isHidden = false
+        solverMenuContainer.alpha = 0
+        updateSolverOptionHighlight()
+        solverMenuContainer.run(SKAction.fadeIn(withDuration: 0.18))
+    }
+
+    private func hideSolverMenu() {
+        guard isSolverMenuVisible else { return }
+        isSolverMenuVisible = false
+        solverMenuContainer.removeAllActions()
+        let fadeOut = SKAction.fadeOut(withDuration: 0.14)
+        let hideAction = SKAction.run { [weak self] in
+            self?.solverMenuContainer.isHidden = true
+            self?.solverMenuContainer.alpha = 0
+        }
+        solverMenuContainer.run(SKAction.sequence([fadeOut, hideAction]))
     }
 
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
@@ -723,7 +819,16 @@ final class GameScene: SKScene {
             return
         }
         if nodes.contains(where: { $0.name == "solverButton" }) {
-            cycleSolver()
+            toggleSolverMenu()
+            return
+        }
+        if let optionNode = nodes.first(where: { $0.name?.hasPrefix("solverOption_") == true }),
+           let name = optionNode.name,
+           let indexString = name.split(separator: "_").last,
+           let selectedIndex = Int(indexString) {
+            solverIndex = min(max(selectedIndex, 0), solvers.count)
+            solverAccumulator = 0
+            hideSolverMenu()
             return
         }
         if let direction = nodes.compactMap({ directionForNodeName($0.name) }).first {
@@ -731,7 +836,16 @@ final class GameScene: SKScene {
             if solverIndex != 0 {
                 solverIndex = 0
             }
+            hideSolverMenu()
             return
+        }
+
+        if isSolverMenuVisible {
+            let pointInMenu = convert(location, to: solverMenuContainer)
+            if solverMenuBackground.contains(pointInMenu) {
+                return
+            }
+            hideSolverMenu()
         }
     }
 
@@ -741,6 +855,7 @@ final class GameScene: SKScene {
     }
 
     private func handleSwipe(dx: CGFloat, dy: CGFloat) {
+        hideSolverMenu()
         if abs(dx) > abs(dy) {
             attemptMove(dx > 0 ? .right : .left)
         } else {
@@ -752,6 +867,7 @@ final class GameScene: SKScene {
     }
 
     func handleExternalInput(_ direction: MoveDirection) {
+        hideSolverMenu()
         attemptMove(direction)
         if solverIndex != 0 {
             solverIndex = 0
