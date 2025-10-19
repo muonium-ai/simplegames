@@ -462,6 +462,11 @@ final class GameScene: SKScene {
     }
 
     private func layoutScene() {
+        guard tileNodes.count == GameBoard.size,
+              tileNodes.allSatisfy({ $0.count == GameBoard.size }) else {
+            return
+        }
+
         let boardSide = min(size.width - 48, size.height - 220)
         let adjustedSide = max(boardSide, 220)
         tileSize = (adjustedSide - tileSpacing * CGFloat(GameBoard.size + 1)) / CGFloat(GameBoard.size)
