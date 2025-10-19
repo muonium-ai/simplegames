@@ -923,7 +923,7 @@ public final class GameScene: SKScene {
         dynamicIslandButton.name = "dynamicIslandButton"
         dynamicIslandButton.horizontalAlignmentMode = .left
         dynamicIslandButton.verticalAlignmentMode = .center
-        addChild(dynamicIslandButton)
+        // addChild(dynamicIslandButton)  // Hidden for now to avoid overlap with New Game button
 
     scoreLabel.fontSize = 32
     scoreLabel.fontColor = SKColor.white
