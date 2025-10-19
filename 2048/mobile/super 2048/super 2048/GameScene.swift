@@ -483,6 +483,8 @@ final class GameScene: SKScene {
     private var solverLabel = SKLabelNode(fontNamed: "AvenirNext-DemiBold")
     private var startLabel = SKLabelNode(fontNamed: "AvenirNext-DemiBold")
     private var newGameLabel = SKLabelNode(fontNamed: "AvenirNext-DemiBold")
+    private var highScoreButton = SKLabelNode(fontNamed: "AvenirNext-DemiBold")
+    private var dynamicIslandButton = SKLabelNode(fontNamed: "AvenirNext-DemiBold")
     private let seedContainer = SKNode()
     private let seedBackground = SKShapeNode()
     private var seedTitleLabel = SKLabelNode(fontNamed: "AvenirNext-Medium")
@@ -560,13 +562,29 @@ final class GameScene: SKScene {
     }
 
     private func setupHUD() {
-        scoreLabel.fontSize = 32
-        scoreLabel.fontColor = SKColor.white
-        addChild(scoreLabel)
+        // Dynamic Island Buttons
+        dynamicIslandButton.text = "Menu"
+        dynamicIslandButton.fontSize = 20
+        dynamicIslandButton.fontColor = SKColor(red: 0.46, green: 0.78, blue: 0.94, alpha: 1.0)
+        dynamicIslandButton.name = "dynamicIslandButton"
+        dynamicIslandButton.horizontalAlignmentMode = .left
+        dynamicIslandButton.verticalAlignmentMode = .center
+        addChild(dynamicIslandButton)
 
-        movesLabel.fontSize = 20
-        movesLabel.fontColor = SKColor(white: 0.9, alpha: 1.0)
-        addChild(movesLabel)
+        highScoreButton.text = "High Scores"
+        highScoreButton.fontSize = 20
+        highScoreButton.fontColor = SKColor(red: 0.96, green: 0.73, blue: 0.28, alpha: 1.0)
+        highScoreButton.name = "highScoreButton"
+        highScoreButton.horizontalAlignmentMode = .right
+        highScoreButton.verticalAlignmentMode = .center
+        addChild(highScoreButton)
+    scoreLabel.fontSize = 32
+    scoreLabel.fontColor = SKColor.white
+    addChild(scoreLabel)
+
+    movesLabel.fontSize = 20
+    movesLabel.fontColor = SKColor(white: 0.9, alpha: 1.0)
+    addChild(movesLabel)
 
         statusLabel.fontSize = 18
         statusLabel.fontColor = SKColor(white: 0.85, alpha: 1.0)
@@ -578,16 +596,16 @@ final class GameScene: SKScene {
         solverLabel.name = "solverButton"
         addChild(solverLabel)
 
-    startLabel.fontSize = 18
-    startLabel.fontColor = SKColor(red: 0.46, green: 0.78, blue: 0.94, alpha: 1.0)
-    startLabel.name = "startButton"
-    startLabel.horizontalAlignmentMode = .center
-    startLabel.verticalAlignmentMode = .center
-    addChild(startLabel)
+        startLabel.fontSize = 18
+        startLabel.fontColor = SKColor(red: 0.46, green: 0.78, blue: 0.94, alpha: 1.0)
+        startLabel.name = "startButton"
+        startLabel.horizontalAlignmentMode = .left
+        startLabel.verticalAlignmentMode = .center
+        addChild(startLabel)
 
         setupSolverMenu()
-    setupSeedField()
-    setupTabs()
+        setupSeedField()
+        setupTabs()
 
         newGameLabel.fontSize = 18
         newGameLabel.fontColor = SKColor(red: 0.96, green: 0.73, blue: 0.28, alpha: 1.0)
@@ -795,11 +813,11 @@ final class GameScene: SKScene {
         let itemHeight: CGFloat = 34
         let padding: CGFloat = 14
         let width: CGFloat = 220
-    let height = padding * 2 + itemHeight * CGFloat(options.count)
-    let backgroundRect = CGRect(x: -width / 2, y: -height, width: width, height: height)
+        let height = padding * 2 + itemHeight * CGFloat(options.count)
+        let backgroundRect = CGRect(x: -width / 2, y: -height, width: width, height: height)
         solverMenuBackground.path = CGPath(roundedRect: backgroundRect, cornerWidth: 16, cornerHeight: 16, transform: nil)
 
-    var yPosition = -padding - itemHeight / 2
+        var yPosition = -padding - itemHeight / 2
         for (index, title) in options.enumerated() {
             let optionLabel = SKLabelNode(fontNamed: "AvenirNext-Medium")
             optionLabel.fontSize = 18
@@ -944,39 +962,71 @@ final class GameScene: SKScene {
         let boardTop = boardContainer.position.y + adjustedSide / 2
         let boardBottom = boardContainer.position.y - adjustedSide / 2
 
-        scoreLabel.position = CGPoint(x: size.width / 2, y: size.height - 64)
-        movesLabel.position = CGPoint(x: size.width / 2, y: size.height - 100)
-        solverLabel.position = CGPoint(x: size.width / 2, y: size.height - 136)
-        startLabel.position = CGPoint(x: size.width / 2, y: size.height - 170)
-        solverMenuContainer.position = CGPoint(x: solverLabel.position.x, y: solverLabel.position.y - 28)
+    let topPadding = max(size.height * 0.035, 42)
+    let hudSpacing: CGFloat = 34
+    let hudTop = size.height - topPadding
 
-        let seedWidth: CGFloat = 200
-        let seedHeight: CGFloat = 56
-        let seedRect = CGRect(x: -seedWidth / 2, y: -seedHeight / 2, width: seedWidth, height: seedHeight)
-        seedBackground.path = CGPath(roundedRect: seedRect, cornerWidth: 16, cornerHeight: 16, transform: nil)
-        seedContainer.position = CGPoint(x: size.width - seedWidth / 2 - 28, y: size.height - 118)
+    // Dynamic Island bar
+    let dynamicIslandY = hudTop
+    let islandMargin: CGFloat = 32
+    dynamicIslandButton.position = CGPoint(x: islandMargin, y: dynamicIslandY)
+    highScoreButton.position = CGPoint(x: size.width - islandMargin, y: dynamicIslandY)
 
-        newGameLabel.position = CGPoint(x: 24, y: size.height - 44)
-    let statusY = min(size.height - 40, boardTop + 36)
-    statusLabel.position = CGPoint(x: size.width / 2, y: statusY)
-    let arrowYOffset = arrowButtonSize + arrowButtonSpacing
-    arrowContainer.position = CGPoint(x: size.width / 2, y: boardBottom - arrowYOffset)
-        let minArrowY = arrowButtonSize * 0.5 + 36
+    // Score below dynamic island
+    scoreLabel.position = CGPoint(x: size.width / 2, y: dynamicIslandY - hudSpacing)
+
+    // Seed and Start on same line below score
+    let seedWidth = min(220, size.width - 140)
+    let seedHeight: CGFloat = 52
+    let seedRect = CGRect(x: -seedWidth / 2, y: -seedHeight / 2, width: seedWidth, height: seedHeight)
+    seedBackground.path = CGPath(roundedRect: seedRect, cornerWidth: 16, cornerHeight: 16, transform: nil)
+    let seedY = scoreLabel.position.y - hudSpacing * 0.5
+    let seedX = size.width / 2 - seedWidth / 2 - 16
+    seedContainer.position = CGPoint(x: seedX, y: seedY)
+    startLabel.position = CGPoint(x: seedX + seedWidth + 32, y: seedY)
+
+    // Moves label below seed/start row
+    movesLabel.position = CGPoint(x: size.width / 2, y: seedY - hudSpacing * 0.8)
+
+    newGameLabel.position = CGPoint(x: 28, y: hudTop)
+
+        let menuHeight = solverMenuBackground.frame.height
+        var menuTopY = solverLabel.position.y - 28
+        let maxMenuTop = size.height - 72
+        if menuTopY > maxMenuTop {
+            menuTopY = maxMenuTop
+        }
+        if menuHeight > 0 {
+            let minMenuTop = startLabel.position.y - 32
+            if menuTopY > minMenuTop {
+                menuTopY = minMenuTop
+            }
+        }
+        solverMenuContainer.position = CGPoint(x: solverLabel.position.x, y: menuTopY)
+
+        let statusTopLimit = max(boardTop + 24, startLabel.position.y - 60)
+        let statusBase = boardTop + 40
+        let statusY = min(statusTopLimit, statusBase)
+        statusLabel.position = CGPoint(x: size.width / 2, y: statusY)
+
+        let arrowYOffset = arrowButtonSize + arrowButtonSpacing
+        arrowContainer.position = CGPoint(x: size.width / 2, y: boardBottom - arrowYOffset)
+        let minArrowY = arrowButtonSize * 0.5 + 52
         if arrowContainer.position.y < minArrowY {
             arrowContainer.position.y = minArrowY
         }
 
-    let tabWidth = size.width - 48
+        let tabWidth = size.width - 48
         let tabHeight: CGFloat = 56
         let tabRect = CGRect(x: -tabWidth / 2, y: -tabHeight / 2, width: tabWidth, height: tabHeight)
         tabBackground.path = CGPath(roundedRect: tabRect, cornerWidth: 18, cornerHeight: 18, transform: nil)
-    tabContainer.position = CGPoint(x: size.width / 2, y: arrowContainer.position.y - arrowButtonSize - 32)
-        let minTabY: CGFloat = 48
+        tabContainer.position = CGPoint(x: size.width / 2, y: arrowContainer.position.y - arrowButtonSize - 32)
+        let minTabY: CGFloat = 60
         if tabContainer.position.y < minTabY {
             tabContainer.position.y = minTabY
         }
-    tabContentContainer.position = CGPoint(x: size.width / 2, y: tabContainer.position.y - tabHeight / 2 - 26)
-        let minContentY: CGFloat = 24
+        tabContentContainer.position = CGPoint(x: size.width / 2, y: tabContainer.position.y - tabHeight / 2 - 26)
+        let minContentY: CGFloat = 32
         if tabContentContainer.position.y < minContentY {
             tabContentContainer.position.y = minContentY
         }
@@ -1172,7 +1222,36 @@ final class GameScene: SKScene {
     }
 
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
-        touchStartPoint = touches.first?.location(in: self)
+        let location = touches.first?.location(in: self)
+        touchStartPoint = location
+
+        // Dynamic Island button
+        if let loc = location {
+            if dynamicIslandButton.contains(loc) {
+                // TODO: Implement menu/modal logic
+                print("Dynamic Island button tapped")
+            } else if highScoreButton.contains(loc) {
+                presentHighScoreModal()
+            }
+        }
+    }
+
+    private func presentHighScoreModal() {
+        guard let view = view else { return }
+        let entries = highScoreStore.entries
+        let message: String
+        if entries.isEmpty {
+            message = "No games recorded yet."
+        } else {
+            message = entries.prefix(10).enumerated().map { (i, entry) in
+                let dateString = GameScene.highScoreDateFormatter.string(from: entry.date)
+                return "\(i+1). Score: \(entry.score) Max: \(entry.maxTile) Moves: \(entry.moves) Seed: \(entry.seed) \(dateString)"
+            }.joined(separator: "\n")
+        }
+        let alert = UIAlertController(title: "Top Scores", message: message, preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: "Close", style: .cancel, handler: nil))
+        guard let controller = topViewController(for: view.window?.rootViewController) else { return }
+        controller.present(alert, animated: true)
     }
 
     override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
