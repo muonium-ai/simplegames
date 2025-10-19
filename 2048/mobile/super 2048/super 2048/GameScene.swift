@@ -7,6 +7,7 @@
 
 import SpriteKit
 import Foundation
+import UIKit
 
 enum MoveDirection: CaseIterable {
     case up, right, down, left
@@ -39,6 +40,68 @@ private enum GameStatus {
     case lost
 }
 
+private struct SeededGenerator: RandomNumberGenerator {
+    private var state: UInt64
+
+    init(seed: UInt64) {
+        state = seed == 0 ? 0x9E3779B97F4A7C15 : seed
+    }
+
+    mutating func next() -> UInt64 {
+        state &+= 0x9E3779B97F4A7C15
+        var z = state
+        z = (z ^ (z >> 30)) &* 0xBF58476D1CE4E5B9
+        z = (z ^ (z >> 27)) &* 0x94D049BB133111EB
+        return z ^ (z >> 31)
+    }
+}
+
+private struct HighScoreEntry: Codable {
+    let date: Date
+    let score: Int
+    let maxTile: Int
+    let moves: Int
+    let seed: UInt64
+    let mode: String
+}
+
+private final class HighScoreStore {
+    static let shared = HighScoreStore()
+
+    private let storageKey = "super2048.highscores"
+    private var cache: [HighScoreEntry] = []
+
+    private init() {
+        load()
+    }
+
+    var entries: [HighScoreEntry] {
+        return cache
+    }
+
+    func add(_ entry: HighScoreEntry) {
+        cache.append(entry)
+        cache.sort { $0.score > $1.score }
+        if cache.count > 25 {
+            cache = Array(cache.prefix(25))
+        }
+        save()
+    }
+
+    private func load() {
+        guard let data = UserDefaults.standard.data(forKey: storageKey) else { return }
+        if let decoded = try? JSONDecoder().decode([HighScoreEntry].self, from: data) {
+            cache = decoded
+        }
+    }
+
+    private func save() {
+        if let data = try? JSONEncoder().encode(cache) {
+            UserDefaults.standard.set(data, forKey: storageKey)
+        }
+    }
+}
+
 private struct GameBoard {
     static let size = 4
 
@@ -52,8 +115,12 @@ private struct GameBoard {
 
     private var milestones: [Int: Bool]
     private var recentMilestone: Int?
+    private var rng: SeededGenerator
+    private(set) var seed: UInt64
 
-    init() {
+    init(seed: UInt64) {
+        self.seed = seed
+        rng = SeededGenerator(seed: seed)
         grid = Array(repeating: Array(repeating: 0, count: Self.size), count: Self.size)
         score = 0
         moves = 0
@@ -65,10 +132,13 @@ private struct GameBoard {
         recentMilestone = nil
         addNewTile()
         addNewTile()
+        updateMaxTile()
         refreshStatus()
     }
 
-    mutating func reset() {
+    mutating func reset(withSeed newSeed: UInt64) {
+        seed = newSeed
+        rng = SeededGenerator(seed: newSeed)
         grid = Array(repeating: Array(repeating: 0, count: Self.size), count: Self.size)
         score = 0
         moves = 0
@@ -80,6 +150,7 @@ private struct GameBoard {
         recentMilestone = nil
         addNewTile()
         addNewTile()
+        updateMaxTile()
         refreshStatus()
     }
 
@@ -224,9 +295,10 @@ private struct GameBoard {
     private mutating func addNewTile() {
         let empty = emptyPositions()
         guard !empty.isEmpty else { return }
-        let index = Int.random(in: 0..<empty.count)
+        let index = Int.random(in: 0..<empty.count, using: &rng)
         let (row, col) = empty[index]
-        grid[row][col] = Double.random(in: 0..<1) < 0.9 ? 2 : 4
+        let roll = Double.random(in: 0..<1, using: &rng)
+        grid[row][col] = roll < 0.9 ? 2 : 4
         lastSpawnPosition = (row, col)
     }
 
@@ -385,7 +457,22 @@ private struct RandomSolver: SolverStrategy {
 
 final class GameScene: SKScene {
 
-    private var board = GameBoard()
+    private static let highScoreDateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMM d, yyyy HH:mm"
+        return formatter
+    }()
+
+    private static func generateRandomSeed() -> UInt64 {
+        var generator = SystemRandomNumberGenerator()
+        return generator.next()
+    }
+
+    private var activeSeed: UInt64 = GameScene.generateRandomSeed() {
+        didSet { updateSeedLabel() }
+    }
+    private var pendingSeed: UInt64?
+    private lazy var board = GameBoard(seed: activeSeed)
     private let boardContainer = SKNode()
     private let boardBackground = SKShapeNode()
     private var tileNodes: [[TileNode]] = []
@@ -396,6 +483,10 @@ final class GameScene: SKScene {
     private var solverLabel = SKLabelNode(fontNamed: "AvenirNext-DemiBold")
     private var startLabel = SKLabelNode(fontNamed: "AvenirNext-DemiBold")
     private var newGameLabel = SKLabelNode(fontNamed: "AvenirNext-DemiBold")
+    private let seedContainer = SKNode()
+    private let seedBackground = SKShapeNode()
+    private var seedTitleLabel = SKLabelNode(fontNamed: "AvenirNext-Medium")
+    private var seedValueLabel = SKLabelNode(fontNamed: "AvenirNext-DemiBold")
 
     private var touchStartPoint: CGPoint?
     private let swipeThreshold: CGFloat = 32.0
@@ -410,6 +501,7 @@ final class GameScene: SKScene {
             isAutoplayActive = false
             updateSolverLabel()
             updateStartLabel()
+            updateHUD()
         }
     }
 
@@ -439,6 +531,19 @@ final class GameScene: SKScene {
     private let arrowContainer = SKNode()
     private let arrowButtonSize: CGFloat = 54.0
     private let arrowButtonSpacing: CGFloat = 12.0
+
+    private let tabContainer = SKNode()
+    private let tabBackground = SKShapeNode()
+    private let tabContentContainer = SKNode()
+    private var tabLabels: [String: SKLabelNode] = [:]
+    private var selectedTab: String = "High Scores"
+    private let tabNames = ["High Scores"]
+
+    private let highScoreStore = HighScoreStore.shared
+    private var hasRecordedOutcome = false
+    private var didUseAutoplayThisGame = false
+    private var lastAutoplaySolverName: String?
+    private var isPresentingSeedPrompt = false
 
     override func didMove(to view: SKView) {
         backgroundColor = SKColor(red: 0.18, green: 0.17, blue: 0.16, alpha: 1.0)
@@ -481,6 +586,8 @@ final class GameScene: SKScene {
     addChild(startLabel)
 
         setupSolverMenu()
+    setupSeedField()
+    setupTabs()
 
         newGameLabel.fontSize = 18
         newGameLabel.fontColor = SKColor(red: 0.96, green: 0.73, blue: 0.28, alpha: 1.0)
@@ -490,6 +597,182 @@ final class GameScene: SKScene {
         addChild(newGameLabel)
 
         updateStartLabel()
+    }
+
+    private func setupSeedField() {
+        if seedContainer.parent == nil {
+            seedContainer.zPosition = 12
+            seedContainer.name = "seedField"
+            addChild(seedContainer)
+        }
+
+        seedContainer.removeAllChildren()
+
+        seedBackground.fillColor = SKColor(red: 0.22, green: 0.21, blue: 0.20, alpha: 1.0)
+        seedBackground.strokeColor = SKColor(white: 1.0, alpha: 0.12)
+        seedBackground.lineWidth = 2
+        seedBackground.name = "seedField"
+        seedContainer.addChild(seedBackground)
+
+        seedTitleLabel.fontSize = 14
+        seedTitleLabel.fontColor = SKColor(white: 0.82, alpha: 1.0)
+        seedTitleLabel.text = "Seed"
+        seedTitleLabel.verticalAlignmentMode = .center
+        seedTitleLabel.horizontalAlignmentMode = .center
+        seedTitleLabel.position = CGPoint(x: 0, y: 12)
+        seedTitleLabel.name = "seedField"
+        seedContainer.addChild(seedTitleLabel)
+
+        seedValueLabel.fontSize = 18
+        seedValueLabel.fontColor = SKColor(red: 0.96, green: 0.73, blue: 0.28, alpha: 1.0)
+        seedValueLabel.verticalAlignmentMode = .center
+        seedValueLabel.horizontalAlignmentMode = .center
+        seedValueLabel.position = CGPoint(x: 0, y: -10)
+        seedValueLabel.name = "seedField"
+        seedContainer.addChild(seedValueLabel)
+
+        updateSeedLabel()
+    }
+
+    private func setupTabs() {
+        if tabContainer.parent == nil {
+            tabContainer.zPosition = 4
+            addChild(tabContainer)
+        }
+        if tabContentContainer.parent == nil {
+            tabContentContainer.zPosition = 3
+            addChild(tabContentContainer)
+        }
+
+        tabContainer.removeAllChildren()
+        tabLabels.removeAll()
+
+        tabBackground.fillColor = SKColor(red: 0.20, green: 0.19, blue: 0.18, alpha: 1.0)
+        tabBackground.strokeColor = SKColor(white: 1.0, alpha: 0.10)
+        tabBackground.lineWidth = 2
+        tabBackground.name = "tabBackground"
+        tabContainer.addChild(tabBackground)
+
+        for (index, name) in tabNames.enumerated() {
+            let label = SKLabelNode(fontNamed: "AvenirNext-DemiBold")
+            label.text = name
+            label.fontSize = 16
+            label.verticalAlignmentMode = .center
+            label.horizontalAlignmentMode = .center
+            label.name = "tab_\(name)"
+            let spacing: CGFloat = 140
+            let offset = CGFloat(index - (tabNames.count - 1) / 2) * spacing
+            label.position = CGPoint(x: offset, y: 12)
+            tabContainer.addChild(label)
+            tabLabels[name] = label
+        }
+
+        selectTab(named: selectedTab)
+    }
+
+    private func updateSeedLabel() {
+        let displaySeed = pendingSeed ?? activeSeed
+        seedValueLabel.text = "\(displaySeed)"
+    }
+
+    private func selectTab(named name: String) {
+        guard tabNames.contains(name) else { return }
+        selectedTab = name
+        for (tabName, label) in tabLabels {
+            let isActive = (tabName == name)
+            label.fontColor = isActive ? SKColor(red: 0.96, green: 0.73, blue: 0.28, alpha: 1.0) : SKColor(white: 0.78, alpha: 1.0)
+        }
+        refreshTabContent()
+    }
+
+    private func refreshTabContent() {
+        tabContentContainer.removeAllChildren()
+        switch selectedTab {
+        case "High Scores":
+            renderHighScores()
+        default:
+            break
+        }
+    }
+
+    private func renderHighScores() {
+        let entries = highScoreStore.entries
+        if entries.isEmpty {
+            let emptyLabel = SKLabelNode(fontNamed: "AvenirNext-Medium")
+            emptyLabel.fontSize = 16
+            emptyLabel.fontColor = SKColor(white: 0.75, alpha: 1.0)
+            emptyLabel.text = "No games recorded yet."
+            emptyLabel.verticalAlignmentMode = .center
+            emptyLabel.horizontalAlignmentMode = .center
+            tabContentContainer.addChild(emptyLabel)
+            return
+        }
+
+        let maxRows = min(entries.count, 5)
+        let rowHeight: CGFloat = 24
+        let startY = rowHeight * CGFloat(maxRows - 1) / 2
+
+        for index in 0..<maxRows {
+            let entry = entries[index]
+            let rowLabel = SKLabelNode(fontNamed: "AvenirNext-Medium")
+            rowLabel.fontSize = 15
+            rowLabel.fontColor = SKColor(white: 0.85, alpha: 1.0)
+            let dateString = GameScene.highScoreDateFormatter.string(from: entry.date)
+            rowLabel.text = "\(index + 1). Score: \(entry.score)  Max: \(entry.maxTile)  Mode: \(entry.mode)  Seed: \(entry.seed)  \(dateString)"
+            rowLabel.verticalAlignmentMode = .center
+            rowLabel.horizontalAlignmentMode = .center
+            rowLabel.position = CGPoint(x: 0, y: startY - CGFloat(index) * rowHeight)
+            tabContentContainer.addChild(rowLabel)
+        }
+    }
+
+    private func presentSeedEntry() {
+        guard !isPresentingSeedPrompt else { return }
+        guard let view = view else { return }
+
+        let displaySeed = pendingSeed ?? activeSeed
+        let alert = UIAlertController(title: "Set Seed", message: "Enter a seed to replay specific games.", preferredStyle: .alert)
+        alert.addTextField { textField in
+            textField.keyboardType = .numberPad
+            textField.placeholder = "Seed"
+            textField.text = "\(displaySeed)"
+        }
+
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel) { [weak self] _ in
+            self?.isPresentingSeedPrompt = false
+        })
+
+        alert.addAction(UIAlertAction(title: "Apply", style: .default) { [weak self] _ in
+            guard let self else { return }
+            defer { self.isPresentingSeedPrompt = false }
+            guard let text = alert.textFields?.first?.text?.trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty else {
+                self.pendingSeed = nil
+                self.updateSeedLabel()
+                return
+            }
+            if let value = UInt64(text) {
+                self.pendingSeed = value
+            }
+            self.updateSeedLabel()
+        })
+
+        guard let controller = topViewController(for: view.window?.rootViewController) else { return }
+        isPresentingSeedPrompt = true
+        controller.present(alert, animated: true)
+    }
+
+    private func topViewController(for root: UIViewController?) -> UIViewController? {
+        guard let root = root else { return nil }
+        if let presented = root.presentedViewController {
+            return topViewController(for: presented)
+        }
+        if let navigation = root as? UINavigationController {
+            return topViewController(for: navigation.visibleViewController)
+        }
+        if let tab = root as? UITabBarController {
+            return topViewController(for: tab.selectedViewController)
+        }
+        return root
     }
 
     private func setupSolverMenu() {
@@ -658,24 +941,76 @@ final class GameScene: SKScene {
             }
         }
 
-        scoreLabel.position = CGPoint(x: size.width / 2, y: size.height - 72)
-        movesLabel.position = CGPoint(x: size.width / 2, y: size.height - 110)
-        solverLabel.position = CGPoint(x: size.width / 2, y: size.height - 148)
-        startLabel.position = CGPoint(x: size.width / 2, y: size.height - 178)
-        solverMenuContainer.position = CGPoint(x: solverLabel.position.x, y: solverLabel.position.y - 16)
+        let boardTop = boardContainer.position.y + adjustedSide / 2
+        let boardBottom = boardContainer.position.y - adjustedSide / 2
+
+        scoreLabel.position = CGPoint(x: size.width / 2, y: size.height - 64)
+        movesLabel.position = CGPoint(x: size.width / 2, y: size.height - 100)
+        solverLabel.position = CGPoint(x: size.width / 2, y: size.height - 136)
+        startLabel.position = CGPoint(x: size.width / 2, y: size.height - 170)
+        solverMenuContainer.position = CGPoint(x: solverLabel.position.x, y: solverLabel.position.y - 28)
+
+        let seedWidth: CGFloat = 200
+        let seedHeight: CGFloat = 56
+        let seedRect = CGRect(x: -seedWidth / 2, y: -seedHeight / 2, width: seedWidth, height: seedHeight)
+        seedBackground.path = CGPath(roundedRect: seedRect, cornerWidth: 16, cornerHeight: 16, transform: nil)
+        seedContainer.position = CGPoint(x: size.width - seedWidth / 2 - 28, y: size.height - 118)
+
         newGameLabel.position = CGPoint(x: 24, y: size.height - 44)
-        statusLabel.position = CGPoint(x: size.width / 2, y: 84)
-        arrowContainer.position = CGPoint(x: size.width / 2, y: 72)
+    let statusY = min(size.height - 40, boardTop + 36)
+    statusLabel.position = CGPoint(x: size.width / 2, y: statusY)
+    let arrowYOffset = arrowButtonSize + arrowButtonSpacing
+    arrowContainer.position = CGPoint(x: size.width / 2, y: boardBottom - arrowYOffset)
+        let minArrowY = arrowButtonSize * 0.5 + 36
+        if arrowContainer.position.y < minArrowY {
+            arrowContainer.position.y = minArrowY
+        }
+
+    let tabWidth = size.width - 48
+        let tabHeight: CGFloat = 56
+        let tabRect = CGRect(x: -tabWidth / 2, y: -tabHeight / 2, width: tabWidth, height: tabHeight)
+        tabBackground.path = CGPath(roundedRect: tabRect, cornerWidth: 18, cornerHeight: 18, transform: nil)
+    tabContainer.position = CGPoint(x: size.width / 2, y: arrowContainer.position.y - arrowButtonSize - 32)
+        let minTabY: CGFloat = 48
+        if tabContainer.position.y < minTabY {
+            tabContainer.position.y = minTabY
+        }
+    tabContentContainer.position = CGPoint(x: size.width / 2, y: tabContainer.position.y - tabHeight / 2 - 26)
+        let minContentY: CGFloat = 24
+        if tabContentContainer.position.y < minContentY {
+            tabContentContainer.position.y = minContentY
+        }
+
+        for (index, name) in tabNames.enumerated() {
+            guard let label = tabLabels[name] else { continue }
+            let spacing = tabWidth / CGFloat(max(tabNames.count, 1))
+            let offset = (-tabWidth / 2) + spacing * (CGFloat(index) + 0.5)
+            label.position = CGPoint(x: offset, y: 10)
+        }
+
         layoutArrowButtons()
     }
 
     private func startNewGame() {
         hideSolverMenu()
-        board.reset()
+        let seedToUse: UInt64
+        if let override = pendingSeed {
+            seedToUse = override
+            pendingSeed = nil
+        } else {
+            seedToUse = GameScene.generateRandomSeed()
+        }
+
+        activeSeed = seedToUse
+        board.reset(withSeed: seedToUse)
         solverAccumulator = 0
         isAutoplayActive = false
+        hasRecordedOutcome = false
+        didUseAutoplayThisGame = false
+        lastAutoplaySolverName = nil
         updateHUD()
         updateTiles(animated: false)
+        refreshTabContent()
     }
 
     private func attemptMove(_ direction: MoveDirection) {
@@ -697,16 +1032,27 @@ final class GameScene: SKScene {
         } else {
             switch board.status {
             case .inProgress:
-                statusMessage = board.lastScoreGain > 0 ? "Last merge +\(board.lastScoreGain)" : "Swipe or tap solver to play"
+                if isAutoplayActive {
+                    statusMessage = "Solver running..."
+                } else if solverIndex > 0 {
+                    statusMessage = "Tap Start to run the solver"
+                } else {
+                    statusMessage = board.lastScoreGain > 0 ? "Last merge +\(board.lastScoreGain)" : "Swipe to play manually"
+                }
             case .won:
                 statusMessage = "Victory! 65536 achieved"
             case .lost:
                 statusMessage = "No moves left. Tap New Game."
             }
         }
+
         if board.status != .inProgress {
+            if !hasRecordedOutcome {
+                recordHighScore()
+            }
             isAutoplayActive = false
         }
+
         statusLabel.text = statusMessage
         updateSolverLabel()
     }
@@ -870,6 +1216,17 @@ final class GameScene: SKScene {
             handleStartTapped()
             return
         }
+        if nodes.contains(where: { $0.name == "seedField" }) {
+            hideSolverMenu()
+            presentSeedEntry()
+            return
+        }
+        if let tabNode = nodes.first(where: { $0.name?.hasPrefix("tab_") == true }),
+           let name = tabNode.name?.replacingOccurrences(of: "tab_", with: "") {
+            hideSolverMenu()
+            selectTab(named: name)
+            return
+        }
         if let optionNode = nodes.first(where: { $0.name?.hasPrefix("solverOption_") == true }),
            let name = optionNode.name,
            let indexString = name.split(separator: "_").last,
@@ -954,6 +1311,19 @@ final class GameScene: SKScene {
         }
     }
 
+    private func recordHighScore() {
+        hasRecordedOutcome = true
+        let mode: String
+        if didUseAutoplayThisGame, let solverName = lastAutoplaySolverName {
+            mode = "Solver: \(solverName)"
+        } else {
+            mode = "Manual"
+        }
+        let entry = HighScoreEntry(date: Date(), score: board.score, maxTile: board.maxTile, moves: board.moves, seed: activeSeed, mode: mode)
+        highScoreStore.add(entry)
+        refreshTabContent()
+    }
+
     private func handleStartTapped() {
         hideSolverMenu()
         if solverIndex == 0 {
@@ -966,6 +1336,10 @@ final class GameScene: SKScene {
         isAutoplayActive = shouldActivate
         if shouldActivate {
             solverAccumulator = 0
+            didUseAutoplayThisGame = true
+            if solverIndex > 0 {
+                lastAutoplaySolverName = solvers[solverIndex - 1].name
+            }
         }
         updateHUD()
     }
