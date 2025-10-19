@@ -480,10 +480,19 @@ private final class GrokSolver: SolverStrategy {
     func nextMove(for board: GameBoard) -> MoveDirection? {
         Self.pruneTranspositionTable()
         let depth = getDynamicDepth(for: board)
-        let (_, bestMove) = expectimax(board: board, depth: depth, isMax: true)
+        var alpha = -Double.infinity
+        let (_, bestMove) = expectimax(board: board, depth: depth, isMax: true, alpha: &alpha)
         
         if let move = bestMove {
             Self.moveHistory[move, default: 0] += 1
+        } else {
+            // Fallback: try moves sorted by history
+            for direction in MoveDirection.allCases.sorted(by: { (Self.moveHistory[$0, default: 0]) > (Self.moveHistory[$1, default: 0]) }) {
+                if board.simulatedBoard(for: direction) != nil {
+                    Self.moveHistory[direction, default: 0] += 1
+                    return direction
+                }
+            }
         }
         
         // Decay history
@@ -494,7 +503,7 @@ private final class GrokSolver: SolverStrategy {
         return bestMove ?? board.availableMoves().first
     }
     
-    private func expectimax(board: GameBoard, depth: Int, isMax: Bool, alpha: Double = -Double.infinity) -> (Double, MoveDirection?) {
+    private func expectimax(board: GameBoard, depth: Int, isMax: Bool, alpha: inout Double) -> (Double, MoveDirection?) {
         if depth == 0 {
             return (evaluatePosition(board, remainingDepth: depth), nil)
         }
@@ -507,10 +516,16 @@ private final class GrokSolver: SolverStrategy {
             
             for direction in moves {
                 guard let newBoard = board.simulatedBoard(for: direction) else { continue }
-                let (score, _) = expectimax(board: newBoard, depth: depth - 1, isMax: false, alpha: alpha)
+                let (score, _) = expectimax(board: newBoard, depth: depth - 1, isMax: false, alpha: &alpha)
                 if score > maxScore {
                     maxScore = score
                     bestMove = direction
+                    alpha = max(alpha, score)
+                }
+                
+                // Early cutoff for clearly worse moves
+                if score < alpha / 2 {
+                    continue
                 }
             }
             
@@ -530,7 +545,7 @@ private final class GrokSolver: SolverStrategy {
                     var newBoard = board
                     newBoard.grid[row][col] = value
                     newBoard.updateMaxTile()
-                    let (score, _) = expectimax(board: newBoard, depth: depth - 1, isMax: true, alpha: alpha)
+                    let (score, _) = expectimax(board: newBoard, depth: depth - 1, isMax: true, alpha: &alpha)
                     avgScore += score * prob
                     totalWeight += prob
                 }
@@ -644,32 +659,36 @@ private final class GrokSolver: SolverStrategy {
     private func calculateMergeChains(_ board: GameBoard) -> Double {
         var score = 0.0
         
-        // Horizontal chains
+        // Horizontal chains - look for potential merge opportunities
         for i in 0..<4 {
-            var chain = 0
-            var prev = 0
-            for j in 0..<4 {
-                if board.grid[i][j] != 0 {
-                    if board.grid[i][j] == prev {
-                        chain += 1
-                        score += Double(chain) * log2(Double(board.grid[i][j]))
+            for j in 0..<3 {
+                let current = board.grid[i][j]
+                let next = board.grid[i][j + 1]
+                if current != 0 && next != 0 {
+                    if current == next {
+                        // Immediate merge opportunity
+                        score += 2.0 * log2(Double(current))
+                    } else if abs(log2(Double(current)) - log2(Double(next))) <= 1 {
+                        // Potential merge after one step
+                        score += 0.5 * log2(Double(min(current, next)))
                     }
-                    prev = board.grid[i][j]
                 }
             }
         }
         
         // Vertical chains
         for j in 0..<4 {
-            var chain = 0
-            var prev = 0
-            for i in 0..<4 {
-                if board.grid[i][j] != 0 {
-                    if board.grid[i][j] == prev {
-                        chain += 1
-                        score += Double(chain) * log2(Double(board.grid[i][j]))
+            for i in 0..<3 {
+                let current = board.grid[i][j]
+                let next = board.grid[i + 1][j]
+                if current != 0 && next != 0 {
+                    if current == next {
+                        // Immediate merge opportunity
+                        score += 2.0 * log2(Double(current))
+                    } else if abs(log2(Double(current)) - log2(Double(next))) <= 1 {
+                        // Potential merge after one step
+                        score += 0.5 * log2(Double(min(current, next)))
                     }
-                    prev = board.grid[i][j]
                 }
             }
         }
@@ -777,9 +796,10 @@ private final class GrokSolver: SolverStrategy {
         let maxEntries = 5000
         if Self.transpositionTable.count <= maxEntries { return }
         
-        let keys = Array(Self.transpositionTable.keys)
-        let toRemove = keys.dropFirst(maxEntries)
-        for key in toRemove {
+        // Remove oldest entries (Python-style pruning)
+        let sortedKeys = Self.transpositionTable.keys.sorted()
+        let keysToRemove = sortedKeys.prefix(Self.transpositionTable.count - maxEntries)
+        for key in keysToRemove {
             Self.transpositionTable.removeValue(forKey: key)
         }
     }
