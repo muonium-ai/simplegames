@@ -975,7 +975,7 @@ public final class GameScene: SKScene {
     // Score below dynamic island
     scoreLabel.position = CGPoint(x: size.width / 2, y: dynamicIslandY - hudSpacing)
 
-    // Seed and Start on same line below score
+    // Seed below score
     let seedWidth = min(220, size.width - 140)
     let seedHeight: CGFloat = 52
     let seedRect = CGRect(x: -seedWidth / 2, y: -seedHeight / 2, width: seedWidth, height: seedHeight)
@@ -983,12 +983,16 @@ public final class GameScene: SKScene {
     let seedY = scoreLabel.position.y - hudSpacing * 0.5
     let seedX = size.width / 2 - seedWidth / 2 - 16
     seedContainer.position = CGPoint(x: seedX, y: seedY)
-    startLabel.position = CGPoint(x: seedX + seedWidth + 32, y: seedY)
 
-    // Moves label below seed/start row
+    // Moves label below seed row
     movesLabel.position = CGPoint(x: size.width / 2, y: seedY - hudSpacing * 0.8)
 
     newGameLabel.position = CGPoint(x: 28, y: hudTop)
+
+    // Solver and Start above board
+    let solverY = boardTop + 60
+    solverLabel.position = CGPoint(x: size.width / 2 - 80, y: solverY)
+    startLabel.position = CGPoint(x: size.width / 2 + 80, y: solverY)
 
         let menuHeight = solverMenuBackground.frame.height
         var menuTopY = solverLabel.position.y - 28
@@ -997,16 +1001,14 @@ public final class GameScene: SKScene {
             menuTopY = maxMenuTop
         }
         if menuHeight > 0 {
-            let minMenuTop = startLabel.position.y - 32
+            let minMenuTop = solverLabel.position.y - 32
             if menuTopY > minMenuTop {
                 menuTopY = minMenuTop
             }
         }
         solverMenuContainer.position = CGPoint(x: solverLabel.position.x, y: menuTopY)
 
-        let statusTopLimit = max(boardTop + 24, startLabel.position.y - 60)
-        let statusBase = boardTop + 40
-        let statusY = min(statusTopLimit, statusBase)
+        let statusY = boardBottom + 20
         statusLabel.position = CGPoint(x: size.width / 2, y: statusY)
 
         let arrowYOffset = arrowButtonSize + arrowButtonSpacing
