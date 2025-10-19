@@ -8,7 +8,7 @@
 import SpriteKit
 import Foundation
 
-private enum MoveDirection: CaseIterable {
+enum MoveDirection: CaseIterable {
     case up, right, down, left
 
     var isVertical: Bool {
@@ -746,6 +746,13 @@ final class GameScene: SKScene {
         } else {
             attemptMove(dy > 0 ? .up : .down)
         }
+        if solverIndex != 0 {
+            solverIndex = 0
+        }
+    }
+
+    func handleExternalInput(_ direction: MoveDirection) {
+        attemptMove(direction)
         if solverIndex != 0 {
             solverIndex = 0
         }
