@@ -1067,6 +1067,8 @@ public final class GameScene: SKScene {
     private var scoreLabel = SKLabelNode(fontNamed: "AvenirNext-Bold")
     private var maxScoreLabel = SKLabelNode(fontNamed: "AvenirNext-Medium")
     private var movesLabel = SKLabelNode(fontNamed: "AvenirNext-Medium")
+    private var timerLabel = SKLabelNode(fontNamed: "AvenirNext-Medium")
+    private var movesPerSecondLabel = SKLabelNode(fontNamed: "AvenirNext-Medium")
     private var statusLabel = SKLabelNode(fontNamed: "AvenirNext-Medium")
     private var solverLabel = SKLabelNode(fontNamed: "AvenirNext-DemiBold")
     private let solverDropdownIcon = SKShapeNode()
@@ -1084,6 +1086,10 @@ public final class GameScene: SKScene {
     private var lastUpdateTimestamp: TimeInterval = 0
     private var solverAccumulator: TimeInterval = 0
     private let solverInterval: TimeInterval = 0.18
+    private var gameStartDate: Date?
+    private var finalElapsedTime: TimeInterval?
+    private var timerUpdateAccumulator: TimeInterval = 0
+    private let timerUpdateInterval: TimeInterval = 1.0
 
     private let solvers: [SolverStrategy] = [CornerTrapSolver(), SmoothnessSolver(), RandomSolver(), GrokSolver(), GPT5CodexSolver()]
     private var solverIndex: Int = 0 {
@@ -1168,6 +1174,18 @@ public final class GameScene: SKScene {
     movesLabel.fontColor = SKColor(white: 0.9, alpha: 1.0)
     addChild(movesLabel)
 
+        timerLabel.fontSize = 18
+        timerLabel.fontColor = SKColor(white: 0.85, alpha: 1.0)
+        timerLabel.horizontalAlignmentMode = .center
+        timerLabel.verticalAlignmentMode = .center
+        addChild(timerLabel)
+
+        movesPerSecondLabel.fontSize = 18
+        movesPerSecondLabel.fontColor = SKColor(white: 0.85, alpha: 1.0)
+        movesPerSecondLabel.horizontalAlignmentMode = .center
+        movesPerSecondLabel.verticalAlignmentMode = .center
+        addChild(movesPerSecondLabel)
+
         statusLabel.fontSize = 18
         statusLabel.fontColor = SKColor(white: 0.85, alpha: 1.0)
         statusLabel.horizontalAlignmentMode = .center
@@ -1211,6 +1229,7 @@ public final class GameScene: SKScene {
 
         updateStartLabel()
         updateSolverDropdownIcon()
+        refreshTimerLabel(force: true)
     }
 
     private func setupSeedField() {
@@ -1490,6 +1509,8 @@ public final class GameScene: SKScene {
 
     // Moves label on the right side of second line
     movesLabel.position = CGPoint(x: 3 * size.width / 4, y: seedY)
+    timerLabel.position = CGPoint(x: size.width / 2, y: movesLabel.position.y - hudSpacing * 0.85)
+    movesPerSecondLabel.position = CGPoint(x: size.width / 2, y: timerLabel.position.y - hudSpacing * 0.7)
 
     newGameLabel.position = CGPoint(x: 28, y: hudTop)
 
@@ -1536,13 +1557,16 @@ public final class GameScene: SKScene {
             seedToUse = GameScene.generateRandomSeed()
         }
 
-        activeSeed = seedToUse
-        board.reset(withSeed: seedToUse)
-        solverAccumulator = 0
-        isAutoplayActive = false
-        hasRecordedOutcome = false
-        didUseAutoplayThisGame = false
-        lastAutoplaySolverName = nil
+    activeSeed = seedToUse
+    board.reset(withSeed: seedToUse)
+    solverAccumulator = 0
+    isAutoplayActive = false
+    hasRecordedOutcome = false
+    didUseAutoplayThisGame = false
+    lastAutoplaySolverName = nil
+    gameStartDate = nil
+    finalElapsedTime = nil
+    timerUpdateAccumulator = 0
         updateHUD()
         updateTiles(animated: false)
         resetArrowHighlights()
@@ -1551,6 +1575,7 @@ public final class GameScene: SKScene {
     private func attemptMove(_ direction: MoveDirection) {
         guard board.status == .inProgress else { return }
         if board.move(direction) {
+            startTimerIfNeeded()
             solverAccumulator = 0
             updateHUD()
             updateTiles(animated: true)
@@ -1599,6 +1624,7 @@ public final class GameScene: SKScene {
         scoreLabel.text = "Score: \(board.score)"
         maxScoreLabel.text = board.maxTile > 2 ? "Max: \(board.maxTile)" : ""
         movesLabel.text = "Moves: \(board.moves)"
+        refreshTimerLabel(force: false)
 
         var statusMessage: String
         if let milestone = board.consumeMilestone() {
@@ -1625,6 +1651,10 @@ public final class GameScene: SKScene {
                 recordHighScore()
             }
             isAutoplayActive = false
+            if finalElapsedTime == nil {
+                finalElapsedTime = elapsedTime()
+                refreshTimerLabel(force: true)
+            }
         }
 
         statusLabel.text = statusMessage
@@ -1679,6 +1709,35 @@ public final class GameScene: SKScene {
             ]))
         }
         board.clearLastSpawn()
+    }
+
+    private func refreshTimerLabel(force: Bool) {
+        let elapsed = finalElapsedTime ?? elapsedTime()
+        timerLabel.text = "Time: \(formatTime(elapsed))"
+
+        if elapsed > 0 {
+            let movesPerSecond = Double(board.moves) / elapsed
+            movesPerSecondLabel.text = String(format: "%.2f moves/s", movesPerSecond)
+        } else {
+            movesPerSecondLabel.text = "0.00 moves/s"
+        }
+
+        if force {
+            timerUpdateAccumulator = 0
+        }
+    }
+
+    private func elapsedTime() -> TimeInterval {
+        guard let start = gameStartDate else { return 0 }
+        return max(0, Date().timeIntervalSince(start))
+    }
+
+    private func formatTime(_ interval: TimeInterval) -> String {
+        let totalSeconds = Int(interval.rounded())
+        let seconds = totalSeconds % 60
+        let minutes = (totalSeconds / 60) % 60
+        let hours = totalSeconds / 3600
+        return String(format: "%02d:%02d:%02d", hours, minutes, seconds)
     }
 
     private func configure(tile: TileNode, with value: Int) {
@@ -1879,6 +1938,7 @@ public final class GameScene: SKScene {
         let delta = currentTime - lastUpdateTimestamp
         lastUpdateTimestamp = currentTime
         runSolverIfNeeded(deltaTime: delta)
+        updateTimerIfNeeded(deltaTime: delta)
     }
 
     private func runSolverIfNeeded(deltaTime: TimeInterval) {
@@ -1892,9 +1952,27 @@ public final class GameScene: SKScene {
         let move = solver.nextMove(for: board) ?? board.availableMoves().randomElement()
         guard let direction = move else { return }
         if board.move(direction) {
+            startTimerIfNeeded()
             highlightArrow(direction, isSolverMove: true)
             updateHUD()
             updateTiles(animated: true)
+        }
+    }
+
+    private func startTimerIfNeeded() {
+        guard gameStartDate == nil else { return }
+        gameStartDate = Date()
+        finalElapsedTime = nil
+        timerUpdateAccumulator = 0
+        refreshTimerLabel(force: true)
+    }
+
+    private func updateTimerIfNeeded(deltaTime: TimeInterval) {
+        guard board.status == .inProgress, gameStartDate != nil else { return }
+        timerUpdateAccumulator += deltaTime
+        if timerUpdateAccumulator >= timerUpdateInterval {
+            timerUpdateAccumulator = 0
+            refreshTimerLabel(force: false)
         }
     }
 
