@@ -843,6 +843,7 @@ public final class GameScene: SKScene {
     private var movesLabel = SKLabelNode(fontNamed: "AvenirNext-Medium")
     private var statusLabel = SKLabelNode(fontNamed: "AvenirNext-Medium")
     private var solverLabel = SKLabelNode(fontNamed: "AvenirNext-DemiBold")
+    private let solverDropdownIcon = SKShapeNode()
     private var startLabel = SKLabelNode(fontNamed: "AvenirNext-DemiBold")
     private var newGameLabel = SKLabelNode(fontNamed: "AvenirNext-DemiBold")
     private var dynamicIslandButton = SKLabelNode(fontNamed: "AvenirNext-DemiBold")
@@ -947,6 +948,20 @@ public final class GameScene: SKScene {
         solverLabel.name = "solverButton"
         addChild(solverLabel)
 
+    let dropdownSize: CGFloat = 10
+    let dropdownPath = CGMutablePath()
+    dropdownPath.move(to: CGPoint(x: -dropdownSize / 2, y: dropdownSize * 0.2))
+    dropdownPath.addLine(to: CGPoint(x: dropdownSize / 2, y: dropdownSize * 0.2))
+    dropdownPath.addLine(to: CGPoint(x: 0, y: -dropdownSize * 0.3))
+    dropdownPath.closeSubpath()
+    solverDropdownIcon.path = dropdownPath
+    solverDropdownIcon.fillColor = solverLabel.fontColor ?? SKColor.white
+    solverDropdownIcon.strokeColor = SKColor.clear
+    solverDropdownIcon.isAntialiased = true
+    solverDropdownIcon.zPosition = solverLabel.zPosition
+    solverDropdownIcon.name = "solverButton"
+    addChild(solverDropdownIcon)
+
         startLabel.fontSize = 18
         startLabel.fontColor = SKColor(red: 0.46, green: 0.78, blue: 0.94, alpha: 1.0)
         startLabel.name = "startButton"
@@ -965,6 +980,7 @@ public final class GameScene: SKScene {
         addChild(newGameLabel)
 
         updateStartLabel()
+        updateSolverDropdownIcon()
     }
 
     private func setupSeedField() {
@@ -1251,6 +1267,7 @@ public final class GameScene: SKScene {
     let solverY = boardTop + 60
     solverLabel.position = CGPoint(x: size.width / 2 - 80, y: solverY)
     startLabel.position = CGPoint(x: size.width / 2 + 80, y: solverY)
+    updateSolverDropdownIcon()
 
         let menuHeight = solverMenuBackground.frame.height
         var menuTopY = solverLabel.position.y - 28
@@ -1359,9 +1376,24 @@ public final class GameScene: SKScene {
     }
 
     private func updateSolverLabel() {
-        solverLabel.text = "Solver"
+        let options = solverOptions()
+        let clampedIndex = min(max(solverIndex, 0), options.count - 1)
+        solverLabel.text = options[clampedIndex]
+        updateSolverDropdownIcon()
         updateSolverOptionHighlight()
         updateStartLabel()
+    }
+
+    private func updateSolverDropdownIcon() {
+        guard solverDropdownIcon.parent != nil else { return }
+        solverDropdownIcon.fillColor = solverLabel.fontColor ?? SKColor.white
+        let labelFrame = solverLabel.calculateAccumulatedFrame()
+        let width = max(labelFrame.width, 1)
+        let height = labelFrame.height
+        let offsetX = width / 2 + 12
+        let offsetY = height > 0 ? -height * 0.25 : -2
+        solverDropdownIcon.position = CGPoint(x: solverLabel.position.x + offsetX,
+                                              y: solverLabel.position.y + offsetY)
     }
 
     private func updateStartLabel() {
