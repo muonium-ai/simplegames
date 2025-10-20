@@ -1234,7 +1234,7 @@ public final class GameScene: SKScene {
     maxScoreLabel.position = CGPoint(x: 3 * size.width / 4, y: dynamicIslandY - hudSpacing)
 
     // Seed and Moves on second line (left and right)
-    let seedWidth = min(160, size.width / 2 - 60)
+    let seedWidth = min(CGFloat(240), max(size.width * CGFloat(0.45), CGFloat(180)))
     let seedHeight: CGFloat = 52
     let seedRect = CGRect(x: -seedWidth / 2, y: -seedHeight / 2, width: seedWidth, height: seedHeight)
     seedBackground.path = CGPath(roundedRect: seedRect, cornerWidth: 16, cornerHeight: 16, transform: nil)
@@ -1359,14 +1359,7 @@ public final class GameScene: SKScene {
     }
 
     private func updateSolverLabel() {
-        let solverName = solverIndex == 0 ? "Manual" : solvers[solverIndex - 1].name
-        let extra: String
-        if solverIndex == 0 {
-            extra = "(tap to choose solver)"
-        } else {
-            extra = isAutoplayActive ? "(auto-playing)" : "(tap Start to run)"
-        }
-        solverLabel.text = "Solver: \(solverName) \(extra)"
+        solverLabel.text = "Solver"
         updateSolverOptionHighlight()
         updateStartLabel()
     }
