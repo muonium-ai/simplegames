@@ -1283,9 +1283,6 @@ public final class GameScene: SKScene {
         }
         solverMenuContainer.position = CGPoint(x: solverLabel.position.x, y: menuTopY)
 
-        let statusY = boardBottom + 20
-        statusLabel.position = CGPoint(x: size.width / 2, y: statusY)
-
         let arrowYOffset = arrowButtonSize + arrowButtonSpacing
         arrowContainer.position = CGPoint(x: size.width / 2, y: boardBottom - arrowYOffset)
         let minArrowY = arrowButtonSize * 0.5 + 52
@@ -1294,6 +1291,10 @@ public final class GameScene: SKScene {
         }
 
         layoutArrowButtons()
+
+        let statusBottomPadding = max(size.height * 0.03, 36)
+        let desiredStatusY = arrowContainer.position.y - (arrowButtonSize / 2) - 28
+        statusLabel.position = CGPoint(x: size.width / 2, y: max(statusBottomPadding, min(desiredStatusY, boardBottom - arrowButtonSpacing)))
     }
 
     private func startNewGame() {

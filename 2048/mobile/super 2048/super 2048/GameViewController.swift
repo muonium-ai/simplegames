@@ -47,10 +47,6 @@ final class GameViewController: UIViewController {
         skView.presentScene(scene)
         skView.ignoresSiblingOrder = true
         gameScene = scene
-#if DEBUG
-        skView.showsFPS = true
-        skView.showsNodeCount = true
-#endif
     }
 
     override var supportedInterfaceOrientations: UIInterfaceOrientationMask {
