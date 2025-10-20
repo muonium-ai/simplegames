@@ -871,8 +871,9 @@ public final class GameScene: SKScene {
 
     private var isAutoplayActive = false {
         didSet {
-            if !isAutoplayActive {
-                solverAccumulator = 0
+            solverAccumulator = 0
+            if !isAutoplayActive && oldValue {
+                resetArrowHighlights()
             }
             updateSolverLabel()
             updateStartLabel()
@@ -895,6 +896,9 @@ public final class GameScene: SKScene {
     private let arrowContainer = SKNode()
     private let arrowButtonSize: CGFloat = 54.0
     private let arrowButtonSpacing: CGFloat = 12.0
+    private let arrowDefaultColor = SKColor.white
+    private let manualArrowHighlightColor = SKColor(red: 0.46, green: 0.78, blue: 0.94, alpha: 1.0)
+    private let solverArrowHighlightColor = SKColor(red: 0.97, green: 0.52, blue: 0.32, alpha: 1.0)
 
     private let highScoreStore = HighScoreStore.shared
     private var hasRecordedOutcome = false
@@ -1177,7 +1181,7 @@ public final class GameScene: SKScene {
         arrowPath.closeSubpath()
 
         let arrowShape = SKShapeNode(path: arrowPath)
-        arrowShape.fillColor = SKColor.white
+    arrowShape.fillColor = arrowDefaultColor
         arrowShape.strokeColor = SKColor.clear
         arrowShape.zPosition = 1
         arrowShape.name = direction.nodeName
@@ -1292,9 +1296,8 @@ public final class GameScene: SKScene {
 
         layoutArrowButtons()
 
-        let statusBottomPadding = max(size.height * 0.03, 36)
-        let desiredStatusY = arrowContainer.position.y - (arrowButtonSize / 2) - 28
-        statusLabel.position = CGPoint(x: size.width / 2, y: max(statusBottomPadding, min(desiredStatusY, boardBottom - arrowButtonSpacing)))
+    let statusBottomPadding = max(size.height * 0.025, 32)
+    statusLabel.position = CGPoint(x: size.width / 2, y: statusBottomPadding)
     }
 
     private func startNewGame() {
@@ -1316,6 +1319,7 @@ public final class GameScene: SKScene {
         lastAutoplaySolverName = nil
         updateHUD()
         updateTiles(animated: false)
+        resetArrowHighlights()
     }
 
     private func attemptMove(_ direction: MoveDirection) {
@@ -1328,15 +1332,40 @@ public final class GameScene: SKScene {
         }
     }
 
-    func highlightArrow(_ direction: MoveDirection) {
+    private func highlightArrow(_ direction: MoveDirection, isSolverMove: Bool = false) {
         for (dir, button) in arrowButtons {
-            if let arrowShape = button.children.first(where: { $0.name == dir.nodeName }) as? SKShapeNode {
-                if dir == direction {
-                    arrowShape.fillColor = SKColor(red: 0.46, green: 0.78, blue: 0.94, alpha: 1.0) // highlight color
+            guard let arrowShape = button.children.first(where: { $0.name == dir.nodeName }) as? SKShapeNode else { continue }
+            arrowShape.removeAction(forKey: "arrowPulse")
+            arrowShape.setScale(1.0)
+
+            if dir == direction {
+                let color = isSolverMove ? solverArrowHighlightColor : manualArrowHighlightColor
+                arrowShape.fillColor = color
+
+                if isSolverMove {
+                    let pulseUp = SKAction.scale(to: 1.15, duration: 0.08)
+                    let pulseDown = SKAction.scale(to: 1.0, duration: 0.12)
+                    arrowShape.run(SKAction.sequence([pulseUp, pulseDown]), withKey: "arrowPulse")
                 } else {
-                    arrowShape.fillColor = SKColor.white
+                    let wait = SKAction.wait(forDuration: 0.25)
+                    let reset = SKAction.run { [weak self, weak arrowShape] in
+                        guard let self = self else { return }
+                        arrowShape?.fillColor = self.arrowDefaultColor
+                    }
+                    arrowShape.run(SKAction.sequence([wait, reset]), withKey: "arrowPulse")
                 }
+            } else {
+                arrowShape.fillColor = arrowDefaultColor
             }
+        }
+    }
+
+    private func resetArrowHighlights() {
+        for (dir, button) in arrowButtons {
+            guard let arrowShape = button.children.first(where: { $0.name == dir.nodeName }) as? SKShapeNode else { continue }
+            arrowShape.removeAction(forKey: "arrowPulse")
+            arrowShape.fillColor = arrowDefaultColor
+            arrowShape.setScale(1.0)
         }
     }
 
@@ -1399,9 +1428,10 @@ public final class GameScene: SKScene {
 
     private func updateStartLabel() {
         if solverIndex == 0 {
-            startLabel.text = "Start: Manual control"
+            startLabel.isHidden = true
         } else {
-            startLabel.text = isAutoplayActive ? "Stop Solver" : "Start Solver"
+            startLabel.isHidden = false
+            startLabel.text = isAutoplayActive ? "Stop" : "Start"
         }
     }
 
@@ -1423,12 +1453,6 @@ public final class GameScene: SKScene {
             ]))
         }
         board.clearLastSpawn()
-        // Reset arrow highlight after move animation
-        for (dir, button) in arrowButtons {
-            if let arrowShape = button.children.first(where: { $0.name == dir.nodeName }) as? SKShapeNode {
-                arrowShape.fillColor = SKColor.white
-            }
-        }
     }
 
     private func configure(tile: TileNode, with value: Int) {
@@ -1642,6 +1666,7 @@ public final class GameScene: SKScene {
         let move = solver.nextMove(for: board) ?? board.availableMoves().randomElement()
         guard let direction = move else { return }
         if board.move(direction) {
+            highlightArrow(direction, isSolverMove: true)
             updateHUD()
             updateTiles(animated: true)
         }
