@@ -818,6 +818,232 @@ private final class GrokSolver: SolverStrategy {
     }
 }
 
+private final class GPT5CodexSolver: SolverStrategy {
+    let name = "GPT5 Codex"
+
+    private static var cache: [String: (depth: Int, score: Double)] = [:]
+    private static let maxCacheEntries = 9000
+
+    private let minDepth = 3
+    private let maxDepth = 6
+
+    private let gradientWeights: [[Double]] = [
+        [4.5, 4.0, 3.6, 3.2],
+        [3.8, 3.4, 3.0, 2.6],
+        [3.0, 2.6, 2.2, 1.8],
+        [2.2, 1.9, 1.6, 1.2]
+    ]
+
+    private let spawnWeights: [[Double]] = [
+        [4.0, 3.8, 3.5, 3.2],
+        [3.6, 3.3, 3.0, 2.6],
+        [3.0, 2.7, 2.4, 2.0],
+        [2.6, 2.3, 2.0, 1.6]
+    ]
+
+    func nextMove(for board: GameBoard) -> MoveDirection? {
+        Self.pruneCacheIfNeeded()
+        let depth = max(1, min(maxDepth, chooseDepth(for: board)))
+        let orderedMoves = orderMoves(for: board)
+
+        var bestScore = -Double.infinity
+        var bestMove: MoveDirection?
+
+        for direction in orderedMoves {
+            guard let nextBoard = board.simulatedBoard(for: direction) else { continue }
+            let score = expectimax(board: nextBoard, depth: depth - 1, maximizing: false)
+            if score > bestScore {
+                bestScore = score
+                bestMove = direction
+            }
+        }
+
+        return bestMove ?? orderedMoves.first
+    }
+
+    private func chooseDepth(for board: GameBoard) -> Int {
+        let empty = board.emptyCount()
+        let maxTile = board.maxTile
+        var depth = minDepth
+
+        if empty <= 7 { depth += 1 }
+        if empty <= 4 { depth += 1 }
+        if maxTile >= 1024 { depth += 1 }
+        if maxTile >= 4096 { depth += 1 }
+
+        return min(depth, maxDepth)
+    }
+
+    private func expectimax(board: GameBoard, depth: Int, maximizing: Bool) -> Double {
+        if depth == 0 || board.status != .inProgress {
+            return evaluate(board)
+        }
+
+        if let cached = cachedValue(for: board, depth: depth, maximizing: maximizing) {
+            return cached
+        }
+
+        let result: Double
+
+        if maximizing {
+            var best = -Double.infinity
+            var foundMove = false
+            for direction in orderMoves(for: board) {
+                guard let nextBoard = board.simulatedBoard(for: direction) else { continue }
+                foundMove = true
+                let score = expectimax(board: nextBoard, depth: depth - 1, maximizing: false)
+                if score > best {
+                    best = score
+                }
+            }
+            result = foundMove ? best : evaluate(board)
+        } else {
+            let empties = prioritizedEmpties(for: board)
+            if empties.isEmpty {
+                result = evaluate(board)
+            } else {
+                var accumulator = 0.0
+                let tileOptions: [(value: Int, probability: Double)] = [(2, 0.9), (4, 0.1)]
+                let emptyProbability = 1.0 / Double(empties.count)
+
+                for (row, col) in empties {
+                    for (value, probability) in tileOptions {
+                        var nextBoard = board
+                        nextBoard.grid[row][col] = value
+                        nextBoard.updateMaxTile()
+                        let score = expectimax(board: nextBoard, depth: depth - 1, maximizing: true)
+                        accumulator += emptyProbability * probability * score
+                    }
+                }
+                result = accumulator
+            }
+        }
+
+        storeCache(result, for: board, depth: depth, maximizing: maximizing)
+        return result
+    }
+
+    private func evaluate(_ board: GameBoard) -> Double {
+        let empties = Double(board.emptyCount())
+        let smoothness = board.smoothnessScore()
+        let monotonicity = board.monotonicityScore()
+        let alignment = board.cornerAlignmentScore()
+        let gradient = gradientScore(for: board)
+        let merge = mergePotential(for: board)
+        let mobility = Double(board.availableMoves().count)
+        let maxTileLog = board.maxTile > 0 ? log2(Double(board.maxTile)) : 0
+        let penalty = centerPenalty(for: board)
+
+        return empties * 140.0
+            + monotonicity * 1.9
+            + smoothness * 0.6
+            + alignment * 2.6
+            + gradient * 0.9
+            + merge * 24.0
+            + mobility * 28.0
+            + maxTileLog * 48.0
+            - penalty * 20.0
+    }
+
+    private func gradientScore(for board: GameBoard) -> Double {
+        var score = 0.0
+        for row in 0..<4 {
+            for col in 0..<4 {
+                let value = board.grid[row][col]
+                guard value > 0 else { continue }
+                score += gradientWeights[row][col] * log2(Double(value))
+            }
+        }
+        return score
+    }
+
+    private func mergePotential(for board: GameBoard) -> Double {
+        var score = 0.0
+        for row in 0..<4 {
+            for col in 0..<3 {
+                let value = board.grid[row][col]
+                guard value > 0 else { continue }
+                if board.grid[row][col + 1] == value {
+                    score += log2(Double(value)) * 1.3
+                }
+            }
+        }
+        for col in 0..<4 {
+            for row in 0..<3 {
+                let value = board.grid[row][col]
+                guard value > 0 else { continue }
+                if board.grid[row + 1][col] == value {
+                    score += log2(Double(value)) * 1.3
+                }
+            }
+        }
+        return score
+    }
+
+    private func centerPenalty(for board: GameBoard) -> Double {
+        let centers = [(1, 1), (1, 2), (2, 1), (2, 2)]
+        var penalty = 0.0
+        for (row, col) in centers {
+            let value = board.grid[row][col]
+            guard value > 0 else { continue }
+            penalty += log2(Double(value))
+        }
+        return penalty
+    }
+
+    private func orderMoves(for board: GameBoard) -> [MoveDirection] {
+        let moves = MoveDirection.allCases.compactMap { direction -> (MoveDirection, Double)? in
+            guard let candidate = board.simulatedBoard(for: direction) else { return nil }
+            let gain = Double(candidate.score - board.score)
+            let empties = Double(candidate.emptyCount())
+            let alignment = candidate.cornerAlignmentScore()
+            let monotonicity = candidate.monotonicityScore()
+            let heuristic = gain * 0.7 + empties * 2.2 + alignment * 2.0 + monotonicity * 0.9
+            return (direction, heuristic)
+        }
+        return moves.sorted { $0.1 > $1.1 }.map { $0.0 }
+    }
+
+    private func prioritizedEmpties(for board: GameBoard) -> [(Int, Int)] {
+        return board.emptyPositions().sorted { spawnWeights[$0.0][$0.1] > spawnWeights[$1.0][$1.1] }
+    }
+
+    private func cachedValue(for board: GameBoard, depth: Int, maximizing: Bool) -> Double? {
+        guard depth > 0 else { return nil }
+        let key = cacheKey(for: board, depth: depth, maximizing: maximizing)
+        guard let entry = Self.cache[key] else { return nil }
+        if entry.depth >= depth {
+            return entry.score
+        }
+        return nil
+    }
+
+    private func storeCache(_ value: Double, for board: GameBoard, depth: Int, maximizing: Bool) {
+        guard depth > 0 else { return }
+        let key = cacheKey(for: board, depth: depth, maximizing: maximizing)
+        Self.cache[key] = (depth, value)
+    }
+
+    private func cacheKey(for board: GameBoard, depth: Int, maximizing: Bool) -> String {
+        var components: [String] = []
+        components.reserveCapacity(18)
+        for row in board.grid {
+            for value in row {
+                components.append(String(value))
+            }
+        }
+        components.append(maximizing ? "M" : "C")
+        components.append(String(depth))
+        return components.joined(separator: ",")
+    }
+
+    private static func pruneCacheIfNeeded() {
+        if cache.count > maxCacheEntries {
+            cache.removeAll(keepingCapacity: true)
+        }
+    }
+}
+
 public final class GameScene: SKScene {
 
     private static let highScoreDateFormatter: DateFormatter = {
@@ -859,7 +1085,7 @@ public final class GameScene: SKScene {
     private var solverAccumulator: TimeInterval = 0
     private let solverInterval: TimeInterval = 0.18
 
-    private let solvers: [SolverStrategy] = [CornerTrapSolver(), SmoothnessSolver(), RandomSolver(), GrokSolver()]
+    private let solvers: [SolverStrategy] = [CornerTrapSolver(), SmoothnessSolver(), RandomSolver(), GrokSolver(), GPT5CodexSolver()]
     private var solverIndex: Int = 0 {
         didSet {
             isAutoplayActive = false
