@@ -1047,20 +1047,20 @@ private final class GPT5CodexSolver: SolverStrategy {
 private final class GPT5CodexSpeedSolver: SolverStrategy {
     let name = "GPT5 Codex Speed"
 
-    private static var cache: [String: Double] = [:]
-    private static let maxCacheEntries = 6000
+    private static var cache: [String: (depth: Int, value: Double)] = [:]
+    private static let maxCacheEntries = 8000
     private static var logCache: [Int: Double] = [:]
 
     private let minDepth = 2
-    private let maxDepth = 4
-    private let maxMovesToEvaluate = 3
+    private let maxDepth = 5
+    private let baseMovesToEvaluate = 3
     private let maxSampledEmpties = 6
 
     private let gradientWeights: [[Double]] = [
-        [3.8, 3.5, 3.2, 3.0],
-        [3.2, 2.9, 2.6, 2.3],
-        [2.6, 2.3, 2.0, 1.7],
-        [2.0, 1.8, 1.6, 1.3]
+        [3.9, 3.5, 3.2, 2.8],
+        [3.4, 3.0, 2.6, 2.2],
+        [2.8, 2.4, 2.0, 1.7],
+        [2.2, 1.9, 1.6, 1.3]
     ]
 
     private let spawnWeights: [[Double]] = [
@@ -1074,7 +1074,7 @@ private final class GPT5CodexSpeedSolver: SolverStrategy {
         Self.pruneCacheIfNeeded()
         let depth = chooseDepth(for: board)
         let orderedMoves = orderMoves(for: board)
-        let movesToEvaluate = orderedMoves.prefix(maxMovesToEvaluate)
+        let movesToEvaluate = orderedMoves.prefix(movesToExamine(for: board))
 
         var bestScore = -Double.infinity
         var bestMove: MoveDirection?
@@ -1090,7 +1090,7 @@ private final class GPT5CodexSpeedSolver: SolverStrategy {
                 alpha = max(alpha, score)
             }
 
-            if bestScore >= 1_000_000 { // early cut when we already found an extremely strong move
+            if bestScore >= 1_000_000 {
                 break
             }
         }
@@ -1103,14 +1103,25 @@ private final class GPT5CodexSpeedSolver: SolverStrategy {
         let empty = board.emptyCount()
         let maxTile = board.maxTile
 
-        if empty <= 5 || maxTile >= 1024 {
+        if empty <= 7 || maxTile >= 1024 {
             depth += 1
         }
-        if empty <= 3 || maxTile >= 4096 {
+        if empty <= 4 || maxTile >= 4096 {
+            depth += 1
+        }
+        if empty <= 2 || maxTile >= 8192 {
             depth += 1
         }
 
         return min(depth, maxDepth)
+    }
+
+    private func movesToExamine(for board: GameBoard) -> Int {
+        let empties = board.emptyCount()
+        if empties <= 4 || board.maxTile >= 2048 {
+            return min(baseMovesToEvaluate + 1, MoveDirection.allCases.count)
+        }
+        return baseMovesToEvaluate
     }
 
     private func expectimax(board: GameBoard, depth: Int, maximizing: Bool, alpha: inout Double) -> Double {
@@ -1126,7 +1137,7 @@ private final class GPT5CodexSpeedSolver: SolverStrategy {
 
         if maximizing {
             var best = -Double.infinity
-            let moves = orderMoves(for: board).prefix(maxMovesToEvaluate)
+            let moves = orderMoves(for: board).prefix(movesToExamine(for: board))
             for direction in moves {
                 guard let next = board.simulatedBoard(for: direction) else { continue }
                 var localAlpha = alpha
@@ -1146,9 +1157,9 @@ private final class GPT5CodexSpeedSolver: SolverStrategy {
                 result = evaluate(board)
             } else {
                 let sampled = empties.count <= maxSampledEmpties ? empties : Array(empties.prefix(maxSampledEmpties))
+                let tileOptions: [(Int, Double)] = [(2, 0.9), (4, 0.1)]
                 let positionWeight = 1.0 / Double(sampled.count)
                 var accumulator = 0.0
-                let tileOptions: [(Int, Double)] = [(2, 0.9), (4, 0.1)]
 
                 for (row, col) in sampled {
                     for (value, probability) in tileOptions {
@@ -1175,15 +1186,21 @@ private final class GPT5CodexSpeedSolver: SolverStrategy {
         let gradient = gradientScore(for: board)
         let alignment = board.cornerAlignmentScore()
         let mobility = Double(board.availableMoves().count)
+        let merge = mergePotential(for: board)
+        let stability = stabilityScore(for: board)
+        let centerPenalty = centerPenalty(for: board)
         let maxTileLog = board.maxTile > 0 ? Self.logValue(board.maxTile) : 0
 
-        return empties * 120.0
-            + monotonicity * 1.6
-            + smoothness * 0.5
-            + gradient * 0.7
-            + alignment * 2.3
-            + mobility * 22.0
-            + maxTileLog * 40.0
+        return empties * 130.0
+            + monotonicity * 1.8
+            + smoothness * 0.55
+            + gradient * 0.75
+            + alignment * 2.6
+            + mobility * 24.0
+            + merge * 32.0
+            + stability * 1.2
+            + maxTileLog * 42.0
+            - centerPenalty * 18.0
     }
 
     private func gradientScore(for board: GameBoard) -> Double {
@@ -1198,6 +1215,59 @@ private final class GPT5CodexSpeedSolver: SolverStrategy {
         return score
     }
 
+    private func mergePotential(for board: GameBoard) -> Double {
+        var score = 0.0
+        for row in 0..<4 {
+            for col in 0..<3 {
+                let value = board.grid[row][col]
+                guard value > 0 else { continue }
+                if board.grid[row][col + 1] == value {
+                    score += Self.logValue(value) * 1.6
+                }
+            }
+        }
+        for col in 0..<4 {
+            for row in 0..<3 {
+                let value = board.grid[row][col]
+                guard value > 0 else { continue }
+                if board.grid[row + 1][col] == value {
+                    score += Self.logValue(value) * 1.6
+                }
+            }
+        }
+        return score
+    }
+
+    private func stabilityScore(for board: GameBoard) -> Double {
+        // Reward keeping the largest values in the same corner and forming a descending snake.
+        let snakePattern: [[Double]] = [
+            [6.0, 5.5, 5.0, 4.5],
+            [1.0, 1.5, 2.0, 2.5],
+            [0.9, 0.8, 0.7, 0.6],
+            [0.5, 0.4, 0.3, 0.2]
+        ]
+        var score = 0.0
+        for row in 0..<4 {
+            for col in 0..<4 {
+                let value = board.grid[row][col]
+                guard value > 0 else { continue }
+                score += snakePattern[row][col] * Self.logValue(value)
+            }
+        }
+        return score
+    }
+
+    private func centerPenalty(for board: GameBoard) -> Double {
+        let centers = [(1, 1), (1, 2), (2, 1), (2, 2)]
+        var penalty = 0.0
+        for (row, col) in centers {
+            let value = board.grid[row][col]
+            guard value > 0 else { continue }
+            penalty += Self.logValue(value)
+        }
+        return penalty
+    }
+
     private func orderMoves(for board: GameBoard) -> [MoveDirection] {
         let scoredMoves = MoveDirection.allCases.compactMap { direction -> (MoveDirection, Double)? in
             guard let candidate = board.simulatedBoard(for: direction) else { return nil }
@@ -1205,7 +1275,8 @@ private final class GPT5CodexSpeedSolver: SolverStrategy {
             let empties = Double(candidate.emptyCount())
             let monotonicity = candidate.monotonicityScore()
             let alignment = candidate.cornerAlignmentScore()
-            let heuristic = gain * 0.6 + empties * 2.0 + alignment * 1.8 + monotonicity * 0.8
+            let merge = mergePotential(for: candidate)
+            let heuristic = gain * 0.65 + empties * 2.1 + alignment * 1.9 + monotonicity * 0.85 + merge * 0.4
             return (direction, heuristic)
         }
         return scoredMoves.sorted { $0.1 > $1.1 }.map { $0.0 }
@@ -1230,12 +1301,16 @@ private final class GPT5CodexSpeedSolver: SolverStrategy {
 
     private func cachedValue(for board: GameBoard, depth: Int, maximizing: Bool) -> Double? {
         let key = cacheKey(for: board, depth: depth, maximizing: maximizing)
-        return Self.cache[key]
+        guard let entry = Self.cache[key], entry.depth >= depth else { return nil }
+        return entry.value
     }
 
     private func storeCache(_ value: Double, for board: GameBoard, depth: Int, maximizing: Bool) {
         let key = cacheKey(for: board, depth: depth, maximizing: maximizing)
-        Self.cache[key] = value
+        if let existing = Self.cache[key], existing.depth >= depth {
+            return
+        }
+        Self.cache[key] = (depth, value)
     }
 
     private static func pruneCacheIfNeeded() {
