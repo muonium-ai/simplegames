@@ -382,7 +382,7 @@ class GameScene: SKScene {
             let movedTileValue = previousState.board[movedTileIndex]
             
             // Find the SKNode for that tile
-            if let tileNode = self.children.first(where: { $0.name == "tile\(movedTileValue)" }) {
+            if self.children.contains(where: { $0.name == "tile\(movedTileValue)" }) {
                 let action = SKAction.run {
                     // Find the index of the tile to move in our `tiles` array
                     if let indexToMove = self.tiles.firstIndex(where: { $0?.name == "tile\(movedTileValue)" }) {
