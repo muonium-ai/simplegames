@@ -198,7 +198,7 @@ final class PuzzleSolver {
     }
 }
 
-private final class ConstructiveSolver {
+private final class LegacyConstructiveSolver {
 
     private struct Board {
         var tiles: [Int]
@@ -731,3 +731,299 @@ private final class ConstructiveSolver {
         return moves.reversed()
     }
 }
+
+    private final class ConstructiveSolver {
+
+        private struct Board {
+            var tiles: [Int]
+            let size: Int
+            var emptyIndex: Int
+
+            mutating func swapEmpty(with index: Int) {
+                tiles.swapAt(emptyIndex, index)
+                emptyIndex = index
+            }
+
+            func toPuzzleState() -> PuzzleState {
+                PuzzleState(board: tiles, size: size, emptyTileIndex: emptyIndex)
+            }
+
+            func index(forRow row: Int, col: Int) -> Int {
+                row * size + col
+            }
+
+            func neighbors(of index: Int) -> [Int] {
+                let row = index / size
+                let col = index % size
+                var result: [Int] = []
+                if row > 0 { result.append(index - size) }
+                if row < size - 1 { result.append(index + size) }
+                if col > 0 { result.append(index - 1) }
+                if col < size - 1 { result.append(index + 1) }
+                return result
+            }
+
+            func goalValue(for index: Int) -> Int {
+                index == tiles.count - 1 ? 0 : index + 1
+            }
+
+            func isSolved() -> Bool {
+                let last = tiles.count - 1
+                for i in 0..<last where tiles[i] != i + 1 {
+                    return false
+                }
+                return tiles[last] == 0
+            }
+        }
+
+        private struct TileMoveState: Hashable {
+            let tileIndex: Int
+            let emptyIndex: Int
+        }
+
+        private let initialState: PuzzleState
+        private var board: Board
+        private var states: [PuzzleState] = []
+        private var locked: Set<Int> = []
+        private let columnOrder: [(Int, Int)]
+        private let rowOrder: [(Int, Int)]
+
+        init(initialState: PuzzleState) {
+            self.initialState = initialState
+            board = Board(tiles: initialState.board, size: initialState.size, emptyIndex: initialState.emptyTileIndex)
+            columnOrder = ConstructiveSolver.buildColumnTraversal(size: initialState.size)
+            rowOrder = ConstructiveSolver.buildRowTraversal(size: initialState.size)
+        }
+
+        func solve() -> [PuzzleState]? {
+            states = [initialState]
+            board = Board(tiles: initialState.board, size: initialState.size, emptyIndex: initialState.emptyTileIndex)
+
+            guard constructSolution(), board.isSolved() else {
+                return LegacyConstructiveSolver(initialState: initialState).solve()
+            }
+
+            return states
+        }
+
+        private func constructSolution() -> Bool {
+            if board.isSolved() { return true }
+
+            let maxIterations = max(8, board.size * 6)
+            for _ in 0..<maxIterations {
+                if board.isSolved() { return true }
+                let columnProgress = performPass(order: columnOrder)
+                if board.isSolved() { return true }
+                let rowProgress = performPass(order: rowOrder)
+                if board.isSolved() { return true }
+                if !columnProgress && !rowProgress { break }
+            }
+
+            if board.isSolved() { return true }
+            return finishWithAStar()
+        }
+
+        private func performPass(order: [(Int, Int)]) -> Bool {
+            var madeProgress = false
+            var progress = true
+
+            while progress {
+                progress = false
+                locked.removeAll()
+
+                for (row, col) in order {
+                    let targetIndex = board.index(forRow: row, col: col)
+                    let goalValue = board.goalValue(for: targetIndex)
+                    if goalValue == 0 { continue }
+
+                    if ensureTile(value: goalValue, row: row, col: col) {
+                        progress = true
+                        madeProgress = true
+                    }
+                }
+            }
+
+            locked.removeAll()
+            return madeProgress
+        }
+
+        private func ensureTile(value: Int, row: Int, col: Int) -> Bool {
+            let targetIndex = board.index(forRow: row, col: col)
+            if board.tiles[targetIndex] == value {
+                locked.insert(targetIndex)
+                return false
+            }
+
+            guard let path = planPathForTile(value: value, targetIndex: targetIndex) else {
+                return false
+            }
+
+            applyBlankPath(path)
+            locked.insert(targetIndex)
+            return true
+        }
+
+        private func planPathForTile(value: Int, targetIndex: Int) -> [Int]? {
+            guard let startTileIndex = board.tiles.firstIndex(of: value) else { return nil }
+            let startState = TileMoveState(tileIndex: startTileIndex, emptyIndex: board.emptyIndex)
+
+            if startState.tileIndex == targetIndex {
+                return []
+            }
+
+            var queue: [TileMoveState] = [startState]
+            var parents: [TileMoveState: (TileMoveState, Int)] = [:]
+            var visited: Set<TileMoveState> = [startState]
+            var cursor = 0
+
+            while cursor < queue.count {
+                let state = queue[cursor]
+                cursor += 1
+
+                if state.tileIndex == targetIndex {
+                    return reconstructTilePath(from: state, parents: parents)
+                }
+
+                for neighbor in board.neighbors(of: state.emptyIndex) {
+                    if locked.contains(neighbor) && neighbor != state.tileIndex && neighbor != targetIndex {
+                        continue
+                    }
+
+                    var nextTileIndex = state.tileIndex
+                    if neighbor == state.tileIndex {
+                        nextTileIndex = state.emptyIndex
+                    }
+
+                    let nextState = TileMoveState(tileIndex: nextTileIndex, emptyIndex: neighbor)
+                    if visited.insert(nextState).inserted {
+                        parents[nextState] = (state, neighbor)
+                        queue.append(nextState)
+                    }
+                }
+            }
+
+            return nil
+        }
+
+        private func reconstructTilePath(from state: TileMoveState, parents: [TileMoveState: (TileMoveState, Int)]) -> [Int] {
+            var moves: [Int] = []
+            var current = state
+            while let record = parents[current] {
+                moves.append(record.1)
+                current = record.0
+            }
+            return moves.reversed()
+        }
+
+        private func applyBlankPath(_ path: [Int]) {
+            for destination in path {
+                board.swapEmpty(with: destination)
+                states.append(board.toPuzzleState())
+            }
+        }
+
+        private func finishWithAStar() -> Bool {
+            var open = PriorityQueue<AStarNode>()
+            var closed: Set<PuzzleState> = []
+
+            let startNode = AStarNode(state: board.toPuzzleState(), parent: nil, g: 0)
+            open.enqueue(startNode)
+
+            while let current = open.dequeue() {
+                if current.state.isGoal() {
+                    let path = reconstructAStarPath(from: current)
+                    appendStates(from: path)
+                    return true
+                }
+
+                if !closed.insert(current.state).inserted {
+                    continue
+                }
+
+                for neighbor in generateNeighbors(for: current.state) {
+                    if closed.contains(neighbor) { continue }
+                    open.enqueue(AStarNode(state: neighbor, parent: current, g: current.g + 1))
+                }
+            }
+
+            return false
+        }
+
+        private func generateNeighbors(for state: PuzzleState) -> [PuzzleState] {
+            let size = state.size
+            let empty = state.emptyTileIndex
+            let row = empty / size
+            let col = empty % size
+            var result: [PuzzleState] = []
+
+            if row > 0 {
+                let newIndex = empty - size
+                var newBoard = state.board
+                newBoard.swapAt(empty, newIndex)
+                result.append(PuzzleState(board: newBoard, size: size, emptyTileIndex: newIndex))
+            }
+            if row < size - 1 {
+                let newIndex = empty + size
+                var newBoard = state.board
+                newBoard.swapAt(empty, newIndex)
+                result.append(PuzzleState(board: newBoard, size: size, emptyTileIndex: newIndex))
+            }
+            if col > 0 {
+                let newIndex = empty - 1
+                var newBoard = state.board
+                newBoard.swapAt(empty, newIndex)
+                result.append(PuzzleState(board: newBoard, size: size, emptyTileIndex: newIndex))
+            }
+            if col < size - 1 {
+                let newIndex = empty + 1
+                var newBoard = state.board
+                newBoard.swapAt(empty, newIndex)
+                result.append(PuzzleState(board: newBoard, size: size, emptyTileIndex: newIndex))
+            }
+
+            return result
+        }
+
+        private func reconstructAStarPath(from node: AStarNode) -> [PuzzleState] {
+            var path: [PuzzleState] = []
+            var cursor: AStarNode? = node
+            while let current = cursor {
+                path.insert(current.state, at: 0)
+                cursor = current.parent
+            }
+            return path
+        }
+
+        private func appendStates(from path: [PuzzleState]) {
+            guard path.count > 1 else { return }
+            for state in path.dropFirst() {
+                board.tiles = state.board
+                board.emptyIndex = state.emptyTileIndex
+                states.append(state)
+            }
+        }
+
+        private static func buildColumnTraversal(size: Int) -> [(Int, Int)] {
+            var order: [(Int, Int)] = []
+            order.reserveCapacity(size * size)
+            for col in 0..<size {
+                for row in 0..<size {
+                    if row == size - 1 && col == size - 1 { continue }
+                    order.append((row, col))
+                }
+            }
+            return order
+        }
+
+        private static func buildRowTraversal(size: Int) -> [(Int, Int)] {
+            var order: [(Int, Int)] = []
+            order.reserveCapacity(size * size)
+            for row in 0..<size {
+                for col in 0..<size {
+                    if row == size - 1 && col == size - 1 { continue }
+                    order.append((row, col))
+                }
+            }
+            return order
+        }
+    }
