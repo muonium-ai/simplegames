@@ -12,6 +12,10 @@ class GameScene: SKScene {
     private var moves = 0
     private var movesLabel: SKLabelNode!
     private var shuffleButton: SKLabelNode!
+    private var settingsButton: SKLabelNode!
+    private var solveButton: SKLabelNode!
+    
+    private var settingsPanel: SKShapeNode!
 
     override func didMove(to view: SKView) {
         anchorPoint = CGPoint(x: 0.5, y: 0.5)
@@ -28,14 +32,107 @@ class GameScene: SKScene {
         movesLabel.position = CGPoint(x: 0, y: size.height/2 - 80)
         addChild(movesLabel)
 
+        // Bottom buttons container
+        let bottomButtonY = -size.height/2 + 50
+        
         // Shuffle button
         shuffleButton = SKLabelNode(fontNamed: "Arial-BoldMT")
         shuffleButton.text = "Shuffle"
         shuffleButton.fontSize = 30
         shuffleButton.fontColor = .white
-        shuffleButton.position = CGPoint(x: 0, y: -size.height/2 + 50)
+        shuffleButton.position = CGPoint(x: -100, y: bottomButtonY)
         shuffleButton.name = "shuffle"
         addChild(shuffleButton)
+        
+        // Solve button
+        solveButton = SKLabelNode(fontNamed: "Arial-BoldMT")
+        solveButton.text = "Solve"
+        solveButton.fontSize = 30
+        solveButton.fontColor = .white
+        solveButton.position = CGPoint(x: 0, y: bottomButtonY)
+        solveButton.name = "solve"
+        addChild(solveButton)
+        
+        // Settings button
+        settingsButton = SKLabelNode(fontNamed: "Arial-BoldMT")
+        settingsButton.text = "Settings"
+        settingsButton.fontSize = 30
+        settingsButton.fontColor = .white
+        settingsButton.position = CGPoint(x: 100, y: bottomButtonY)
+        settingsButton.name = "settings"
+        addChild(settingsButton)
+        
+        createSettingsPanel()
+    }
+
+    func createSettingsPanel() {
+        settingsPanel = SKShapeNode(rectOf: CGSize(width: size.width * 0.8, height: size.height * 0.6), cornerRadius: 15)
+        settingsPanel.fillColor = SKColor(white: 0, alpha: 0.8)
+        settingsPanel.strokeColor = .white
+        settingsPanel.lineWidth = 2
+        settingsPanel.position = CGPoint(x: 0, y: 0)
+        settingsPanel.zPosition = 200
+        
+        // Title
+        let title = SKLabelNode(fontNamed: "Arial-BoldMT")
+        title.text = "Settings"
+        title.fontSize = 40
+        title.fontColor = .white
+        title.position = CGPoint(x: 0, y: settingsPanel.frame.height/2 - 60)
+        settingsPanel.addChild(title)
+        
+        // Board Size Section
+        let sizeLabel = SKLabelNode(fontNamed: "Arial")
+        sizeLabel.text = "Board Size:"
+        sizeLabel.fontSize = 24
+        sizeLabel.fontColor = .white
+        sizeLabel.position = CGPoint(x: 0, y: 100)
+        settingsPanel.addChild(sizeLabel)
+        
+        for (i, size) in [3, 4, 5].enumerated() {
+            let sizeButton = SKLabelNode(fontNamed: "Arial-BoldMT")
+            sizeButton.text = "\(size)x\(size)"
+            sizeButton.fontSize = 28
+            sizeButton.fontColor = self.boardSize == size ? .green : .white
+            sizeButton.name = "size_\(size)"
+            sizeButton.position = CGPoint(x: -100 + (i * 100), y: 50)
+            settingsPanel.addChild(sizeButton)
+        }
+        
+        // Background Color Section
+        let bgLabel = SKLabelNode(fontNamed: "Arial")
+        bgLabel.text = "Background Color:"
+        bgLabel.fontSize = 24
+        bgLabel.fontColor = .white
+        bgLabel.position = CGPoint(x: 0, y: -20)
+        settingsPanel.addChild(bgLabel)
+        
+        let colors: [String: SKColor] = ["Black": .black, "Blue": .blue, "Gray": .darkGray]
+        for (i, (colorName, color)) in colors.enumerated() {
+            let colorButton = SKShapeNode(rectOf: CGSize(width: 50, height: 50), cornerRadius: 10)
+            colorButton.fillColor = color
+            colorButton.strokeColor = self.backgroundColor == color ? .green : .white
+            colorButton.lineWidth = 3
+            colorButton.name = "color_\(colorName)"
+            colorButton.position = CGPoint(x: -80 + (i * 80), y: -70)
+            settingsPanel.addChild(colorButton)
+        }
+        
+        // Back Button
+        let backButton = SKLabelNode(fontNamed: "Arial-BoldMT")
+        backButton.text = "Back"
+        backButton.fontSize = 30
+        backButton.fontColor = .white
+        backButton.name = "back"
+        backButton.position = CGPoint(x: 0, y: -settingsPanel.frame.height/2 + 40)
+        settingsPanel.addChild(backButton)
+        
+        settingsPanel.isHidden = true
+        addChild(settingsPanel)
+    }
+    
+    func toggleSettingsPanel(show: Bool) {
+        settingsPanel.isHidden = !show
     }
 
     func setupGame() {
@@ -53,7 +150,10 @@ class GameScene: SKScene {
 
         for i in 0..<(totalTiles - 1) {
             let tile = SKSpriteNode(color: .darkGray, size: CGSize(width: tileSize - 4, height: tileSize - 4))
-            tile.texture = SKTexture(imageNamed: "tile_bg") // Using a texture for better visuals
+            // Safely load texture
+            if let tileTexture = SKTexture(imageNamed: "tile_bg") as SKTexture? {
+                tile.texture = tileTexture
+            }
             tile.name = "tile\(i+1)"
             
             let numberLabel = SKLabelNode(fontNamed: "Arial-BoldMT")
@@ -71,7 +171,7 @@ class GameScene: SKScene {
         emptyTileIndex = totalTiles - 1
         tiles[emptyTileIndex] = nil
 
-        shuffle()
+        shuffleBoard()
     }
 
     func position(for index: Int) -> CGPoint {
@@ -86,12 +186,13 @@ class GameScene: SKScene {
         return CGPoint(x: x, y: y)
     }
 
-    func shuffle() {
+    func shuffleBoard() {
         // Using Random-Walk Scramble from PRD
         var lastMove: Int? = nil
-        for _ in 0..<100 {
+        // A higher number of steps for a better shuffle
+        for _ in 0..<200 {
             let validMoves = getValidMoves()
-            var movableTiles = validMoves.map { $0 }
+            var movableTiles = validMoves
             
             // Avoid immediate backtracks to increase variety
             if let last = lastMove, let backTrackIndex = movableTiles.firstIndex(of: last) {
@@ -100,18 +201,16 @@ class GameScene: SKScene {
             
             guard let randomTileIndex = movableTiles.randomElement() else { continue }
             
-            // We are moving the tile *into* the empty space.
-            // The index of the tile to move is `randomTileIndex`.
-            // The empty space is at `emptyTileIndex`.
-            let tileToMove = tiles[randomTileIndex]
-            tiles[emptyTileIndex] = tileToMove
-            tiles[randomTileIndex] = nil
+            // In a random walk, we simulate moving a tile into the empty space.
+            // The tile at `randomTileIndex` moves into the `emptyTileIndex`.
+            tiles.swapAt(randomTileIndex, emptyTileIndex)
             
-            lastMove = emptyTileIndex // The new empty spot is where the tile was
+            // The new empty spot is where the tile *was*.
+            lastMove = emptyTileIndex
             emptyTileIndex = randomTileIndex
         }
         
-        // After shuffling, update visual positions without animation
+        // After shuffling the model, update the visual positions of all tiles.
         for (index, tile) in tiles.enumerated() {
             tile?.position = position(for: index)
         }
@@ -134,10 +233,47 @@ class GameScene: SKScene {
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
         guard let touch = touches.first else { return }
         let location = touch.location(in: self)
+        
+        // Handle settings panel touches first if it's visible
+        if !settingsPanel.isHidden {
+            let panelLocation = touch.location(in: settingsPanel)
+            let touchedNodeInPanel = settingsPanel.atPoint(panelLocation)
+            
+            if let nodeName = touchedNodeInPanel.name {
+                if nodeName.starts(with: "size_") {
+                    let newSize = Int(nodeName.components(separatedBy: "_")[1])!
+                    if boardSize != newSize {
+                        boardSize = newSize
+                        // Re-create panel to update selection state
+                        settingsPanel.removeFromParent()
+                        createSettingsPanel()
+                        setupGame()
+                    }
+                } else if nodeName.starts(with: "color_") {
+                    let colorName = nodeName.components(separatedBy: "_")[1]
+                    let colors: [String: SKColor] = ["Black": .black, "Blue": .blue, "Gray": .darkGray]
+                    self.backgroundColor = colors[colorName] ?? .black
+                    // Re-create panel to update selection state
+                    settingsPanel.removeFromParent()
+                    createSettingsPanel()
+                } else if nodeName == "back" {
+                    toggleSettingsPanel(show: false)
+                }
+            }
+            return // Absorb touches while settings are open
+        }
+
         let touchedNode = atPoint(location)
 
         if touchedNode.name == "shuffle" {
             setupGame()
+            return
+        } else if touchedNode.name == "settings" {
+            toggleSettingsPanel(show: true)
+            return
+        } else if touchedNode.name == "solve" {
+            // Placeholder for solver logic
+            print("Solve button tapped")
             return
         }
 
@@ -159,8 +295,8 @@ class GameScene: SKScene {
             let emptyPosition = position(for: emptyTileIndex)
             tile.run(SKAction.move(to: emptyPosition, duration: 0.15))
             
-            tiles[emptyTileIndex] = tile
-            tiles[index] = nil
+            // Correctly swap the tiles in the model
+            tiles.swapAt(index, emptyTileIndex)
             emptyTileIndex = index
             
             moves += 1
