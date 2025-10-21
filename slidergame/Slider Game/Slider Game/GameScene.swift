@@ -11,9 +11,9 @@ class GameScene: SKScene {
     
     private var moves = 0
     private var movesLabel: SKLabelNode!
-    private var shuffleButton: SKLabelNode!
-    private var settingsButton: SKLabelNode!
-    private var solveButton: SKLabelNode!
+    private var shuffleButton: SKNode!
+    private var settingsButton: SKNode!
+    private var solveButton: SKNode!
     
     private var settingsPanel: SKShapeNode!
 
@@ -33,36 +33,46 @@ class GameScene: SKScene {
         addChild(movesLabel)
 
         // Bottom buttons container
-        let bottomButtonY = -size.height/2 + 50
+        let bottomButtonY = -size.height/2 + 60
+        let buttonSpacing: CGFloat = 140
         
-        // Shuffle button
-        shuffleButton = SKLabelNode(fontNamed: "Arial-BoldMT")
-        shuffleButton.text = "Shuffle"
-        shuffleButton.fontSize = 30
-        shuffleButton.fontColor = .white
-        shuffleButton.position = CGPoint(x: -100, y: bottomButtonY)
-        shuffleButton.name = "shuffle"
+        // Create buttons
+        shuffleButton = createButton(text: "Shuffle", name: "shuffle")
+        shuffleButton.position = CGPoint(x: -buttonSpacing, y: bottomButtonY)
         addChild(shuffleButton)
         
-        // Solve button
-        solveButton = SKLabelNode(fontNamed: "Arial-BoldMT")
-        solveButton.text = "Solve"
-        solveButton.fontSize = 30
-        solveButton.fontColor = .white
+        solveButton = createButton(text: "Solve", name: "solve")
         solveButton.position = CGPoint(x: 0, y: bottomButtonY)
-        solveButton.name = "solve"
         addChild(solveButton)
         
-        // Settings button
-        settingsButton = SKLabelNode(fontNamed: "Arial-BoldMT")
-        settingsButton.text = "Settings"
-        settingsButton.fontSize = 30
-        settingsButton.fontColor = .white
-        settingsButton.position = CGPoint(x: 100, y: bottomButtonY)
-        settingsButton.name = "settings"
+        settingsButton = createButton(text: "Settings", name: "settings")
+        settingsButton.position = CGPoint(x: buttonSpacing, y: bottomButtonY)
         addChild(settingsButton)
         
         createSettingsPanel()
+    }
+    
+    func createButton(text: String, name: String) -> SKNode {
+        let buttonNode = SKNode()
+        buttonNode.name = name
+        
+        let buttonWidth: CGFloat = 120
+        let buttonHeight: CGFloat = 40
+        
+        let background = SKShapeNode(rectOf: CGSize(width: buttonWidth, height: buttonHeight), cornerRadius: 10)
+        background.fillColor = SKColor(white: 0.2, alpha: 1)
+        background.strokeColor = .white
+        background.lineWidth = 2
+        buttonNode.addChild(background)
+        
+        let label = SKLabelNode(fontNamed: "Arial-BoldMT")
+        label.text = text
+        label.fontSize = 20
+        label.fontColor = .white
+        label.verticalAlignmentMode = .center
+        buttonNode.addChild(label)
+        
+        return buttonNode
     }
 
     func createSettingsPanel() {
@@ -264,14 +274,17 @@ class GameScene: SKScene {
         }
 
         let touchedNode = atPoint(location)
+        let parentNode = touchedNode.parent
 
-        if touchedNode.name == "shuffle" {
+        let nodeName = parentNode?.name ?? touchedNode.name
+
+        if nodeName == "shuffle" {
             setupGame()
             return
-        } else if touchedNode.name == "settings" {
+        } else if nodeName == "settings" {
             toggleSettingsPanel(show: true)
             return
-        } else if touchedNode.name == "solve" {
+        } else if nodeName == "solve" {
             solvePuzzle()
             return
         }
