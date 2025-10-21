@@ -1,109 +1,119 @@
-//
-//  GameScene.swift
-//  Slider Game
-//
-//  Created by Senthil Nayagam on 21/10/25.
-//
-
 import SpriteKit
-import GameplayKit
 
 class GameScene: SKScene {
     
-    var entities = [GKEntity]()
-    var graphs = [String : GKGraph]()
-    
-    private var lastUpdateTime : TimeInterval = 0
-    private var label : SKLabelNode?
-    private var spinnyNode : SKShapeNode?
-    
-    override func sceneDidLoad() {
+    private var boardSize = 3
+    private var tileSize: CGFloat = 0
+    private var tiles: [SKSpriteNode?] = []
+    private var emptyTileIndex: Int = 0
+    private var gameWon = false
 
-        self.lastUpdateTime = 0
-        
-        // Get label node from scene and store it for use later
-        self.label = self.childNode(withName: "//helloLabel") as? SKLabelNode
-        if let label = self.label {
-            label.alpha = 0.0
-            label.run(SKAction.fadeIn(withDuration: 2.0))
-        }
-        
-        // Create shape node to use during mouse interaction
-        let w = (self.size.width + self.size.height) * 0.05
-        self.spinnyNode = SKShapeNode.init(rectOf: CGSize.init(width: w, height: w), cornerRadius: w * 0.3)
-        
-        if let spinnyNode = self.spinnyNode {
-            spinnyNode.lineWidth = 2.5
+    override func didMove(to view: SKView) {
+        setupGame()
+    }
+
+    func setupGame() {
+        gameWon = false
+        tileSize = size.width / CGFloat(boardSize)
+        let totalTiles = boardSize * boardSize
+        tiles = Array(repeating: nil, count: totalTiles)
+
+        for i in 0..<(totalTiles - 1) {
+            let tile = SKSpriteNode(color: .gray, size: CGSize(width: tileSize - 2, height: tileSize - 2))
+            tile.name = "tile\(i+1)"
             
-            spinnyNode.run(SKAction.repeatForever(SKAction.rotate(byAngle: CGFloat(Double.pi), duration: 1)))
-            spinnyNode.run(SKAction.sequence([SKAction.wait(forDuration: 0.5),
-                                              SKAction.fadeOut(withDuration: 0.5),
-                                              SKAction.removeFromParent()]))
+            let numberLabel = SKLabelNode(fontNamed: "Arial")
+            numberLabel.text = "\(i+1)"
+            numberLabel.fontSize = 40
+            numberLabel.fontColor = .white
+            numberLabel.verticalAlignmentMode = .center
+            tile.addChild(numberLabel)
+            
+            tiles[i] = tile
+            tile.position = position(for: i)
+            addChild(tile)
+        }
+        
+        emptyTileIndex = totalTiles - 1
+        tiles[emptyTileIndex] = nil
+
+        shuffle()
+    }
+
+    func position(for index: Int) -> CGPoint {
+        let row = CGFloat(index / boardSize)
+        let col = CGFloat(index % boardSize)
+        let x = col * tileSize + tileSize / 2 - size.width / 2
+        let y = size.height / 2 - (row * tileSize + tileSize / 2)
+        return CGPoint(x: x, y: y)
+    }
+
+    func shuffle() {
+        var lastMove: Int? = nil
+        for _ in 0..<100 {
+            let validMoves = getValidMoves()
+            var randomMove: Int
+            repeat {
+                randomMove = validMoves.randomElement()!
+            } while lastMove != nil && randomMove == lastMove!
+            
+            moveTile(at: randomMove)
+            lastMove = emptyTileIndex
         }
     }
-    
-    
-    func touchDown(atPoint pos : CGPoint) {
-        if let n = self.spinnyNode?.copy() as! SKShapeNode? {
-            n.position = pos
-            n.strokeColor = SKColor.green
-            self.addChild(n)
-        }
+
+    func getValidMoves() -> [Int] {
+        var moves: [Int] = []
+        let emptyRow = emptyTileIndex / boardSize
+        let emptyCol = emptyTileIndex % boardSize
+
+        if emptyRow > 0 { moves.append(emptyTileIndex - boardSize) } // Up
+        if emptyRow < boardSize - 1 { moves.append(emptyTileIndex + boardSize) } // Down
+        if emptyCol > 0 { moves.append(emptyTileIndex - 1) } // Left
+        if emptyCol < boardSize - 1 { moves.append(emptyTileIndex + 1) } // Right
+        
+        return moves
     }
-    
-    func touchMoved(toPoint pos : CGPoint) {
-        if let n = self.spinnyNode?.copy() as! SKShapeNode? {
-            n.position = pos
-            n.strokeColor = SKColor.blue
-            self.addChild(n)
-        }
-    }
-    
-    func touchUp(atPoint pos : CGPoint) {
-        if let n = self.spinnyNode?.copy() as! SKShapeNode? {
-            n.position = pos
-            n.strokeColor = SKColor.red
-            self.addChild(n)
-        }
-    }
-    
+
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
-        if let label = self.label {
-            label.run(SKAction.init(named: "Pulse")!, withKey: "fadeInOut")
+        guard !gameWon, let touch = touches.first else { return }
+        let location = touch.location(in: self)
+        
+        for i in 0..<tiles.count {
+            if let tile = tiles[i], tile.contains(location) {
+                if getValidMoves().contains(i) {
+                    moveTile(at: i)
+                    checkForWin()
+                }
+                break
+            }
+        }
+    }
+
+    func moveTile(at index: Int) {
+        if let tile = tiles[index] {
+            let emptyPosition = position(for: emptyTileIndex)
+            tile.run(SKAction.move(to: emptyPosition, duration: 0.1))
+            
+            tiles[emptyTileIndex] = tile
+            tiles[index] = nil
+            emptyTileIndex = index
+        }
+    }
+
+    func checkForWin() {
+        for i in 0..<(tiles.count - 1) {
+            if tiles[i] == nil || tiles[i]!.name != "tile\(i+1)" {
+                return
+            }
         }
         
-        for t in touches { self.touchDown(atPoint: t.location(in: self)) }
-    }
-    
-    override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
-        for t in touches { self.touchMoved(toPoint: t.location(in: self)) }
-    }
-    
-    override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
-        for t in touches { self.touchUp(atPoint: t.location(in: self)) }
-    }
-    
-    override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent?) {
-        for t in touches { self.touchUp(atPoint: t.location(in: self)) }
-    }
-    
-    
-    override func update(_ currentTime: TimeInterval) {
-        // Called before each frame is rendered
-        
-        // Initialize _lastUpdateTime if it has not already been
-        if (self.lastUpdateTime == 0) {
-            self.lastUpdateTime = currentTime
-        }
-        
-        // Calculate time since last update
-        let dt = currentTime - self.lastUpdateTime
-        
-        // Update entities
-        for entity in self.entities {
-            entity.update(deltaTime: dt)
-        }
-        
-        self.lastUpdateTime = currentTime
+        gameWon = true
+        let winLabel = SKLabelNode(fontNamed: "Arial")
+        winLabel.text = "You Win!"
+        winLabel.fontSize = 60
+        winLabel.fontColor = .green
+        winLabel.position = CGPoint(x: 0, y: 0)
+        addChild(winLabel)
     }
 }
