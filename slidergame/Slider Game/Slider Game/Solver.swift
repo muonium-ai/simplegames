@@ -93,22 +93,35 @@ struct PuzzleState: Hashable {
     }
 }
 
-// A node in the A* search tree
+// A node in the search tree
 class SolverNode: Comparable {
     let state: PuzzleState
     let parent: SolverNode?
     let g: Int // Cost from start
     let h: Int // Heuristic cost to goal
-    var f: Int { return g + h } // Total cost
+    private let strategy: SolverStrategy
 
-    init(state: PuzzleState, parent: SolverNode?, g: Int) {
+    var f: Int {
+        switch strategy {
+        case .aStar:
+            return g + h
+        case .greedy:
+            return h
+        }
+    }
+
+    init(state: PuzzleState, parent: SolverNode?, g: Int, strategy: SolverStrategy) {
         self.state = state
         self.parent = parent
         self.g = g
         self.h = state.manhattanDistance()
+        self.strategy = strategy
     }
 
     static func < (lhs: SolverNode, rhs: SolverNode) -> Bool {
+        if lhs.f == rhs.f {
+            return lhs.g > rhs.g // Prefer deeper paths for tie-breaking in greedy
+        }
         return lhs.f < rhs.f
     }
 
@@ -117,12 +130,19 @@ class SolverNode: Comparable {
     }
 }
 
+enum SolverStrategy {
+    case aStar
+    case greedy
+}
+
 class PuzzleSolver {
     func solve(initialState: PuzzleState) -> [PuzzleState]? {
+        let strategy: SolverStrategy = initialState.size > 3 ? .greedy : .aStar
+        
         var openSet = PriorityQueue<SolverNode>()
         var closedSet = Set<PuzzleState>()
 
-        let startNode = SolverNode(state: initialState, parent: nil, g: 0)
+        let startNode = SolverNode(state: initialState, parent: nil, g: 0, strategy: strategy)
         openSet.enqueue(startNode)
 
         while let currentNode = openSet.dequeue() {
@@ -138,10 +158,10 @@ class PuzzleSolver {
                 }
 
                 let gScore = currentNode.g + 1
-                let neighborNode = SolverNode(state: neighborState, parent: currentNode, g: gScore)
+                let neighborNode = SolverNode(state: neighborState, parent: currentNode, g: gScore, strategy: strategy)
                 
-                // This simple implementation adds duplicates to the open set.
-                // A more optimized version would check if a better path to this state already exists.
+                // A more optimized version would check if a better path to this state already exists in the open set.
+                // For this greedy approach, we prioritize speed of implementation.
                 openSet.enqueue(neighborNode)
             }
         }
