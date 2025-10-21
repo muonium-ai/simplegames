@@ -1,15 +1,11 @@
 import Foundation
 
-// A generic Priority Queue (Min-Heap) implementation
+// A generic Priority Queue (Min-Heap) implementation for the A* solver
 struct PriorityQueue<T: Comparable> {
     private var heap: [T] = []
 
     var isEmpty: Bool {
         return heap.isEmpty
-    }
-
-    var count: Int {
-        return heap.count
     }
 
     mutating func enqueue(_ element: T) {
@@ -39,7 +35,7 @@ struct PriorityQueue<T: Comparable> {
     }
 
     private mutating func siftDown(from index: Int) {
-        let parentIndex = index
+        var parentIndex = index
         while true {
             let leftChildIndex = 2 * parentIndex + 1
             let rightChildIndex = leftChildIndex + 1
@@ -55,75 +51,88 @@ struct PriorityQueue<T: Comparable> {
                 return
             }
             heap.swapAt(parentIndex, candidate)
-            siftDown(from: candidate) // This should be siftDown(from: candidate)
+            parentIndex = candidate
         }
     }
 }
 
-// A node in the search tree
-class SolverNode: Comparable {
-    let state: PuzzleState
-    let parent: SolverNode?
-    let g: Int // Cost from start
-    let h: (PuzzleState) -> Int
-    private let strategy: SolverStrategy
+// Represents a state of the puzzle board.
+struct PuzzleState: Hashable {
+    let board: [Int]
+    let size: Int
+    let emptyTileIndex: Int
 
-    var f: Int {
-        switch strategy {
-        case .aStar:
-            return g + h(state)
-        case .greedy:
-            return h(state)
+    func manhattanDistance() -> Int {
+        var distance = 0
+        for (i, value) in board.enumerated() {
+            if value != 0 {
+                let goalIndex = value - 1
+                let goalRow = goalIndex / size
+                let goalCol = goalIndex % size
+                let currentRow = i / size
+                let currentCol = i % size
+                distance += abs(goalRow - currentRow) + abs(goalCol - currentCol)
+            }
         }
+        return distance
     }
 
-    init(state: PuzzleState, parent: SolverNode?, g: Int, strategy: SolverStrategy, heuristic: @escaping (PuzzleState) -> Int) {
+    func isGoal() -> Bool {
+        for i in 0..<(board.count - 1) {
+            if board[i] != i + 1 {
+                return false
+            }
+        }
+        return board.last == 0
+    }
+}
+
+// Node for the standard A* search
+class AStarNode: Comparable {
+    let state: PuzzleState
+    let parent: AStarNode?
+    let g: Int
+    let h: Int
+    var f: Int { return g + h }
+
+    init(state: PuzzleState, parent: AStarNode?, g: Int) {
         self.state = state
         self.parent = parent
         self.g = g
-        self.strategy = strategy
-        self.h = heuristic
+        self.h = state.manhattanDistance()
     }
 
-    convenience init(state: PuzzleState, parent: SolverNode?, g: Int, strategy: SolverStrategy) {
-        self.init(state: state, parent: parent, g: g, strategy: strategy, heuristic: { $0.manhattanDistance() })
-    }
-
-    static func < (lhs: SolverNode, rhs: SolverNode) -> Bool {
-        if lhs.f == rhs.f {
-            return lhs.g > rhs.g // Prefer deeper paths for tie-breaking in greedy
-        }
+    static func < (lhs: AStarNode, rhs: AStarNode) -> Bool {
         return lhs.f < rhs.f
     }
 
-    static func == (lhs: SolverNode, rhs: SolverNode) -> Bool {
+    static func == (lhs: AStarNode, rhs: AStarNode) -> Bool {
         return lhs.state == rhs.state
     }
 }
 
-enum SolverStrategy {
-    case aStar
-    case greedy
-}
-
 class PuzzleSolver {
-    func solve(initialState: PuzzleState) -> [PuzzleState]? {
-        if initialState.size > 3 {
-            let layeredSolver = LayeredSolver()
-            return layeredSolver.solve(initialState: initialState)
-        }
 
-        let strategy: SolverStrategy = .aStar
-        
-        var openSet = PriorityQueue<SolverNode>()
+    // Main router for solving
+    func solve(initialState: PuzzleState) -> [PuzzleState]? {
+        if initialState.size <= 3 {
+            return solveAStar(initialState: initialState)
+        } else {
+            return solveIDAStar(initialState: initialState)
+        }
+    }
+
+    // Standard A* for small puzzles
+    private func solveAStar(initialState: PuzzleState) -> [PuzzleState]? {
+        var openSet = PriorityQueue<AStarNode>()
         var closedSet = Set<PuzzleState>()
 
-        let startNode = SolverNode(state: initialState, parent: nil, g: 0, strategy: strategy)
+        let startNode = AStarNode(state: initialState, parent: nil, g: 0)
         openSet.enqueue(startNode)
 
         while let currentNode = openSet.dequeue() {
             if currentNode.state.isGoal() {
-                return reconstructPath(from: currentNode)
+                return reconstructAStarPath(from: currentNode)
             }
 
             closedSet.insert(currentNode.state)
@@ -132,20 +141,112 @@ class PuzzleSolver {
                 if closedSet.contains(neighborState) {
                     continue
                 }
-
                 let gScore = currentNode.g + 1
-                let neighborNode = SolverNode(state: neighborState, parent: currentNode, g: gScore, strategy: strategy)
-                
+                let neighborNode = AStarNode(state: neighborState, parent: currentNode, g: gScore)
                 openSet.enqueue(neighborNode)
             }
         }
-
-        return nil // No solution found
+        return nil
+    }
+    
+    // IDA* for larger puzzles
+    private func solveIDAStar(initialState: PuzzleState) -> [PuzzleState]? {
+        let initialHeuristic = initialState.manhattanDistance()
+        var bound = initialHeuristic
+        
+        while true {
+            var path: [PuzzleState] = [initialState]
+            var visited: Set<PuzzleState> = [initialState]
+            let result = search(&path, &visited, g: 0, bound: bound)
+            
+            switch result {
+            case .found:
+                return path
+            case .notFound:
+                // This case means no solution exists, which shouldn't happen for our puzzles
+                return nil
+            case .newBound(let newBound):
+                bound = newBound
+            }
+            
+            // Safety break for extremely difficult puzzles
+            if bound > 100 {
+                 print("IDA* bound exceeded 100, aborting.")
+                 return nil
+            }
+        }
     }
 
-    private func reconstructPath(from node: SolverNode) -> [PuzzleState] {
+    private enum SearchResult {
+        case found
+        case notFound
+        case newBound(Int)
+    }
+
+    private func search(_ path: inout [PuzzleState], _ visited: inout Set<PuzzleState>, g: Int, bound: Int) -> SearchResult {
+        let currentState = path.last!
+        let f = g + currentState.manhattanDistance()
+
+        if f > bound {
+            return .newBound(f)
+        }
+        if currentState.isGoal() {
+            return .found
+        }
+
+        var minBound: Int = .max
+
+        for neighbor in generateNeighbors(for: currentState) {
+            if !visited.contains(neighbor) {
+                path.append(neighbor)
+                visited.insert(neighbor)
+                
+                let result = search(&path, &visited, g: g + 1, bound: bound)
+                
+                switch result {
+                case .found:
+                    return .found
+                case .newBound(let newBound):
+                    minBound = min(minBound, newBound)
+                case .notFound:
+                    break // Continue
+                }
+
+                // Backtrack
+                visited.remove(path.last!)
+                path.removeLast()
+            }
+        }
+        
+        return minBound == .max ? .notFound : .newBound(minBound)
+    }
+
+    private func generateNeighbors(for state: PuzzleState) -> [PuzzleState] {
+        var neighbors: [PuzzleState] = []
+        let emptyIndex = state.emptyTileIndex
+        let size = state.size
+        let emptyRow = emptyIndex / size
+        let emptyCol = emptyIndex % size
+
+        let moves = [(-1, 0), (1, 0), (0, -1), (0, 1)]
+
+        for move in moves {
+            let newRow = emptyRow + move.0
+            let newCol = emptyCol + move.1
+
+            if newRow >= 0 && newRow < size && newCol >= 0 && newCol < size {
+                let newIndex = newRow * size + newCol
+                var newBoard = state.board
+                newBoard.swapAt(emptyIndex, newIndex)
+                neighbors.append(PuzzleState(board: newBoard, size: size, emptyTileIndex: newIndex))
+            }
+        }
+        return neighbors
+    }
+
+    private func reconstructAStarPath(from node: AStarNode) -> [PuzzleState] {
         var path: [PuzzleState] = []
-        var currentNode: SolverNode? = node
+        var currentNode: AStarNode? = node
         while currentNode != nil {
             path.insert(currentNode!.state, at: 0)
             currentNode = currentNode?.parent
