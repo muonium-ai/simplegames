@@ -305,7 +305,8 @@ class GameScene: SKScene {
     func moveTile(at index: Int) {
         if let tile = tiles[index] {
             let emptyPosition = position(for: emptyTileIndex)
-            tile.run(SKAction.move(to: emptyPosition, duration: 0.15))
+            let animationDuration: TimeInterval = boardSize >= 5 ? 0.08 : 0.15
+            tile.run(SKAction.move(to: emptyPosition, duration: animationDuration))
             
             // Correctly swap the tiles in the model
             tiles.swapAt(index, emptyTileIndex)
@@ -373,7 +374,9 @@ class GameScene: SKScene {
     func animateSolution(path: [PuzzleState]) {
         var actions: [SKAction] = []
         
-        for i in 1..<path.count {
+    let waitDuration: TimeInterval = boardSize >= 5 ? 0.06 : 0.2
+
+    for i in 1..<path.count {
             let previousState = path[i-1]
             let currentState = path[i]
             
@@ -390,7 +393,7 @@ class GameScene: SKScene {
                     }
                 }
                 actions.append(action)
-                actions.append(SKAction.wait(forDuration: 0.2)) // Wait between moves
+                actions.append(SKAction.wait(forDuration: waitDuration))
             }
         }
         

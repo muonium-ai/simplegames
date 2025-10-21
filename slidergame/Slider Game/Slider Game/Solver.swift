@@ -796,14 +796,22 @@ private final class LegacyConstructiveSolver {
         }
 
         func solve() -> [PuzzleState]? {
-            states = [initialState]
             board = Board(tiles: initialState.board, size: initialState.size, emptyIndex: initialState.emptyTileIndex)
+            states = [initialState]
 
-            guard constructSolution(), board.isSolved() else {
-                return LegacyConstructiveSolver(initialState: initialState).solve()
+            if constructSolution(), board.isSolved() {
+                return states
             }
 
-            return states
+            let partialState = board.toPuzzleState()
+            if let tail = LegacyConstructiveSolver(initialState: partialState).solve() {
+                appendStates(from: tail)
+                if board.isSolved() {
+                    return states
+                }
+            }
+
+            return LegacyConstructiveSolver(initialState: initialState).solve()
         }
 
         private func constructSolution() -> Bool {
@@ -820,7 +828,10 @@ private final class LegacyConstructiveSolver {
             }
 
             if board.isSolved() { return true }
-            return finishWithAStar()
+            if board.size <= 4 {
+                return finishWithAStar()
+            }
+            return false
         }
 
         private func performPass(order: [(Int, Int)]) -> Bool {
