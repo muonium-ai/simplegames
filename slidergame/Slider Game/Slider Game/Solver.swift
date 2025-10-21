@@ -55,41 +55,8 @@ struct PriorityQueue<T: Comparable> {
                 return
             }
             heap.swapAt(parentIndex, candidate)
-            siftDown(from: candidate)
+            siftDown(from: candidate) // This should be siftDown(from: candidate)
         }
-    }
-}
-
-
-// Represents a state of the puzzle board. Must be Hashable for use in Sets.
-struct PuzzleState: Hashable {
-    let board: [Int]
-    let size: Int
-    let emptyTileIndex: Int
-
-    // Heuristic function: Manhattan Distance
-    func manhattanDistance() -> Int {
-        var distance = 0
-        for (i, value) in board.enumerated() {
-            if value != 0 { // 0 is the empty tile
-                let goalIndex = value - 1
-                let goalRow = goalIndex / size
-                let goalCol = goalIndex % size
-                let currentRow = i / size
-                let currentCol = i % size
-                distance += abs(goalRow - currentRow) + abs(goalCol - currentCol)
-            }
-        }
-        return distance
-    }
-
-    func isGoal() -> Bool {
-        for i in 0..<(board.count - 1) {
-            if board[i] != i + 1 {
-                return false
-            }
-        }
-        return true
     }
 }
 
@@ -137,7 +104,12 @@ enum SolverStrategy {
 
 class PuzzleSolver {
     func solve(initialState: PuzzleState) -> [PuzzleState]? {
-        let strategy: SolverStrategy = initialState.size > 3 ? .greedy : .aStar
+        if initialState.size > 3 {
+            let layeredSolver = LayeredSolver()
+            return layeredSolver.solve(initialState: initialState)
+        }
+
+        let strategy: SolverStrategy = .aStar
         
         var openSet = PriorityQueue<SolverNode>()
         var closedSet = Set<PuzzleState>()
@@ -160,37 +132,11 @@ class PuzzleSolver {
                 let gScore = currentNode.g + 1
                 let neighborNode = SolverNode(state: neighborState, parent: currentNode, g: gScore, strategy: strategy)
                 
-                // A more optimized version would check if a better path to this state already exists in the open set.
-                // For this greedy approach, we prioritize speed of implementation.
                 openSet.enqueue(neighborNode)
             }
         }
 
         return nil // No solution found
-    }
-
-    private func generateNeighbors(for state: PuzzleState) -> [PuzzleState] {
-        var neighbors: [PuzzleState] = []
-        let emptyIndex = state.emptyTileIndex
-        let size = state.size
-        let emptyRow = emptyIndex / size
-        let emptyCol = emptyIndex % size
-
-        let moves = [(-1, 0), (1, 0), (0, -1), (0, 1)] // Up, Down, Left, Right
-
-        for move in moves {
-            let newRow = emptyRow + move.0
-            let newCol = emptyCol + move.1
-
-            if newRow >= 0 && newRow < size && newCol >= 0 && newCol < size {
-                let newIndex = newRow * size + newCol
-                var newBoard = state.board
-                newBoard.swapAt(emptyIndex, newIndex)
-                let newState = PuzzleState(board: newBoard, size: size, emptyTileIndex: newIndex)
-                neighbors.append(newState)
-            }
-        }
-        return neighbors
     }
 
     private func reconstructPath(from node: SolverNode) -> [PuzzleState] {
