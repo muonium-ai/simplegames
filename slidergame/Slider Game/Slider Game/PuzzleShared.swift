@@ -2,7 +2,7 @@ import Foundation
 
 // Represents a state of the puzzle board. Must be Hashable for use in Sets.
 struct PuzzleState: Hashable {
-    let board: [Int]
+    var board: [Int]
     let size: Int
     var emptyTileIndex: Int
 

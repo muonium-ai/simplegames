@@ -65,24 +65,28 @@ class SolverNode: Comparable {
     let state: PuzzleState
     let parent: SolverNode?
     let g: Int // Cost from start
-    let h: Int // Heuristic cost to goal
+    let h: (PuzzleState) -> Int
     private let strategy: SolverStrategy
 
     var f: Int {
         switch strategy {
         case .aStar:
-            return g + h
+            return g + h(state)
         case .greedy:
-            return h
+            return h(state)
         }
     }
 
-    init(state: PuzzleState, parent: SolverNode?, g: Int, strategy: SolverStrategy) {
+    init(state: PuzzleState, parent: SolverNode?, g: Int, strategy: SolverStrategy, heuristic: @escaping (PuzzleState) -> Int) {
         self.state = state
         self.parent = parent
         self.g = g
-        self.h = state.manhattanDistance()
         self.strategy = strategy
+        self.h = heuristic
+    }
+
+    convenience init(state: PuzzleState, parent: SolverNode?, g: Int, strategy: SolverStrategy) {
+        self.init(state: state, parent: parent, g: g, strategy: strategy, heuristic: { $0.manhattanDistance() })
     }
 
     static func < (lhs: SolverNode, rhs: SolverNode) -> Bool {
