@@ -272,8 +272,7 @@ class GameScene: SKScene {
             toggleSettingsPanel(show: true)
             return
         } else if touchedNode.name == "solve" {
-            // Placeholder for solver logic
-            print("Solve button tapped")
+            solvePuzzle()
             return
         }
 
@@ -320,5 +319,75 @@ class GameScene: SKScene {
         winLabel.position = CGPoint(x: 0, y: 0)
         winLabel.zPosition = 100
         addChild(winLabel)
+    }
+    
+    func solvePuzzle() {
+        guard !gameWon else { return }
+        
+        // Disable user interaction during solve
+        self.isUserInteractionEnabled = false
+        
+        // Create the initial state from the current board
+        var boardArray: [Int] = []
+        for tile in tiles {
+            if let tileName = tile?.name, let number = Int(tileName.replacingOccurrences(of: "tile", with: "")) {
+                boardArray.append(number)
+            } else {
+                boardArray.append(0) // 0 represents the empty space
+            }
+        }
+        
+        let initialState = PuzzleState(board: boardArray, size: boardSize, emptyTileIndex: emptyTileIndex)
+        
+        // Run solver on a background thread
+        DispatchQueue.global(qos: .userInitiated).async {
+            let solver = PuzzleSolver()
+            if let solutionPath = solver.solve(initialState: initialState) {
+                // Animate the solution on the main thread
+                DispatchQueue.main.async {
+                    self.animateSolution(path: solutionPath)
+                }
+            } else {
+                // Re-enable interaction if no solution found
+                DispatchQueue.main.async {
+                    self.isUserInteractionEnabled = true
+                    print("No solution found.")
+                }
+            }
+        }
+    }
+    
+    func animateSolution(path: [PuzzleState]) {
+        var actions: [SKAction] = []
+        
+        for i in 1..<path.count {
+            let previousState = path[i-1]
+            let currentState = path[i]
+            
+            // Find which tile moved
+            let movedTileIndex = currentState.emptyTileIndex
+            let movedTileValue = previousState.board[movedTileIndex]
+            
+            // Find the SKNode for that tile
+            if let tileNode = self.children.first(where: { $0.name == "tile\(movedTileValue)" }) {
+                let action = SKAction.run {
+                    // Find the index of the tile to move in our `tiles` array
+                    if let indexToMove = self.tiles.firstIndex(where: { $0?.name == "tile\(movedTileValue)" }) {
+                        self.moveTile(at: indexToMove)
+                    }
+                }
+                actions.append(action)
+                actions.append(SKAction.wait(forDuration: 0.2)) // Wait between moves
+            }
+        }
+        
+        // Add a final action to re-enable user interaction
+        let finalAction = SKAction.run {
+            self.isUserInteractionEnabled = true
+            self.checkForWin() // Check for win at the end
+        }
+        actions.append(finalAction)
+        
+        self.run(SKAction.sequence(actions))
     }
 }
