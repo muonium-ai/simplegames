@@ -3,7 +3,21 @@ from os import environ
 environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'  # Hide pygame support prompt
 import pygame
 import random
-from config import *
+from config import (
+    BLACK,
+    CELL_SIZE,
+    DARK_GRAY,
+    GRAY,
+    GRID_HEIGHT,
+    GRID_WIDTH,
+    HEADER_HEIGHT,
+    MINE_COUNT,
+    NUMBER_COLORS,
+    RED,
+    WHITE,
+    WINDOW_HEIGHT,
+    WINDOW_WIDTH,
+)
 from cell import Cell, CellState
 
 class Minesweeper:

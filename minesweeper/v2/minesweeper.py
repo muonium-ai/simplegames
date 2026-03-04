@@ -1,8 +1,26 @@
-from enum import Enum
 import pygame
 import random
-from config import *
-from common import Cell,CellState, Button, InputBox
+from config import (
+    BLACK,
+    BLUE,
+    CELL_SIZE,
+    DARK_BLUE,
+    DARK_GRAY,
+    DARK_GREEN,
+    DARK_RED,
+    GRAY,
+    GRID_HEIGHT,
+    GRID_WIDTH,
+    HEADER_HEIGHT,
+    MINE_COUNT,
+    NUMBER_COLORS,
+    PADDING,
+    RED,
+    WHITE,
+    WINDOW_HEIGHT,
+    WINDOW_WIDTH,
+)
+from common import Cell, CellState, Button, InputBox
 import sys
 
 

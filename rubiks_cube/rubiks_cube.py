@@ -1,8 +1,8 @@
 from os import environ
 environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'  # Hide pygame support prompt
 
-import pygame, sys, time, random, math
-from pygame.locals import *
+import pygame, sys, random
+from pygame.locals import KEYDOWN, K_r, K_s, MOUSEBUTTONDOWN, QUIT
 import kociemba  # Make sure you have installed this library
 
 # Define colors for each face (using letters for cube state)

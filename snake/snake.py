@@ -2,7 +2,6 @@ from os import environ
 environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'  # Hide pygame support prompt
 
 import pygame, sys, random, time
-from collections import deque  # Add this import
 
 # Constants
 SCREEN_WIDTH, SCREEN_HEIGHT = 800, 600
@@ -57,10 +56,6 @@ def game_loop(mode):
             random.randrange(BLOCK_SIZE, SCREEN_HEIGHT - BLOCK_SIZE, BLOCK_SIZE))
     start_time = time.time()
     current_fps = FPS
-    
-    # Initialize position history (but don't use it for collision detection)
-    position_history = deque(maxlen=100)
-    position_history.append(snake[0])
     
     def ai_direction(head, food, current_direction):
         import math
@@ -144,7 +139,6 @@ def game_loop(mode):
             direction = ai_direction(head, food, direction)
 
         new_head = (snake[0][0] + direction[0], snake[0][1] + direction[1])
-        position_history.append(new_head)
         
         # Simplified collision detection using actual snake body
         if (new_head[0] < 0 or new_head[0] >= SCREEN_WIDTH or
@@ -203,7 +197,7 @@ def main():
             score = game_loop(mode)
         except SystemExit:
             break
-        except:
+        except Exception:
             break
     
     pygame.quit()

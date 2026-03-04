@@ -2,9 +2,61 @@ import pygame
 import sys
 import random
 import numpy as np
-from pygame.locals import *
-from OpenGL.GL import *
-from OpenGL.GLU import *
+from pygame.locals import DOUBLEBUF, KEYDOWN, K_b, K_d, K_f, K_l, K_r, K_u, MOUSEBUTTONDOWN, MOUSEMOTION, OPENGL, QUIT
+from OpenGL.GL import (
+    GL_AMBIENT,
+    GL_AMBIENT_AND_DIFFUSE,
+    GL_COLOR_BUFFER_BIT,
+    GL_COLOR_MATERIAL,
+    GL_CULL_FACE,
+    GL_DEPTH_BUFFER_BIT,
+    GL_DEPTH_TEST,
+    GL_DIFFUSE,
+    GL_FRONT_AND_BACK,
+    GL_LEQUAL,
+    GL_LIGHT0,
+    GL_LIGHTING,
+    GL_LINE_LOOP,
+    GL_LINE_SMOOTH,
+    GL_LINE_SMOOTH_HINT,
+    GL_MODELVIEW,
+    GL_NICEST,
+    GL_NORMALIZE,
+    GL_NO_ERROR,
+    GL_POLYGON_SMOOTH,
+    GL_POLYGON_SMOOTH_HINT,
+    GL_POSITION,
+    GL_PROJECTION,
+    GL_QUADS,
+    GL_SHININESS,
+    GL_SPECULAR,
+    glBegin,
+    glClear,
+    glClearColor,
+    glColor3fv,
+    glColorMaterial,
+    glDepthFunc,
+    glDisable,
+    glEnable,
+    glEnd,
+    glFinish,
+    glGetError,
+    glHint,
+    glLightfv,
+    glLineWidth,
+    glLoadIdentity,
+    glMaterialf,
+    glMaterialfv,
+    glMatrixMode,
+    glNormal3fv,
+    glOrtho,
+    glPopMatrix,
+    glPushMatrix,
+    glRotatef,
+    glTranslatef,
+    glVertex3fv,
+)
+from OpenGL.GLU import gluPerspective
 
 # Initialize pygame
 pygame.init()

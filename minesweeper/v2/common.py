@@ -1,6 +1,6 @@
 import pygame
 from enum import Enum
-from config import *
+from config import BLACK, BUTTON_COLOR, BUTTON_HOVER_COLOR, PAUSE_COLOR, WHITE
 
 class CellState(Enum):
     HIDDEN = 0
