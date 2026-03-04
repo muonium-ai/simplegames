@@ -11,13 +11,18 @@ BUNDLE_ID="muonium.Slider-Game"
 SIMULATOR_NAME=${SIMULATOR_NAME:-"iPhone 17"}
 APP_PATH="${DERIVED_DATA_PATH}/Build/Products/${CONFIGURATION}-iphonesimulator/${APP_NAME}.app"
 
+if ! command -v xcrun >/dev/null 2>&1; then
+  echo "error: xcrun not found; install Xcode command line tools" >&2
+  exit 1
+fi
+
 if [[ ! -d "${APP_PATH}" ]]; then
   echo "error: app bundle not found at ${APP_PATH}" >&2
   echo "hint: run scripts/build_ios_sim.sh first" >&2
   exit 1
 fi
 
-if ! xcrun simctl list devices "available" | grep -q "${SIMULATOR_NAME}"; then
+if ! xcrun simctl list devices "available" | grep -Fq "${SIMULATOR_NAME}"; then
   echo "error: simulator ${SIMULATOR_NAME} not found" >&2
   exit 1
 fi
@@ -33,4 +38,6 @@ echo "Installing ${APP_NAME}.app to ${SIMULATOR_NAME}..."
 xcrun simctl install "${SIMULATOR_NAME}" "${APP_PATH}"
 
 echo "Launching ${BUNDLE_ID}..."
-xcrun simctl launch "${SIMULATOR_NAME}" "${BUNDLE_ID}" || true
+if ! xcrun simctl launch "${SIMULATOR_NAME}" "${BUNDLE_ID}"; then
+  echo "warning: app install completed but launch command failed" >&2
+fi

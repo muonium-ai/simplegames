@@ -4,12 +4,21 @@ import pygame
 import random
 import heapq
 import math
+from collections import deque
 
 # Constants
 WIDTH, HEIGHT = 800, 800
 GRID_SIZE = 15
 HEX_SIZE = 25  # Size of hexagon (radius)
-WHITE, BLACK, BLUE, GREEN, RED, YELLOW, LIGHT_BLUE = (255, 255, 255), (0, 0, 0), (0, 0, 255), (0, 255, 0), (255, 0, 0), (255, 255, 0), (173, 216, 230)
+WHITE, BLACK, BLUE, GREEN, RED, YELLOW, LIGHT_BLUE = (
+    (255, 255, 255),
+    (0, 0, 0),
+    (0, 0, 255),
+    (0, 255, 0),
+    (255, 0, 0),
+    (255, 255, 0),
+    (173, 216, 230),
+)
 
 # Hexagonal directions (axial coordinates)
 DIRECTIONS = [
@@ -185,11 +194,11 @@ class ControlGuide:
         return None
 
 def bfs_solve(hex_grid, start, goal):
-    queue = [start]
+    queue = deque([start])
     came_from = {start: None}
     
     while queue:
-        current = queue.pop(0)
+        current = queue.popleft()
         if current == goal:
             path = []
             while current:
@@ -201,9 +210,13 @@ def bfs_solve(hex_grid, start, goal):
         # Explore neighbors using hexagonal directions
         for dq, dr in DIRECTIONS:
             neighbor = (current[0] + dq, current[1] + dr)
-            if neighbor in hex_grid.grid and hex_grid.grid[neighbor] == 0 and neighbor not in came_from:
+            if (
+                neighbor in hex_grid.grid
+                and hex_grid.grid[neighbor] == 0
+                and neighbor not in came_from
+            ):
                 queue.append(neighbor)
-                came_from[neighbor] = current                
+                came_from[neighbor] = current
     return []
 
 def draw_maze(hex_grid, player, game_won=False, show_modal=False, solution_path=None):

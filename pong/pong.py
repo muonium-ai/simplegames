@@ -2,7 +2,6 @@
 # filepath: /C:/Users/senth/fosstercare/simplegames/pong/pong.py
 
 import pygame
-import sys
 import random
 
 # --- Constants ---
@@ -73,13 +72,17 @@ class Ball:
             self.dy = -self.dy
 
         # Check collision with paddles
-        if (self.x <= left_paddle.x + left_paddle.width and
+        if (self.dx < 0 and
+            self.x <= left_paddle.x + left_paddle.width and
+            self.x + BALL_SIZE >= left_paddle.x and
             self.y + BALL_SIZE >= left_paddle.y and
             self.y <= left_paddle.y + left_paddle.height):
             self.x = left_paddle.x + left_paddle.width
             self.dx = -self.dx
             # Optional: make collision more dynamic based on contact point
-        if (self.x + BALL_SIZE >= right_paddle.x and
+        if (self.dx > 0 and
+            self.x + BALL_SIZE >= right_paddle.x and
+            self.x <= right_paddle.x + right_paddle.width and
             self.y + BALL_SIZE >= right_paddle.y and
             self.y <= right_paddle.y + right_paddle.height):
             self.x = right_paddle.x - BALL_SIZE
@@ -101,7 +104,7 @@ def draw_center_line(surface):
     y = 0
     while y < WINDOW_HEIGHT:
         pygame.draw.line(surface, WHITE, (WINDOW_WIDTH // 2, y),
-                         (WINDOW_WIDTH // 2, y + dash_len), 2)
+                         (WINDOW_WIDTH // 2, min(y + dash_len, WINDOW_HEIGHT)), 2)
         y += dash_len + gap_len
 
 def main():
@@ -125,12 +128,12 @@ def main():
     game_over = False
     winner_text = ""
 
-    while True:
+    running = True
+    while running:
         clock.tick(FPS)
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                pygame.quit()
-                sys.exit()
+                running = False
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_p:
                     paused = not paused
@@ -197,5 +200,8 @@ def main():
 
         pygame.display.flip()
 
+    pygame.quit()
+    return 0
+
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

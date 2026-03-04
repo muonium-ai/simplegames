@@ -3,12 +3,21 @@ environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'  # Hide pygame support prompt
 import pygame
 import random
 import heapq
+from collections import deque
 
 # Constants
 WIDTH, HEIGHT = 600, 600
 ROWS, COLS = 20, 20
 CELL_SIZE = WIDTH // COLS
-WHITE, BLACK, BLUE, GREEN, RED, CYAN, YELLOW = (255, 255, 255), (0, 0, 0), (0, 0, 255), (0, 255, 0), (255, 0, 0), (0, 255, 255), (255, 255, 0)
+WHITE, BLACK, BLUE, GREEN, RED, CYAN, YELLOW = (
+    (255, 255, 255),
+    (0, 0, 0),
+    (0, 0, 255),
+    (0, 255, 0),
+    (255, 0, 0),
+    (0, 255, 255),
+    (255, 255, 0),
+)
 LIGHT_BLUE = (173, 216, 230)
 
 # Directions
@@ -91,10 +100,10 @@ def a_star_search(start, goal):
     return []
 
 def bfs_solve(start, goal):
-    queue = [start]
+    queue = deque([start])
     came_from = {start: None}
     while queue:
-        current = queue.pop(0)
+        current = queue.popleft()
         if current == goal:
             path = []
             while current:
@@ -104,7 +113,12 @@ def bfs_solve(start, goal):
             return path
         for direction in DIRECTIONS.values():
             neighbor = (current[0] + direction[0], current[1] + direction[1])
-            if 0 <= neighbor[0] < COLS and 0 <= neighbor[1] < ROWS and maze[neighbor[1]][neighbor[0]] == 0 and neighbor not in came_from:
+            if (
+                0 <= neighbor[0] < COLS
+                and 0 <= neighbor[1] < ROWS
+                and maze[neighbor[1]][neighbor[0]] == 0
+                and neighbor not in came_from
+            ):
                 queue.append(neighbor)
                 came_from[neighbor] = current
     return []
