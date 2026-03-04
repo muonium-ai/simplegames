@@ -1,0 +1,44 @@
+---
+id: T-000000
+title: Template: replace title
+status: ready
+priority: p1
+type: code
+effort: s
+labels: []
+tags: []
+owner: null
+created: 1970-01-01T00:00:00Z
+updated: 1970-01-01T00:00:00Z
+depends_on: []
+branch: null
+retry_count: 0
+retry_limit: 3
+allocated_to: null
+allocated_at: null
+lease_expires_at: null
+last_error: null
+last_attempted_at: null
+---
+
+## Goal
+Write a single-sentence goal.
+
+## Acceptance Criteria
+- [ ] Define clear, testable checks (2–5 items)
+
+## Notes
+
+## Agent Assignment
+- Suggested owner: agent-name
+- Suggested branch: feature/short-name
+
+## Implementation Plan
+- [ ] Describe 2-4 concrete execution steps
+- [ ] List test/validation commands to run
+- [ ] Note any dependency handoff requirements
+
+## Queue Lifecycle (if allocated)
+- [ ] Add progress with `mt comment <id> "..."`
+- [ ] If blocked/failing, run `mt fail-task <id> --error "..."`
+- [ ] On completion, move to `needs_review` then `done`
