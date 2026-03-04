@@ -62,11 +62,19 @@ class ChessGUI:
         self.screen.blit(status_text, (350, 10))
         
         # Second Line: White Captured
-        captured_white_text = self.menu_font.render(f"White Captured: {''.join(self.captured_white)}", True, self.LABEL_COLOR)
+        captured_white_text = self.menu_font.render(
+            f"White Captured: {''.join(self.captured_white)}",
+            True,
+            self.LABEL_COLOR,
+        )
         self.screen.blit(captured_white_text, (10, 50))
         
         # Third Line: Black Captured
-        captured_black_text = self.menu_font.render(f"Black Captured: {''.join(self.captured_black)}", True, self.LABEL_COLOR)
+        captured_black_text = self.menu_font.render(
+            f"Black Captured: {''.join(self.captured_black)}",
+            True,
+            self.LABEL_COLOR,
+        )
         self.screen.blit(captured_black_text, (10, 80))
         
         # Castling indication (optional on the third line)

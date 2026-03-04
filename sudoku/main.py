@@ -33,14 +33,14 @@ def main():
     difficulty = 5  # Adjust this value for different difficulty levels
 
     # Generate puzzle and solution
-    puzzle, solution = generate_puzzle(difficulty)
+    puzzle, _solution = generate_puzzle(difficulty)
     grid = Grid(puzzle, WIDTH, WIDTH)
-    original_board = solution  # Keep the solution for hints and solving
     key = None
     selected_num = None
     start_time = time.time()
     message = ""
     game_over = False  # Flag to indicate if the game is over
+    elapsed_time = 0
 
     solver = None
     step_count = 0
@@ -60,9 +60,6 @@ def main():
             # Stop updating the elapsed time when the game is over
             if not game_over:
                 elapsed_time = time.time() - start_time
-            else:
-                # Freeze the time when the game is won
-                elapsed_time = elapsed_time
 
             # Get button rectangles from redraw_window
             buttons = redraw_window(WIN, grid, selected_num, elapsed_time, message, game_over)
@@ -79,17 +76,14 @@ def main():
                     # No moves left or puzzle is solved
                     if grid.is_solved():
                         message = "Victory!"
-                        print("Victory")
                     else:
                         message = "No moves left"
-                        print("No moves left")
                     game_over = True
                     run = False  # Exit the game loop
                 else:
                     # Check if the puzzle is solved
                     if grid.is_solved():
                         message = "Victory!"
-                        print("Victory")
                         game_over = True
                         run = False  # Exit the game loop
                 # Control the speed of the solver if needed

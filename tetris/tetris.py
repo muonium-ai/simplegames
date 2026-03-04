@@ -65,10 +65,9 @@ SHAPE_COLORS = {
 def create_grid(locked_positions=None):
     grid = [[None for _ in range(GRID_COLS)] for _ in range(GRID_ROWS)]
     if locked_positions:
-        for r in range(GRID_ROWS):
-            for c in range(GRID_COLS):
-                if (r, c) in locked_positions:
-                    grid[r][c] = locked_positions[(r, c)]
+        for (r, c), color in locked_positions.items():
+            if 0 <= r < GRID_ROWS and 0 <= c < GRID_COLS:
+                grid[r][c] = color
     return grid
 
 class Piece:
@@ -115,24 +114,30 @@ def move_piece(piece, dx, dy, grid):
 
 def lock_piece(piece, grid, locked_positions):
     for (r, c) in piece.current_positions():
-        locked_positions[(r, c)] = piece.color
+        if 0 <= r < GRID_ROWS and 0 <= c < GRID_COLS:
+            locked_positions[(r, c)] = piece.color
 
 def clear_rows(grid, locked_positions):
-    cleared = 0
-    for r in range(GRID_ROWS):
-        if None not in grid[r]:
-            cleared += 1
-            del_row = r
-            for c in range(GRID_COLS):
-                del locked_positions[(r, c)]
-            # shift everything down
-            for row_above in range(del_row - 1, -1, -1):
-                for col_above in range(GRID_COLS):
-                    if (row_above, col_above) in locked_positions:
-                        color = locked_positions[(row_above, col_above)]
-                        locked_positions[(row_above + 1, col_above)] = color
-                        del locked_positions[(row_above, col_above)]
-    return cleared
+    rows_to_clear = [r for r in range(GRID_ROWS) if None not in grid[r]]
+    if not rows_to_clear:
+        return 0
+
+    clear_set = set(rows_to_clear)
+
+    # Remove all blocks in completed rows.
+    for r in rows_to_clear:
+        for c in range(GRID_COLS):
+            locked_positions.pop((r, c), None)
+
+    # Shift remaining blocks downward by the number of cleared rows below them.
+    updated_positions = {}
+    for (r, c), color in locked_positions.items():
+        rows_below_cleared = sum(1 for cleared_row in clear_set if cleared_row > r)
+        updated_positions[(r + rows_below_cleared, c)] = color
+
+    locked_positions.clear()
+    locked_positions.update(updated_positions)
+    return len(rows_to_clear)
 
 def get_new_piece():
     return Piece(random.choice(list(SHAPES.keys())))

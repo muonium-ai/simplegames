@@ -300,7 +300,6 @@ def main():
                             # Check if the puzzle is solved
                             if grid.is_solved():
                                 message = "Victory!"
-                                print("Victory")
                         else:
                             message = "Invalid Move"
                         key = None

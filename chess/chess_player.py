@@ -93,14 +93,28 @@ def draw_board(board, move_index, last_move):
     for row in range(8):
         for col in range(8):
             color = light_square if (row + col) % 2 == 0 else dark_square
-            pygame.draw.rect(screen, color, pygame.Rect(col * square_size, row * square_size + info_height, square_size, square_size))
-            
+            pygame.draw.rect(
+                screen,
+                color,
+                pygame.Rect(
+                    col * square_size,
+                    row * square_size + info_height,
+                    square_size,
+                    square_size,
+                ),
+            )
+
             # Draw pieces
             piece = board.piece_at(chess.square(col, 7 - row))
             if piece:
                 piece_unicode = unicode_pieces[piece.symbol()]
                 text_surface = font.render(piece_unicode, True, black if piece.color == chess.WHITE else white)
-                text_rect = text_surface.get_rect(center=(col * square_size + square_size // 2, row * square_size + info_height + square_size // 2))
+                text_rect = text_surface.get_rect(
+                    center=(
+                        col * square_size + square_size // 2,
+                        row * square_size + info_height + square_size // 2,
+                    )
+                )
                 screen.blit(text_surface, text_rect)
 
     pygame.display.flip()

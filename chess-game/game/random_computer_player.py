@@ -1,3 +1,8 @@
+import random
+
+from .player import Player
+
+
 class RandomComputerPlayer(Player):
     def make_move(self, board):
         legal_moves = list(board.legal_moves)

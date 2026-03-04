@@ -1,3 +1,6 @@
+from .player import Player
+
+
 class MinimaxComputerPlayer(Player):
     def __init__(self, depth=2):
         self.depth = depth

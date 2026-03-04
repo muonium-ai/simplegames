@@ -112,7 +112,7 @@ def redraw_window(win, grid, selected_num, elapsed_time, message, game_over):
     draw_status_bar(win, elapsed_time, message)
     draw_menu(win, selected_num)
     grid.draw(win)
-    
+
     if game_over:
         # Display Victory message
         victory_text = FONT.render("Victory!", True, RED)
