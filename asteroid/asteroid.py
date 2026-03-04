@@ -278,6 +278,11 @@ class Game:
         self.final_time = 0  # Add final time variable
         self.target_asteroid = None  # NEW: Holds the targeted asteroid dictionary
 
+    def start_game(self, autoplay: bool = False):
+        self.reset_game()
+        self.autoplay = autoplay
+        self.game_state = "playing"
+
     def reset_game(self):
         self.player = Player(Vector2D(
             GameConfig.WINDOW_WIDTH/2, 
@@ -373,12 +378,9 @@ class Game:
                     elif event.type == pygame.MOUSEBUTTONDOWN:
                         action = self.menu.handle_click(event.pos)
                         if action == "start":
-                            self.reset_game()
-                            self.game_state = "playing"
+                            self.start_game()
                         elif action == "autoplay":
-                            self.reset_game()
-                            self.autoplay = True
-                            self.game_state = "playing"
+                            self.start_game(autoplay=True)
 
             elif self.game_state == "playing":
                 # Handle events
@@ -425,12 +427,9 @@ class Game:
                     elif event.type == pygame.MOUSEBUTTONDOWN:
                         action = self.menu.handle_click(event.pos)
                         if action == "start":
-                            self.reset_game()
-                            self.game_state = "playing"
+                            self.start_game()
                         elif action == "autoplay":
-                            self.reset_game()
-                            self.autoplay = True
-                            self.game_state = "playing"
+                            self.start_game(autoplay=True)
 
             # Maintain frame rate
             self.clock.tick(GameConfig.FPS)
@@ -484,12 +483,10 @@ class Game:
         
         self.asteroids.remove(asteroid)
         self.score += GameConfig.ASTEROID_SCORES[asteroid["size"]]
-        
-        if asteroid["size"] == "large":
-            new_size = "medium"
-        elif asteroid["size"] == "medium":
-            new_size = "small"
-        else:
+
+        next_size = {"large": "medium", "medium": "small"}
+        new_size = next_size.get(asteroid["size"])
+        if new_size is None:
             return
         
         for _ in range(2):

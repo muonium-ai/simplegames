@@ -13,6 +13,8 @@ logger = logging.getLogger(__name__)
 class GameOfLife:
     LIVE_COUNT_HISTORY_LIMIT = 5
     GRID_HISTORY_LIMIT = 3
+    UI_BAR_OFFSET = 10
+    UI_BAR_HEIGHT = 60
 
     def __init__(self, width=50, height=50, cell_size=15):
         self.width = width
@@ -25,9 +27,9 @@ class GameOfLife:
         self.state = "menu"  # "menu" for setup, "simulation" for active game
         self.generation = 0
         self.spawn_count_selected = 10
-        self.dropdown_options = [i for i in range(10, 101, 10)]
+        self.dropdown_options = list(range(10, 101, 10))
         # New buttons for menu:
-        bottom_y = self.height * self.cell_size + 10
+        bottom_y = self.height * self.cell_size + self.UI_BAR_OFFSET
         # Fixed positions for UI controls (do not overlap)
         self.add_button_rect = pygame.Rect(10, bottom_y, 100, 40)
         self.dropdown_rect = pygame.Rect(120, bottom_y, 100, 40)
@@ -38,7 +40,7 @@ class GameOfLife:
         self.prev_grids = []
         
         # Add pattern buttons (after other button definitions)
-        button_y = self.height * self.cell_size + 10
+        button_y = self.height * self.cell_size + self.UI_BAR_OFFSET
         self.pattern_buttons = {
             'Blinker': pygame.Rect(560, button_y, 80, 40),
             'Block': pygame.Rect(650, button_y, 80, 40),
@@ -47,7 +49,7 @@ class GameOfLife:
         }
         
         # Increase window width to accommodate pattern buttons
-        self.screen = pygame.display.set_mode((920, self.height * self.cell_size + 60))
+        self.screen = pygame.display.set_mode((920, self.height * self.cell_size + self.UI_BAR_HEIGHT))
         pygame.display.set_caption("Game of Life")
 
     # Common Game of Life Patterns

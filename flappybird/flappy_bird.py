@@ -58,6 +58,10 @@ auto_play = False
 # New global flag for game start
 started = False
 
+START_BUTTON_RECT = pygame.Rect(WIDTH//2 - 130, HEIGHT//2 - 20, 120, 40)
+AUTO_START_BUTTON_RECT = pygame.Rect(WIDTH//2 + 10, HEIGHT//2 - 20, 120, 40)
+AUTOPLAY_BUTTON_RECT = pygame.Rect(WIDTH - 140, 10, 120, 40)
+
 def reset_game():
     global bird_y, bird_vel, pipes, score, game_over, current_level, started, auto_play
     bird_y = HEIGHT // 2
@@ -75,17 +79,15 @@ def draw():
     # Draw start buttons if game not started or game is over
     if not started or game_over:  # Modified condition
         # Regular Start button (left side)
-        start_button = pygame.Rect(WIDTH//2 - 130, HEIGHT//2 - 20, 120, 40)
-        pygame.draw.rect(screen, (50, 205, 50), start_button)
+        pygame.draw.rect(screen, (50, 205, 50), START_BUTTON_RECT)
         start_text = font.render("Start", True, (255, 255, 255))
-        start_rect = start_text.get_rect(center=start_button.center)
+        start_rect = start_text.get_rect(center=START_BUTTON_RECT.center)
         screen.blit(start_text, start_rect)
 
         # Autoplay Start button (right side)
-        auto_start_button = pygame.Rect(WIDTH//2 + 10, HEIGHT//2 - 20, 120, 40)
-        pygame.draw.rect(screen, (50, 205, 50), auto_start_button)
+        pygame.draw.rect(screen, (50, 205, 50), AUTO_START_BUTTON_RECT)
         auto_text = font.render("Auto Start", True, (255, 255, 255))
-        auto_rect = auto_text.get_rect(center=auto_start_button.center)
+        auto_rect = auto_text.get_rect(center=AUTO_START_BUTTON_RECT.center)
         screen.blit(auto_text, auto_rect)
 
         # Show score if game over
@@ -103,14 +105,10 @@ def draw():
         score_text = font.render(f"Score: {score}", True, (0, 0, 0))
         screen.blit(score_text, (10, 10))
         # Draw "Autoplay" button (updated dimensions for longer text)
-        autoplay_button = pygame.Rect(WIDTH - 140, 10, 120, 40)
-        pygame.draw.rect(screen, (50, 205, 50), autoplay_button)  # green button
+        pygame.draw.rect(screen, (50, 205, 50), AUTOPLAY_BUTTON_RECT)  # green button
         autoplay_text = font.render("Autoplay", True, (255, 255, 255))
-        autoplay_rect = autoplay_text.get_rect(center=autoplay_button.center)
+        autoplay_rect = autoplay_text.get_rect(center=AUTOPLAY_BUTTON_RECT.center)
         screen.blit(autoplay_text, autoplay_rect)
-        if game_over:
-            over_text = font.render("Game Over! Press Space to restart", True, (255, 0, 0))
-            screen.blit(over_text, (20, HEIGHT // 2))
     pygame.display.flip()
 
 running = True
@@ -121,18 +119,18 @@ while running:
             running = False
         elif (not started or game_over) and event.type == pygame.MOUSEBUTTONDOWN:  # Modified condition
             mx, my = event.pos
-            if HEIGHT//2 - 20 <= my <= HEIGHT//2 + 20:
-                if WIDTH//2 - 130 <= mx <= WIDTH//2 - 10:  # Regular Start
+            if START_BUTTON_RECT.top <= my <= START_BUTTON_RECT.bottom:
+                if START_BUTTON_RECT.left <= mx <= START_BUTTON_RECT.right:  # Regular Start
                     reset_game()
                     started = True
-                elif WIDTH//2 + 10 <= mx <= WIDTH//2 + 130:  # Autoplay Start
+                elif AUTO_START_BUTTON_RECT.left <= mx <= AUTO_START_BUTTON_RECT.right:  # Autoplay Start
                     reset_game()
                     started = True
                     auto_play = True
         # Activate autoplay if "Autoplay" button is clicked
         elif started and event.type == pygame.MOUSEBUTTONDOWN:
             mx, my = event.pos
-            if WIDTH - 140 <= mx <= WIDTH - 20 and 10 <= my <= 50:
+            if AUTOPLAY_BUTTON_RECT.left <= mx <= AUTOPLAY_BUTTON_RECT.right and AUTOPLAY_BUTTON_RECT.top <= my <= AUTOPLAY_BUTTON_RECT.bottom:
                 auto_play = True
         if started and not game_over:
             # Always allow SPACE events but let autoplay override
