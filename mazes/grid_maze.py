@@ -165,12 +165,10 @@ def draw_maze(game_won=False, show_modal=False, ai_path=None):
         screen.blit(new_game_text, (WIDTH//2 - text_width//2, HEIGHT//2 + 35))
 
 def reset_game(new_maze=False):
-    global distance_traveled, ai_path, solving, player
+    global distance_traveled, player
     # Create a new player instance instead of just reinitializing
     player = Player()
     distance_traveled = 0
-    ai_path = None
-    solving = False
     # Clear the screen completely
     screen.fill(WHITE)
     pygame.display.flip()

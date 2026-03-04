@@ -1,5 +1,4 @@
-
-# filepath: /C:/Users/senth/fosstercare/simplegames/pong/pong.py
+"""Simple local two-player Pong implementation using pygame."""
 
 import pygame
 import random
@@ -107,6 +106,10 @@ def draw_center_line(surface):
                          (WINDOW_WIDTH // 2, min(y + dash_len, WINDOW_HEIGHT)), 2)
         y += dash_len + gap_len
 
+def blit_centered_text(surface, font, text, y):
+    rendered = font.render(text, True, WHITE)
+    surface.blit(rendered, (WINDOW_WIDTH // 2 - rendered.get_width() // 2, y))
+
 def main():
     pygame.init()
     screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
@@ -185,18 +188,11 @@ def main():
         screen.blit(right_score_text, (WINDOW_WIDTH * 3 // 4, 20))
 
         if paused and not game_over:
-            pause_text = score_font.render("Paused", True, WHITE)
-            screen.blit(pause_text, (WINDOW_WIDTH // 2 - 40, WINDOW_HEIGHT // 2 - 20))
+            blit_centered_text(screen, score_font, "Paused", WINDOW_HEIGHT // 2 - 20)
         if game_over:
             # Display winner
-            game_over_text = score_font.render(winner_text, True, WHITE)
-            screen.blit(game_over_text,
-                        (WINDOW_WIDTH // 2 - game_over_text.get_width() // 2,
-                         WINDOW_HEIGHT // 2 - 30))
-            restart_text = score_font.render("Press R to Restart", True, WHITE)
-            screen.blit(restart_text,
-                        (WINDOW_WIDTH // 2 - restart_text.get_width() // 2,
-                         WINDOW_HEIGHT // 2 + 10))
+            blit_centered_text(screen, score_font, winner_text, WINDOW_HEIGHT // 2 - 30)
+            blit_centered_text(screen, score_font, "Press R to Restart", WINDOW_HEIGHT // 2 + 10)
 
         pygame.display.flip()
 

@@ -57,15 +57,16 @@ build: preflight
 			clean build; \
 	fi
 
-# Install the application on the booted simulator
-install:
+# Install the application on the selected simulator
+install: preflight boot
 	@echo "--- Installing $(APP_NAME) on '$(DEVICE_NAME)' ---"
-	@xcrun simctl install booted "$(APP_PATH)"
+	@test -d "$(APP_PATH)" || { echo "error: app bundle not found at $(APP_PATH)"; exit 1; }
+	@xcrun simctl install "$(DEVICE_NAME)" "$(APP_PATH)"
 
 # Launch the application on the simulator
-launch:
+launch: preflight boot
 	@echo "--- Launching $(BUNDLE_ID) on '$(DEVICE_NAME)' ---"
-	@xcrun simctl launch booted $(BUNDLE_ID)
+	@xcrun simctl launch "$(DEVICE_NAME)" "$(BUNDLE_ID)"
 
 # Clean the build directory
 clean: preflight

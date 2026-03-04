@@ -284,7 +284,7 @@ def draw_maze(hex_grid, player, game_won=False, show_modal=False, solution_path=
 
 def reset_game(hex_grid, new_maze=False):
     if new_maze:
-        hex_grid = HexGrid(7)
+        hex_grid = HexGrid(hex_grid.size)
         generate_maze(hex_grid)
     return Player(hex_grid), hex_grid
 
