@@ -100,7 +100,7 @@ class Car:
             self.wheel_rotation += SPEED / min(self.left_wheel_size, self.right_wheel_size)
         else:
             self.x += 0.2 * SPEED * math.cos(self.angle)
-        
+
         self.y += SPEED * math.sin(self.angle) + self.vy
         self.vy += GRAVITY
 
@@ -189,7 +189,6 @@ class GeneticAlgorithm:
     def evolve(self):
         sorted_population = sorted(self.population, key=lambda c: c.fitness, reverse=True)
         best = sorted_population[0]
-        print(f"Generation {self.generation}: Best = {best.fitness:.2f} ({best.name}) gene = {best.gene:.2f}")
         new_population = []
         # Elitism: preserve winner exactly
         new_population.append(Car(gene=best.gene, name=best.name, color=best.color,
@@ -214,7 +213,7 @@ class GeneticAlgorithm:
         self.generation += 1
 
     def tournament_selection(self, k=3):
-        candidates = random.sample(self.population, k)
+        candidates = random.sample(self.population, min(k, len(self.population)))
         return max(candidates, key=lambda c: c.fitness)
 
     def mutate(self, gene):

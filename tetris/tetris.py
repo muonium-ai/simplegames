@@ -1,5 +1,4 @@
 import pygame
-import sys
 import random
 
 pygame.init()
@@ -118,7 +117,12 @@ def lock_piece(piece, grid, locked_positions):
             locked_positions[(r, c)] = piece.color
 
 def clear_rows(grid, locked_positions):
-    rows_to_clear = [r for r in range(GRID_ROWS) if None not in grid[r]]
+    filled_counts = [0] * GRID_ROWS
+    for (r, c) in locked_positions:
+        if 0 <= r < GRID_ROWS and 0 <= c < GRID_COLS:
+            filled_counts[r] += 1
+
+    rows_to_clear = [r for r, count in enumerate(filled_counts) if count == GRID_COLS]
     if not rows_to_clear:
         return 0
 

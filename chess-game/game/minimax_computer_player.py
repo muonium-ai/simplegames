@@ -7,8 +7,10 @@ class MinimaxComputerPlayer(Player):
         self.transposition_table = {}
 
     def make_move(self, board):
-        board_fen = board.board_fen()
-        if board_fen in self.transposition_table:
-            return self.transposition_table[board_fen][1]
+        board_state_key = board.fen()
+        if board_state_key in self.transposition_table:
+            cached_move = self.transposition_table[board_state_key][1]
+            if cached_move in board.legal_moves:
+                return cached_move
         # Additional minimax logic would go here
         return None  # Placeholder for actual move logic
