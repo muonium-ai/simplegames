@@ -5,7 +5,6 @@ import pygame
 import math
 import random
 from typing import List, Tuple, Optional
-from enum import Enum
 import time
 
 # Initialize Pygame
@@ -74,7 +73,7 @@ class GameConfig:
 class Vector2D:
     def __init__(self, x: float, y: float):
         self.x = x
-        self.y = y  # Fix: This line was incomplete
+        self.y = y
     
     def __add__(self, other):
         return Vector2D(self.x + other.x, self.y + other.y)
@@ -92,7 +91,7 @@ class Vector2D:
         return Vector2D(x, y)
     
     def length(self) -> float:
-        return math.sqrt(self.x * self.x + self.y * self.y)
+        return math.hypot(self.x, self.y)
     
     def normalize(self):
         length = self.length()
@@ -469,9 +468,9 @@ class Game:
         # Check projectile-asteroid collisions
         for projectile in self.projectiles[:]:
             for asteroid in self.asteroids[:]:
-                dist = math.sqrt(
-                    (projectile.position.x - asteroid["position"].x) ** 2 +
-                    (projectile.position.y - asteroid["position"].y) ** 2
+                dist = math.hypot(
+                    projectile.position.x - asteroid["position"].x,
+                    projectile.position.y - asteroid["position"].y,
                 )
                 if dist < GameConfig.ASTEROID_SIZES[asteroid["size"]]:
                     if projectile in self.projectiles:

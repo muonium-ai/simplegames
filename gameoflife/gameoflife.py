@@ -5,17 +5,21 @@ import pygame
 import sys
 import copy
 import random
+import logging
+
+
+logger = logging.getLogger(__name__)
 
 class GameOfLife:
+    LIVE_COUNT_HISTORY_LIMIT = 5
+    GRID_HISTORY_LIMIT = 3
+
     def __init__(self, width=50, height=50, cell_size=15):
         self.width = width
         self.height = height
         self.cell_size = cell_size
         self.paused = True
         self.grid = [[0 for _ in range(self.width)] for _ in range(self.height)]
-        # Increase window height for UI area below grid
-        self.screen = pygame.display.set_mode((self.width * self.cell_size, self.height * self.cell_size + 60))
-        pygame.display.set_caption("Game of Life")
         self.clock = pygame.time.Clock()
         # New UI and simulation state properties
         self.state = "menu"  # "menu" for setup, "simulation" for active game
@@ -44,6 +48,7 @@ class GameOfLife:
         
         # Increase window width to accommodate pattern buttons
         self.screen = pygame.display.set_mode((920, self.height * self.cell_size + 60))
+        pygame.display.set_caption("Game of Life")
 
     # Common Game of Life Patterns
     PATTERNS = {
@@ -200,7 +205,7 @@ class GameOfLife:
                                 self.state = "simulation"
                                 self.paused = False
                             else:
-                                print("No boxes marked. Please add live cells before starting.")
+                                logger.info("No boxes marked. Please add live cells before starting.")
                         else:
                             # Allow toggling cells outside UI area
                             self.toggle_cell(pos)
@@ -238,18 +243,21 @@ class GameOfLife:
                 self.prev_live_counts.append(current_live)
                 self.prev_grids.append(copy.deepcopy(self.grid))
                 # Keep history limited (we only need last 5 or so)
-                if len(self.prev_live_counts) > 5:
+                if len(self.prev_live_counts) > self.LIVE_COUNT_HISTORY_LIMIT:
                     self.prev_live_counts.pop(0)
-                if len(self.prev_grids) > 3:
+                if len(self.prev_grids) > self.GRID_HISTORY_LIMIT:
                     self.prev_grids.pop(0)
                 # Check condition: last five live counts equal
-                if len(self.prev_live_counts) == 5 and len(set(self.prev_live_counts)) == 1:
-                    print("Static live count detected over 5 generations. Pausing game.")
+                if (
+                    len(self.prev_live_counts) == self.LIVE_COUNT_HISTORY_LIMIT
+                    and len(set(self.prev_live_counts)) == 1
+                ):
+                    logger.info("Static live count detected over 5 generations. Pausing game.")
                     self.paused = True
                 # Check condition: same grid as two generations ago
-                if len(self.prev_grids) == 3:
+                if len(self.prev_grids) == self.GRID_HISTORY_LIMIT:
                     if self.prev_grids[0] == self.prev_grids[2]:
-                        print("Static grid detected compared to two generations ago. Pausing game.")
+                        logger.info("Static grid detected compared to two generations ago. Pausing game.")
                         self.paused = True
 
             self.draw()

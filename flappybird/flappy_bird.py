@@ -12,18 +12,25 @@ pygame.display.set_caption("Flappy Bird")
 clock = pygame.time.Clock()
 FPS = 60
 
-pygame.mixer.init()
+music_enabled = True
+try:
+    pygame.mixer.init()
+except pygame.error:
+    music_enabled = False
+
 # Preload two background music tracks; place level1.mp3 and level2.mp3 in this directory
 LEVEL1_MUSIC = "level1.mp3"
 LEVEL2_MUSIC = "level2.mp3"
 current_level = 1  # Track music level
 
 def play_music(music_file):
+    if not music_enabled:
+        return
     try:
         pygame.mixer.music.load(music_file)
         pygame.mixer.music.play(-1)
-    except Exception as e:
-        print(f"Music file {music_file} not found. Continuing without music.")
+    except pygame.error:
+        pass
 
 # Bird parameters (simplified for young users)
 BIRD_RADIUS = 20
@@ -50,9 +57,6 @@ auto_play = False
 
 # New global flag for game start
 started = False
-
-# Cooldown for auto-jump
-auto_jump_cooldown = 0  # remove or set to 0 for immediate jump
 
 def reset_game():
     global bird_y, bird_vel, pipes, score, game_over, current_level, started, auto_play
@@ -158,7 +162,7 @@ while running:
                 gap_bottom = gap_top + PIPE_GAP
                 gap_center = (gap_top + gap_bottom) / 2
                 dx = next_pipe['top'].x - bird_x
-                
+
                 # Adjusted jump logic with waiting period after crossing
                 if dx < 160:  # Reduced look-ahead distance
                     # Only jump if significantly below center or falling fast
