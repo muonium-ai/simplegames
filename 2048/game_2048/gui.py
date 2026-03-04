@@ -2,7 +2,16 @@ from os import environ
 environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'  # Hide pygame support prompt
 import pygame
 from game_2048.game import Game2048
-from game_2048.constants import *
+from game_2048.constants import (
+    BACKGROUND,
+    EMPTY_CELL,
+    GAME_SIZE,
+    TEXT_DARK,
+    TEXT_LIGHT,
+    TILE_COLORS,
+    WINDOW_HEIGHT,
+    WINDOW_WIDTH,
+)
 
 class TextRenderer:
     @staticmethod

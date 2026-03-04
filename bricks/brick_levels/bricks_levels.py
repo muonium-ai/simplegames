@@ -101,7 +101,6 @@ import random
 import math
 import json
 import os
-from bricks import *  # Import all from original bricks.py
 from brick_colors import get_brick_color  # Add this import
 
 # --- Constants ---

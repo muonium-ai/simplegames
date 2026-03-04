@@ -136,9 +136,9 @@ class Game:
 
     def load_high_score(self):
         try:
-            with open("highscore.txt", "r") as f:
+            with open("highscore.txt", "r", encoding="utf-8") as f:
                 return int(f.read())
-        except:
+        except (FileNotFoundError, ValueError):
             return 0
 
     def save_high_score(self):

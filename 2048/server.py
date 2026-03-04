@@ -5,7 +5,13 @@ import io
 from flask import Flask, jsonify, request, send_file
 from game_2048.game import Game2048
 from game_2048.gui import GameGUI, TextRenderer
-from game_2048.constants import *
+from game_2048.constants import (
+    BACKGROUND,
+    GAME_SIZE,
+    TEXT_DARK,
+    WINDOW_HEIGHT,
+    WINDOW_WIDTH,
+)
 import pygame
 
 class ServerGame(Game2048):
@@ -83,7 +89,8 @@ class FlaskServer:
 
         @self.app.route('/move', methods=['POST'])
         def make_move():
-            direction = request.json.get("direction")
+            payload = request.get_json(silent=True) or {}
+            direction = payload.get("direction")
             if direction not in ["UP", "DOWN", "LEFT", "RIGHT"]:
                 return jsonify({"error": "Invalid move direction"}), 400
 
