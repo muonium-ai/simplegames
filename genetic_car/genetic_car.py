@@ -21,6 +21,9 @@ TRACK_TOLERANCE = 100  # max vertical deviation allowed
 # Camera offset will follow leading car
 CAMERA_OFFSET_X = 100
 
+# Leader spotlight vignette (opt-out via this flag)
+VIGNETTE_ENABLED = True
+
 # Predefined car variant names and colors
 VARIANT_NAMES = ["Red Racer", "Blue Blitzer", "Green Machine", "Yellow Speedster", "Purple Phantom", "Orange Comet"]
 VARIANT_COLORS = [(255,0,0), (0,0,255), (0,255,0), (255,255,0), (128,0,128), (255,165,0)]
@@ -42,6 +45,85 @@ def get_track_y(x):
     x2, y2 = track_points[i + 1]
     t = (x - x1) / (x2 - x1)
     return y1 + t * (y2 - y1)
+
+def build_clouds_layer():
+    """Procedurally draw a wide tileable cloud layer with low-alpha white ovals."""
+    layer_w = WIDTH * 2
+    surf = pygame.Surface((layer_w, HEIGHT), pygame.SRCALPHA)
+    rng = random.Random(1001)
+    upper_third = HEIGHT // 3
+    num_clouds = 14
+    for _ in range(num_clouds):
+        cx = rng.randint(0, layer_w)
+        cy = rng.randint(10, max(11, upper_third))
+        w = rng.randint(80, 160)
+        h = rng.randint(20, 40)
+        alpha = rng.randint(50, 110)
+        # Soft cloud: draw a few overlapping ellipses to give a puffy look
+        for k in range(3):
+            ox = rng.randint(-w // 4, w // 4)
+            oy = rng.randint(-h // 4, h // 4)
+            pygame.draw.ellipse(surf, (255, 255, 255, alpha),
+                                (cx + ox - w // 2, cy + oy - h // 2, w, h))
+    return surf
+
+
+def build_mountains_layer():
+    """Procedurally draw a wide tileable zigzag mountain silhouette layer."""
+    layer_w = WIDTH * 2
+    surf = pygame.Surface((layer_w, HEIGHT), pygame.SRCALPHA)
+    rng = random.Random(2002)
+    color = (70, 90, 110)
+    band_top = HEIGHT // 4
+    band_bottom = HEIGHT // 2 + 20
+    step = 60
+    pts = [(0, band_bottom)]
+    x = 0
+    while x <= layer_w:
+        peak_y = rng.randint(band_top, band_bottom - 40)
+        pts.append((x, peak_y))
+        x += step
+    pts.append((layer_w, band_bottom))
+    pts.append((layer_w, HEIGHT))
+    pts.append((0, HEIGHT))
+    pygame.draw.polygon(surf, color, pts)
+    return surf
+
+
+def build_hills_layer():
+    """Procedurally draw a wide tileable smoother hill silhouette layer."""
+    layer_w = WIDTH * 2
+    surf = pygame.Surface((layer_w, HEIGHT), pygame.SRCALPHA)
+    rng = random.Random(3003)
+    color = (40, 80, 50)
+    band_top = HEIGHT // 2 + 10
+    band_bottom = HEIGHT // 2 + 80
+    step = 30
+    pts = [(0, band_bottom)]
+    x = 0
+    # Smoother: small step + averaged variation
+    prev_y = rng.randint(band_top, band_bottom - 20)
+    while x <= layer_w:
+        target = rng.randint(band_top, band_bottom - 10)
+        # average for smoothing
+        y = (prev_y + target) // 2
+        pts.append((x, y))
+        prev_y = y
+        x += step
+    pts.append((layer_w, band_bottom))
+    pts.append((layer_w, HEIGHT))
+    pts.append((0, HEIGHT))
+    pygame.draw.polygon(surf, color, pts)
+    return surf
+
+
+def draw_parallax_layer(screen, layer, cam_offset, scroll_factor):
+    """Blit a wide tileable layer twice so it wraps seamlessly given cam_offset."""
+    lw = layer.get_width()
+    shift = (cam_offset * scroll_factor) % lw
+    screen.blit(layer, (-int(shift), 0))
+    screen.blit(layer, (lw - int(shift), 0))
+
 
 def build_sky_gradient():
     """Build a vertical sky gradient surface once at startup."""
@@ -177,6 +259,14 @@ class Car:
         self.fitness = 0
         self.wheel_rotation = 0  # For rotation visualization
         self.trail = []  # recent (x,y) positions for fading trail
+        # Dense full-trail capture (up to 600 frames) for winning-run replay
+        self.full_trail = []  # list of (x, y, angle)
+        self.has_won = False
+        # Particle system: list of dicts {x, y, vx, vy, life, max_life, color}
+        self.particles = []
+        # Track previous-frame wheel contact for dust transition detection
+        self.left_touch_prev = False
+        self.right_touch_prev = False
 
     def read_sensors(self):
         """Return a fixed-length tuple of 5 normalized look-ahead inputs.
@@ -273,17 +363,87 @@ class Car:
         if len(self.trail) > 20:
             self.trail.pop(0)
 
+        # Maintain dense full-trail for winning replay (cap 600 frames).
+        # Stop appending once the car has already won.
+        if not self.has_won:
+            self.full_trail.append((self.x, self.y, self.angle))
+            if len(self.full_trail) > 600:
+                self.full_trail.pop(0)
+
+        # --- Particle system ---
+        # Exhaust: when grounded and moving, spawn one gray particle behind
+        if grounded and dx > 0.5:
+            ex_off = rotate_point(-20, -2, self.angle)
+            self.particles.append({
+                "x": self.x + ex_off[0],
+                "y": self.y + ex_off[1],
+                "vx": -0.5 + random.uniform(-0.2, 0.2),
+                "vy": -0.3 + random.uniform(-0.2, 0.2),
+                "life": 30,
+                "max_life": 30,
+                "color": (150, 150, 150),
+            })
+        # Dust: when a wheel transitions from airborne -> grounded this frame
+        if left_touch and not self.left_touch_prev:
+            for _ in range(5):
+                self.particles.append({
+                    "x": rx_left,
+                    "y": ry_left,
+                    "vx": random.uniform(-0.6, 0.6),
+                    "vy": random.uniform(-1.2, -0.3),
+                    "life": 20,
+                    "max_life": 20,
+                    "color": (180, 150, 110),
+                })
+        if right_touch and not self.right_touch_prev:
+            for _ in range(5):
+                self.particles.append({
+                    "x": rx_right,
+                    "y": ry_right,
+                    "vx": random.uniform(-0.6, 0.6),
+                    "vy": random.uniform(-1.2, -0.3),
+                    "life": 20,
+                    "max_life": 20,
+                    "color": (180, 150, 110),
+                })
+        # Update particles (advance, apply gravity, drop dead)
+        alive_particles = []
+        for p in self.particles:
+            p["x"] += p["vx"]
+            p["y"] += p["vy"]
+            p["vy"] += 0.05
+            p["life"] -= 1
+            if p["life"] > 0:
+                alive_particles.append(p)
+        self.particles = alive_particles
+        # Cap total particles per car at 60 (drop oldest)
+        if len(self.particles) > 60:
+            self.particles = self.particles[-60:]
+        # Store wheel-touch state for next frame's transition detection
+        self.left_touch_prev = left_touch
+        self.right_touch_prev = right_touch
+
         # Death conditions:
         # 1) Reached end of track
         if self.x >= TRACK_LENGTH:
             self.x = TRACK_LENGTH
             self.alive = False
+            self.has_won = True
         # 2) Fell off the track (deviation beyond tolerance or off-screen vertically)
         elif deviation > TRACK_TOLERANCE or self.y > HEIGHT or self.y < 0:
             self.alive = False
 
     def draw(self, screen, cam_offset):
         x_draw = int(self.x - cam_offset)
+        # Particles overlay (rendered before trail/chassis)
+        if self.particles:
+            part_surf = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+            for p in self.particles:
+                a = max(0, min(255, int(255 * (p["life"] / p["max_life"]))))
+                col = (p["color"][0], p["color"][1], p["color"][2], a)
+                pygame.draw.circle(part_surf, col,
+                                   (int(p["x"] - cam_offset), int(p["y"])), 2)
+            screen.blit(part_surf, (0, 0))
         # Fading trail behind the car
         if self.trail:
             trail_surf = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
@@ -416,6 +576,28 @@ def draw_leaderboard(screen, population, font):
         screen.blit(text, (panel_x + 24, y_offset))
         y_offset += 20
 
+def draw_ghost_car(screen, cam_offset, x, y, angle, color, left_wheel_size, right_wheel_size):
+    """Render a translucent ghost-car at the given (x, y, angle) for replay."""
+    x_draw = int(x - cam_offset)
+    ghost = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+    # Chassis
+    half_length, half_height = 20, 5
+    local_corners = [(half_length, half_height), (half_length, -half_height),
+                     (-half_length, -half_height), (-half_length, half_height)]
+    chassis_points = []
+    for cx, cy in local_corners:
+        rx, ry = rotate_point(cx, cy, angle)
+        chassis_points.append((x_draw + int(rx), int(y + ry)))
+    pygame.draw.polygon(ghost, (color[0], color[1], color[2], 200), chassis_points)
+    # Wheels
+    for offset, wsize in [((-20, 8), left_wheel_size), ((20, 8), right_wheel_size)]:
+        r = rotate_point(offset[0], offset[1], angle)
+        wx = x_draw + int(r[0])
+        wy = int(y + r[1])
+        pygame.draw.circle(ghost, (0, 0, 0, 220), (wx, wy), wsize)
+    screen.blit(ghost, (0, 0))
+
+
 def main():
     pygame.init()
     screen = pygame.display.set_mode((WIDTH, HEIGHT))
@@ -423,6 +605,9 @@ def main():
     clock = pygame.time.Clock()
 
     sky_surface = build_sky_gradient()
+    clouds_layer = build_clouds_layer()
+    mountains_layer = build_mountains_layer()
+    hills_layer = build_hills_layer()
     track_surface = build_track_surface()
     FONT_HUD = pygame.font.SysFont(None, 24)
     FONT_LEADER = pygame.font.SysFont(None, 20)
@@ -434,6 +619,11 @@ def main():
     transition_frames = 0
     transition_label = ""
     best_fitness_history = []
+    # Replay state for winning-run slow-mo (T-000087)
+    replay_state = None  # None or "playing"
+    replay_frames = 0    # remaining replay frames
+    replay_trail_idx = 0
+    winning_run = None   # dict with snapshot of winner's full_trail/color/wheels/gen
 
     running = True
     while running:
@@ -445,10 +635,20 @@ def main():
                 pygame.quit()
                 sys.exit(0)
 
-        if transition_frames > 0:
-            transition_frames -= 1
-        else:
-            if frame_count >= SIMULATION_TIME or ga.all_dead():
+        if replay_state == "playing":
+            # Pause normal simulation; advance ghost trail at 1/3 speed.
+            replay_frames -= 1
+            if replay_frames % 3 == 0 and winning_run is not None:
+                if replay_trail_idx < len(winning_run["full_trail"]) - 1:
+                    replay_trail_idx += 1
+            # Camera centers on ghost position
+            if winning_run is not None and winning_run["full_trail"]:
+                gx, gy, _ga = winning_run["full_trail"][replay_trail_idx]
+                cam_offset = gx - WIDTH // 2
+                if cam_offset < 0:
+                    cam_offset = 0.0
+            if replay_frames <= 0:
+                # Replay finished: do the deferred evolve + transition card.
                 prev_gen = ga.generation
                 best_fitness_history.append(max(c.fitness for c in ga.population))
                 if len(best_fitness_history) > 60:
@@ -457,17 +657,76 @@ def main():
                 frame_count = 0
                 transition_frames = 30
                 transition_label = f"Gen {prev_gen} -> Gen {ga.generation}"
-            ga.update()
+                replay_state = None
+                winning_run = None
+                replay_trail_idx = 0
+        elif transition_frames > 0:
+            transition_frames -= 1
+        else:
+            if frame_count >= SIMULATION_TIME or ga.all_dead():
+                # Check for a winner this generation; if found, enter replay
+                # BEFORE evolving (single-winner: pick first to win, i.e.
+                # the one with the longest full_trail among winners).
+                winners = [c for c in ga.population if c.has_won and c.full_trail]
+                if winners:
+                    winner = max(winners, key=lambda c: len(c.full_trail))
+                    winning_run = {
+                        "full_trail": list(winner.full_trail),
+                        "color": winner.color,
+                        "left_wheel_size": winner.left_wheel_size,
+                        "right_wheel_size": winner.right_wheel_size,
+                        "gen": ga.generation,
+                    }
+                    replay_state = "playing"
+                    replay_frames = 360
+                    replay_trail_idx = 0
+                else:
+                    prev_gen = ga.generation
+                    best_fitness_history.append(max(c.fitness for c in ga.population))
+                    if len(best_fitness_history) > 60:
+                        best_fitness_history.pop(0)
+                    ga.evolve()
+                    frame_count = 0
+                    transition_frames = 30
+                    transition_label = f"Gen {prev_gen} -> Gen {ga.generation}"
+            if replay_state != "playing":
+                ga.update()
 
         # Determine camera offset: smoothly follow the car with highest x
+        # (Skip lerp during replay: camera centered on ghost above.)
         leader = max(ga.population, key=lambda c: c.x)
-        target = leader.x - CAMERA_OFFSET_X
-        cam_offset += 0.1 * (target - cam_offset)
-        if cam_offset < 0: cam_offset = 0.0
+        if replay_state != "playing":
+            target = leader.x - CAMERA_OFFSET_X
+            cam_offset += 0.1 * (target - cam_offset)
+            if cam_offset < 0: cam_offset = 0.0
 
         screen.blit(sky_surface, (0, 0))
+        draw_parallax_layer(screen, clouds_layer, cam_offset, 0.1)
+        draw_parallax_layer(screen, mountains_layer, cam_offset, 0.3)
+        draw_parallax_layer(screen, hills_layer, cam_offset, 0.6)
         draw_track(screen, cam_offset, track_surface)
-        ga.draw(screen, cam_offset)
+        if replay_state == "playing" and winning_run is not None and winning_run["full_trail"]:
+            # Replay: draw only the ghost-car following the recorded full_trail
+            gx, gy, ga_angle = winning_run["full_trail"][replay_trail_idx]
+            draw_ghost_car(screen, cam_offset, gx, gy, ga_angle,
+                           winning_run["color"],
+                           winning_run["left_wheel_size"],
+                           winning_run["right_wheel_size"])
+        else:
+            ga.draw(screen, cam_offset)
+            # Leader spotlight vignette (after world rendering, before HUD)
+            if VIGNETTE_ENABLED:
+                vignette = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+                vignette.fill((0, 0, 0, 120))
+                cx = int(leader.x - cam_offset)
+                cy = int(leader.y)
+                # Cut a soft hole by drawing successively smaller circles with
+                # lower alpha — outer rings stay darker, the leader sits in the
+                # brightest center. Drawn outer-to-inner so the smallest circle
+                # (alpha=0) ends up on top in the middle.
+                for r, a in [(250, 90), (200, 60), (150, 30), (100, 10), (50, 0)]:
+                    pygame.draw.circle(vignette, (0, 0, 0, a), (cx, cy), r)
+                screen.blit(vignette, (0, 0))
         # Leaderboard
         draw_leaderboard(screen, ga.population, FONT_LEADER)
         # Display generation counter
@@ -478,6 +737,21 @@ def main():
                        150, 40, FONT_LEADER)
         hint_text = FONT_HUD.render("ESC to quit", True, (255, 255, 255))
         screen.blit(hint_text, (10, HEIGHT - 24))
+
+        # Winning-run replay overlay
+        if replay_state == "playing" and winning_run is not None:
+            replay_label = f"WINNING RUN -- Gen {winning_run['gen']}"
+            title = FONT_TITLE.render(replay_label, True, (255, 255, 255))
+            title_rect = title.get_rect(center=(WIDTH // 2, 80))
+            # Backing card for legibility
+            pad = 20
+            card_w = title_rect.width + pad * 2
+            card_h = title_rect.height + pad
+            card = pygame.Surface((card_w, card_h), pygame.SRCALPHA)
+            pygame.draw.rect(card, (20, 20, 20, 200), (0, 0, card_w, card_h), border_radius=12)
+            screen.blit(card, (title_rect.centerx - card_w // 2,
+                               title_rect.centery - card_h // 2))
+            screen.blit(title, title_rect)
 
         # Generation transition card overlay
         if transition_frames > 0:
