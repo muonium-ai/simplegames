@@ -1,6 +1,7 @@
 from os import environ
 environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'
 import pygame, random, math, sys
+import numpy as np
 
 # Simulation and physics constants
 WIDTH, HEIGHT = 800, 600
@@ -10,8 +11,7 @@ POPULATION_SIZE = 20
 SPEED = 5  # horizontal speed component
 GRAVITY = 0.3
 JUMP_STRENGTH = -7  # impulse when jumping
-JUMP_PROB = 0.05    # probability to auto-jump upon landing
-MUTATION_RATE = 0.1
+MUTATION_RATE = 0.1  # per-element mutation probability for NN weights
 
 # Track constants
 TRACK_LENGTH = 2000
@@ -117,14 +117,56 @@ def rotate_point(px, py, angle):
     sin_a = math.sin(angle)
     return (px * cos_a - py * sin_a, px * sin_a + py * cos_a)
 
+# Neural-net topology constants
+NN_INPUTS = 5
+NN_HIDDEN = 6
+NN_OUTPUTS = 2
+
+
+def random_genome():
+    """Create a fresh genome of small random weights for the controller NN."""
+    return {
+        "W1": np.random.randn(NN_HIDDEN, NN_INPUTS) * 0.5,
+        "b1": np.random.randn(NN_HIDDEN) * 0.5,
+        "W2": np.random.randn(NN_OUTPUTS, NN_HIDDEN) * 0.5,
+        "b2": np.random.randn(NN_OUTPUTS) * 0.5,
+    }
+
+
+def crossover(p1, p2):
+    """Uniform per-element crossover of two genomes."""
+    child = {}
+    for key in p1:
+        shape = p1[key].shape
+        mask = np.random.rand(*shape) < 0.5
+        child[key] = p1[key] * mask + p2[key] * (~mask)
+    return child
+
+
+def mutate(genome):
+    """Per-element Gaussian mutation with probability MUTATION_RATE."""
+    mutated = {}
+    for key, arr in genome.items():
+        shape = arr.shape
+        mask = np.random.rand(*shape) < MUTATION_RATE
+        noise = np.random.randn(*shape) * 0.15
+        mutated[key] = arr + mask * noise
+    return mutated
+
+
+def clone_genome(genome):
+    """Deep copy a genome dict of numpy arrays."""
+    return {k: v.copy() for k, v in genome.items()}
+
+
 # Car class with extra variant properties and physics
 class Car:
-    def __init__(self, gene=None, name=None, color=None, left_wheel_size=None, right_wheel_size=None):
+    def __init__(self, genome=None, name=None, color=None, left_wheel_size=None, right_wheel_size=None):
         self.x = 50
         self.y = get_track_y(50)
         # Deterministic initial rotation: all cars start facing right
         self.angle = 0.0
-        self.gene = gene if gene is not None else random.uniform(0.5, 1.5)
+        self.genome = genome if genome is not None else random_genome()
         self.name = name if name is not None else random.choice(VARIANT_NAMES)
         self.color = color if color is not None else random.choice(VARIANT_COLORS)
         # Use different wheel sizes on both ends by default.
@@ -136,13 +178,41 @@ class Car:
         self.wheel_rotation = 0  # For rotation visualization
         self.trail = []  # recent (x,y) positions for fading trail
 
+    def read_sensors(self):
+        """Return a fixed-length tuple of 5 normalized look-ahead inputs.
+
+        Each value is clamped to [-3.0, 3.0] so the NN sees bounded inputs.
+        """
+        def _clamp(v):
+            if v > 3.0:
+                return 3.0
+            if v < -3.0:
+                return -3.0
+            return v
+        dy_self = (self.y - get_track_y(self.x)) / TRACK_TOLERANCE
+        slope_now = (get_track_y(self.x + 20) - get_track_y(self.x - 20)) / 40.0
+        look_50 = (get_track_y(self.x + 50) - self.y) / 100.0
+        look_150 = (get_track_y(self.x + 150) - self.y) / 200.0
+        look_300 = (get_track_y(self.x + 300) - self.y) / 400.0
+        return (_clamp(dy_self), _clamp(slope_now), _clamp(look_50),
+                _clamp(look_150), _clamp(look_300))
+
+    def forward(self):
+        """Run the controller NN on the current sensors.
+
+        Returns (lean, jump_decision).
+        """
+        x = np.asarray(self.read_sensors(), dtype=np.float64)
+        h = np.tanh(self.genome["W1"] @ x + self.genome["b1"])
+        out = self.genome["W2"] @ h + self.genome["b2"]
+        return float(out[0]), float(out[1])
+
     def update(self):
         if not self.alive:
             return
         baseline = get_track_y(self.x)
-        sensor = (self.y - baseline) / (HEIGHT / 2)
-        correction = -self.gene * sensor
-        self.angle += correction * 0.05
+        lean, jump_decision = self.forward()
+        self.angle += float(lean) * 0.05
 
         ground_threshold = 5
         # Fixed local offsets for wheels relative to car center:
@@ -168,10 +238,11 @@ class Car:
         self.y += SPEED * math.sin(self.angle) + self.vy
         self.vy += GRAVITY
 
-        if abs(self.y - baseline) < ground_threshold and self.vy >= 0:
+        grounded = abs(self.y - baseline) < ground_threshold and self.vy >= 0
+        if grounded:
             self.y = baseline
             self.vy = 0
-            if random.random() < JUMP_PROB:
+            if jump_decision > 0.5:
                 self.vy = JUMP_STRENGTH
 
         # Enforce that no part of the car (chassis or wheels) goes below the track.
@@ -279,15 +350,14 @@ class GeneticAlgorithm:
         sorted_population = sorted(self.population, key=lambda c: c.fitness, reverse=True)
         best = sorted_population[0]
         new_population = []
-        # Elitism: preserve winner exactly
-        new_population.append(Car(gene=best.gene, name=best.name, color=best.color,
+        # Elitism: preserve best genome verbatim (no mutation)
+        new_population.append(Car(genome=clone_genome(best.genome), name=best.name, color=best.color,
                                   left_wheel_size=best.left_wheel_size, right_wheel_size=best.right_wheel_size))
-        # Create children with additional mutations in variant properties
+        # Create children via uniform-mask crossover then per-element mutation
         while len(new_population) < len(self.population):
             parent1 = self.tournament_selection()
             parent2 = self.tournament_selection()
-            child_gene = (parent1.gene + parent2.gene) / 2
-            child_gene = self.mutate(child_gene)
+            child_genome = mutate(crossover(parent1.genome, parent2.genome))
             # Inherit and mutate variant properties slightly
             child_color = tuple(min(255, max(0, int((parent1.color[i] + parent2.color[i]) / 2 +
                             random.randint(-10, 10)))) for i in range(3))
@@ -296,7 +366,7 @@ class GeneticAlgorithm:
             child_right_wheel_size = max(2, int((parent1.right_wheel_size + parent2.right_wheel_size) / 2 +
                                           random.choice([-1,0,1])))
             child_name = random.choice(VARIANT_NAMES)
-            new_population.append(Car(gene=child_gene, name=child_name, color=child_color,
+            new_population.append(Car(genome=child_genome, name=child_name, color=child_color,
                                       left_wheel_size=child_left_wheel_size, right_wheel_size=child_right_wheel_size))
         self.population = new_population
         self.generation += 1
@@ -305,10 +375,29 @@ class GeneticAlgorithm:
         candidates = random.sample(self.population, min(k, len(self.population)))
         return max(candidates, key=lambda c: c.fitness)
 
-    def mutate(self, gene):
-        if random.random() < MUTATION_RATE:
-            gene += random.uniform(-0.2, 0.2)
-        return max(0.1, gene)
+def draw_sparkline(screen, history, x, y, w, h, font):
+    """Render a small best-fitness sparkline panel at (x, y)."""
+    label = font.render("Best fitness", True, (255, 255, 255))
+    screen.blit(label, (x, y))
+    panel_y = y + label.get_height() + 2
+    panel = pygame.Surface((w, h), pygame.SRCALPHA)
+    pygame.draw.rect(panel, (20, 20, 20, 180), (0, 0, w, h), border_radius=6)
+    screen.blit(panel, (x, panel_y))
+    if len(history) < 2:
+        return
+    lo = min(history)
+    hi = max(history)
+    span = hi - lo if hi > lo else 1.0
+    pad = 4
+    n = len(history)
+    points = []
+    for i, v in enumerate(history):
+        px = x + pad + int((w - 2 * pad) * (i / max(1, n - 1)))
+        py = panel_y + pad + int((h - 2 * pad) * (1.0 - (v - lo) / span))
+        points.append((px, py))
+    if len(points) >= 2:
+        pygame.draw.lines(screen, (0, 220, 220), False, points, 2)
+
 
 def draw_leaderboard(screen, population, font):
     # Sort by fitness descending and display name and fitness
@@ -344,6 +433,7 @@ def main():
     cam_offset = 0.0
     transition_frames = 0
     transition_label = ""
+    best_fitness_history = []
 
     running = True
     while running:
@@ -360,6 +450,9 @@ def main():
         else:
             if frame_count >= SIMULATION_TIME or ga.all_dead():
                 prev_gen = ga.generation
+                best_fitness_history.append(max(c.fitness for c in ga.population))
+                if len(best_fitness_history) > 60:
+                    best_fitness_history.pop(0)
                 ga.evolve()
                 frame_count = 0
                 transition_frames = 30
@@ -380,6 +473,9 @@ def main():
         # Display generation counter
         gen_text = FONT_HUD.render(f"Gen: {ga.generation}", True, (255, 255, 255))
         screen.blit(gen_text, (10, 10))
+        # Best-fitness sparkline directly under Gen label
+        draw_sparkline(screen, best_fitness_history, 10, 10 + gen_text.get_height() + 4,
+                       150, 40, FONT_LEADER)
         hint_text = FONT_HUD.render("ESC to quit", True, (255, 255, 255))
         screen.blit(hint_text, (10, HEIGHT - 24))
 
