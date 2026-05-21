@@ -4,6 +4,8 @@ import os
 import uuid
 import sys
 
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+
 
 # Function to generate Minesweeper board
 def generate_minesweeper_board(rows, cols, mines, file_path, seed=None):
@@ -95,7 +97,7 @@ if __name__ == "__main__":
     # Parameters for the game
     rows, cols = 16, 30
     default_mines = 99
-    folder_path = "games"
+    folder_path = os.path.join(SCRIPT_DIR, "games")
     
     # Parse command-line arguments
     num_games = int(sys.argv[1]) if len(sys.argv) > 1 else 10

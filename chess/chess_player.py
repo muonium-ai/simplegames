@@ -8,6 +8,7 @@ import os
 
 # Initialize Pygame
 pygame.init()
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 screen_size = 800  # Screen size for the chessboard display
 square_size = screen_size // 8
 info_height = 100  # Space above the board for displaying game details
@@ -30,7 +31,7 @@ unicode_pieces = {
 # Load PGN file and extract games
 pgn_file = sys.argv[1] if len(sys.argv) > 1 else "games.pgn"
 game_name = os.path.splitext(os.path.basename(pgn_file))[0]
-screenshot_dir = os.path.join("screenshots", game_name)
+screenshot_dir = os.path.join(SCRIPT_DIR, "screenshots", game_name)
 os.makedirs(screenshot_dir, exist_ok=True)
 
 # Extract all games from the PGN file

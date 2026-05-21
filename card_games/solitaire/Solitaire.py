@@ -1,8 +1,11 @@
 # Solitaire Game
 # Source of card images: https://code.google.com/archive/p/vector-playing-deck/
+import os
 import sys
 import pygame
 import random
+
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # initialise pygame modules
 pygame.init()
@@ -22,7 +25,7 @@ def loadImage(path, newSize=None):
 class Card:
     # set global card attributes
     size = width, height = 95, 140
-    imagePath = "PNG-cards"
+    imagePath = os.path.join(SCRIPT_DIR, "PNG-cards")
     suits = ("clubs", "diamonds", "hearts", "spades")
 
     # set cardback image

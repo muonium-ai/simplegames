@@ -9,6 +9,8 @@ import math
 import json
 import os
 
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+
 # --- Constants ---
 WINDOW_WIDTH = 1200
 WINDOW_HEIGHT = 800
@@ -62,7 +64,7 @@ def show_modal(screen, font, prev_stats=None):
     spacing = 20
     
     # Scan for available levels
-    levels_dir = "levels"
+    levels_dir = os.path.join(SCRIPT_DIR, "levels")
     level_buttons = []
     level_num = 1
     

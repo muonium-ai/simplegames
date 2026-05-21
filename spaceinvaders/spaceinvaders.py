@@ -1,6 +1,9 @@
 from os import environ
 environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'
+import os
 import pygame, sys, random
+
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # Initialize Pygame
 pygame.init()
@@ -137,13 +140,13 @@ class Game:
 
     def load_high_score(self):
         try:
-            with open("highscore.txt", "r", encoding="utf-8") as f:
+            with open(os.path.join(SCRIPT_DIR, "highscore.txt"), "r", encoding="utf-8") as f:
                 return int(f.read())
         except (FileNotFoundError, ValueError):
             return 0
 
     def save_high_score(self):
-        with open("highscore.txt", "w") as f:
+        with open(os.path.join(SCRIPT_DIR, "highscore.txt"), "w") as f:
             f.write(str(self.high_score))
 
     def create_enemies(self):

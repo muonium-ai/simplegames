@@ -2,8 +2,12 @@ import json
 import os
 from brick_colors import get_brick_color
 
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+
 class LevelLoader:
-    def __init__(self, levels_dir="levels"):
+    def __init__(self, levels_dir=None):
+        if levels_dir is None:
+            levels_dir = os.path.join(SCRIPT_DIR, "levels")
         self.levels_dir = levels_dir
         self.current_level = 1
         self.max_level = self._count_levels()

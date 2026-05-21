@@ -4,7 +4,7 @@ def show_modal(screen, font, prev_stats=None):
     
     # Level radio buttons - horizontally arranged
     level_buttons = []
-    levels_dir = "levels"
+    levels_dir = os.path.join(SCRIPT_DIR, "levels")
     available_levels = []
     level_num = 1
     
@@ -102,6 +102,8 @@ import math
 import json
 import os
 from brick_colors import get_brick_color  # Add this import
+
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # --- Constants ---
 WINDOW_WIDTH = 1000  # increased width
@@ -295,7 +297,9 @@ class Brick:
                                (self.x, self.y, self.width, self.height), 2)
 
 class LevelManager:
-    def __init__(self, levels_dir="levels"):
+    def __init__(self, levels_dir=None):
+        if levels_dir is None:
+            levels_dir = os.path.join(SCRIPT_DIR, "levels")
         self.levels_dir = levels_dir
         self.current_level = 1
         self.max_level = self._count_levels()

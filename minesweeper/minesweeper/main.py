@@ -11,6 +11,8 @@ import uuid  # To generate a unique identifier
 from minesweeper import Minesweeper
 from cell import CellState  # Import CellState for setting cell states
 
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+
 def load_solver(solver_name):
     """Dynamically load a solver from the solvers folder."""
     try:
@@ -24,7 +26,7 @@ def load_solver(solver_name):
 
 def capture_screenshot(solver_name, iteration, remaining_mines, remaining_hidden, is_victory):
     """Capture a screenshot of the game window and save it to the screenshots folder."""
-    screenshots_dir = "screenshots"
+    screenshots_dir = os.path.join(SCRIPT_DIR, "screenshots")
     os.makedirs(screenshots_dir, exist_ok=True)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     unique_id = uuid.uuid4().hex[:6]  # Unique ID with 6 characters

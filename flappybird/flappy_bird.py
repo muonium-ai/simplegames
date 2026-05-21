@@ -1,8 +1,11 @@
 from os import environ
 environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'  # Hide pygame support prompt
 
+import os
 import pygame
 import random
+
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 WIDTH, HEIGHT = 400, 600
 FPS = 60
@@ -14,8 +17,8 @@ font = None
 music_enabled = True
 
 # Preload two background music tracks; place level1.mp3 and level2.mp3 in this directory
-LEVEL1_MUSIC = "level1.mp3"
-LEVEL2_MUSIC = "level2.mp3"
+LEVEL1_MUSIC = os.path.join(SCRIPT_DIR, "level1.mp3")
+LEVEL2_MUSIC = os.path.join(SCRIPT_DIR, "level2.mp3")
 current_level = 1  # Track music level
 
 def play_music(music_file):

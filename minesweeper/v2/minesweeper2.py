@@ -1,15 +1,18 @@
 from enum import Enum
+import os
 import pygame
 import random
 from config import *
 from common import Cell,CellState, Button, InputBox
 import sys
 
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+
 
 class Minesweeper:
     # Add image paths as class constants
-    FLAG_IMAGE_PATH = "images/red-flag.png"
-    MINE_IMAGE_PATH = "images/landmine.png"
+    FLAG_IMAGE_PATH = os.path.join(SCRIPT_DIR, "images/red-flag.png")
+    MINE_IMAGE_PATH = os.path.join(SCRIPT_DIR, "images/landmine.png")
 
     def __init__(self, filename=None):
         pygame.init()

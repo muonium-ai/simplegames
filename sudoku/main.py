@@ -15,6 +15,8 @@ from lib.grid import Grid
 from lib.utils import redraw_window
 from lib.generator import generate_puzzle
 
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+
 def main():
     # Argument parsing
     parser = argparse.ArgumentParser(description="Sudoku Game with Solver")
@@ -23,7 +25,7 @@ def main():
 
     # Generate UUID for the game session
     game_uuid = str(uuid.uuid4())
-    screenshots_dir = os.path.join("screenshots", game_uuid)
+    screenshots_dir = os.path.join(SCRIPT_DIR, "screenshots", game_uuid)
     os.makedirs(screenshots_dir, exist_ok=True)
 
     WIN = pygame.display.set_mode((WIDTH, HEIGHT))

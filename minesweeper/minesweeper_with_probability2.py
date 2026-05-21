@@ -1,8 +1,11 @@
 from os import environ
 environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'  # Hide pygame support prompt
+import os
 import pygame
 import random
 from enum import Enum
+
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # Constants
 CELL_SIZE = 32
@@ -124,8 +127,8 @@ class Cell:
 
 class Minesweeper:
     # Add image paths as class constants
-    FLAG_IMAGE_PATH = "images/red-flag.png"
-    MINE_IMAGE_PATH = "images/landmine.png"
+    FLAG_IMAGE_PATH = os.path.join(SCRIPT_DIR, "images/red-flag.png")
+    MINE_IMAGE_PATH = os.path.join(SCRIPT_DIR, "images/landmine.png")
 
     def __init__(self):
         pygame.init()

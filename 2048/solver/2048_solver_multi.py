@@ -4,12 +4,14 @@ import time
 import math
 from datetime import datetime
 
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+
 class Game2048Client:
     def __init__(self, server_url="http://127.0.0.1:5000", depth=3):
         self.server_url = server_url
         self.game_id = None
         self.screenshot_count = 0
-        self.screenshot_folder = "screenshots"
+        self.screenshot_folder = os.path.join(SCRIPT_DIR, "screenshots")
         self.depth = depth  # Adjustable depth for Expectimax
 
     def start_game(self):

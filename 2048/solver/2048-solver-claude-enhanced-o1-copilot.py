@@ -11,12 +11,14 @@ import math
 # Import Numba for JIT compilation
 from numba import njit, prange
 
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+
 class Game2048Client:
     def __init__(self, server_url="http://127.0.0.1:5000"):
         self.server_url = server_url
         self.game_id = None
         self.screenshot_count = 0
-        self.screenshot_folder = "screenshots"
+        self.screenshot_folder = os.path.join(SCRIPT_DIR, "screenshots")
 
     def start_game(self):
         response = requests.post(f"{self.server_url}/start")
