@@ -1,0 +1,22 @@
+[project]
+name = "simplegames"
+version = "0.1.0"
+description = "A collection of classic games built with PyGame and AI-assisted Python."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+dependencies = [
+    "pygame>=2.5",
+    "chess>=1.10",
+    "flask>=3.0",
+    "kociemba>=1.2",
+    "numpy>=1.26",
+    "PyOpenGL>=3.1",
+    "requests>=2.31",
+]
+
+[project.optional-dependencies]
+solvers = [
+    "numba>=0.59",
+    "pandas>=2.2",
+]

@@ -69,29 +69,36 @@ Stay tuned for these additions and more!
    ```
 
 2. **Install Dependencies:**
+
+   Using [`uv`](https://docs.astral.sh/uv/) (recommended — fast, lockfile-backed):
+   ```bash
+   uv sync
+   ```
+   This creates a `.venv/` and installs everything declared in `pyproject.toml`.
+   Add `--extra solvers` if you want the heavier numba/pandas extras used by
+   the 2048 solver experiments and the minesweeper v2 generators.
+
+   Alternative with pip:
    ```bash
    pip install -r requirements.txt
    ```
 
 3. **Run the Games:**
-Each game project has a readme in the folder
-   - **Minesweeper**:
-     ```bash
-     python minesweeper.py
-     ```
-   - **2048**:
-     ```bash
-     python 2048.py
-     ```
-   - **2048 AI Solver** (starts Flask server):
-     ```bash
-     python ai_solver.py
-     ```
-   - The 2048 game can make HTTP requests to the AI solver to see AI strategies in action.
-   **Chess Replay Viewer**
-      ```bash
-      python chess_player.py path/to/your_game.pgn
-      ```
+
+   With `uv` you don't have to activate the venv — `uv run` does it for you.
+   Run any game by giving the path to its main script:
+   ```bash
+   uv run python minesweeper/minesweeper.py
+   uv run python 2048/2048.py
+   uv run python tetris/tetris.py
+   uv run python chess/chess_player.py path/to/your_game.pgn
+   ```
+   2048 AI Solver (starts Flask server):
+   ```bash
+   uv run python 2048/2048_server.py
+   ```
+   The 2048 game can make HTTP requests to the AI solver to see AI strategies in action.
+   Each game project has a readme in its folder.
 
 ## 🎮 Usage
 
