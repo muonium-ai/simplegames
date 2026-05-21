@@ -33,22 +33,83 @@ for x in range(0, TRACK_LENGTH + 1, SEGMENT_LENGTH):
     track_points.append((x, base_y + offset))
 
 def get_track_y(x):
-    if x <= track_points[0][0]:
+    if x <= 0:
         return track_points[0][1]
-    if x >= track_points[-1][0]:
+    if x >= TRACK_LENGTH:
         return track_points[-1][1]
-    for i in range(len(track_points)-1):
-        x1, y1 = track_points[i]
-        x2, y2 = track_points[i+1]
-        if x1 <= x <= x2:
-            t = (x - x1) / (x2 - x1)
-            return y1 + t * (y2 - y1)
-    return base_y
+    i = int(x // SEGMENT_LENGTH)
+    x1, y1 = track_points[i]
+    x2, y2 = track_points[i + 1]
+    t = (x - x1) / (x2 - x1)
+    return y1 + t * (y2 - y1)
 
-def draw_track(screen, cam_offset):
-    pts = [(x - cam_offset, get_track_y(x)) for x in range(0, TRACK_LENGTH + 1, 10)]
-    if pts:
-        pygame.draw.lines(screen, (0, 255, 0), False, pts, 3)
+def build_sky_gradient():
+    """Build a vertical sky gradient surface once at startup."""
+    surf = pygame.Surface((WIDTH, HEIGHT))
+    top = (135, 206, 235)
+    mid = (70, 130, 170)
+    bot = (45, 90, 120)
+    for y in range(HEIGHT):
+        if y <= base_y:
+            t = y / max(1, base_y)
+            r = int(top[0] + (mid[0] - top[0]) * t)
+            g = int(top[1] + (mid[1] - top[1]) * t)
+            b = int(top[2] + (mid[2] - top[2]) * t)
+        else:
+            t = (y - base_y) / max(1, HEIGHT - base_y)
+            r = int(mid[0] + (bot[0] - mid[0]) * t)
+            g = int(mid[1] + (bot[1] - mid[1]) * t)
+            b = int(mid[2] + (bot[2] - mid[2]) * t)
+        pygame.draw.line(surf, (r, g, b), (0, y), (WIDTH, y))
+    return surf
+
+def draw_markers(screen, cam_offset):
+    """Draw start (green post) and finish (checkered flag) markers."""
+    # Start at x=0
+    start_x = int(0 - cam_offset)
+    start_y = int(get_track_y(0))
+    pygame.draw.rect(screen, (0, 200, 0), (start_x - 2, start_y - 60, 4, 60))
+    pygame.draw.rect(screen, (255, 255, 255), (start_x + 2, start_y - 60, 14, 10))
+    # Finish at x=TRACK_LENGTH
+    fin_x = int(TRACK_LENGTH - cam_offset)
+    fin_y = int(get_track_y(TRACK_LENGTH))
+    pygame.draw.rect(screen, (40, 40, 40), (fin_x - 2, fin_y - 60, 4, 60))
+    # Checkered flag pattern: 6 rows x 4 cols of 6px squares
+    sq = 6
+    for row in range(6):
+        for col in range(4):
+            color = (255, 255, 255) if (row + col) % 2 == 0 else (0, 0, 0)
+            rx = fin_x + 2 + col * sq
+            ry = fin_y - 60 + row * sq
+            pygame.draw.rect(screen, color, (rx, ry, sq, sq))
+
+def build_track_surface():
+    """Pre-render the full-length track (brown ground + green surface band)."""
+    surf = pygame.Surface((TRACK_LENGTH + 1, HEIGHT), pygame.SRCALPHA)
+    surface_pts = [(x, get_track_y(x)) for x in range(0, TRACK_LENGTH + 1, 10)]
+    brown_poly = surface_pts + [(TRACK_LENGTH, HEIGHT), (0, HEIGHT)]
+    pygame.draw.polygon(surf, (101, 67, 33), brown_poly)
+    pygame.draw.lines(surf, (34, 100, 34), False, surface_pts, 6)
+    return surf
+
+def draw_track(screen, cam_offset, track_surface=None):
+    if track_surface is not None:
+        screen.blit(track_surface, (-int(cam_offset), 0))
+    else:
+        # Fallback dynamic path (preserves original signature behavior)
+        surface_pts = [(x - cam_offset, get_track_y(x)) for x in range(0, TRACK_LENGTH + 1, 10)]
+        brown_poly = surface_pts + [(surface_pts[-1][0], HEIGHT), (surface_pts[0][0], HEIGHT)]
+        pygame.draw.polygon(screen, (101, 67, 33), brown_poly)
+        pygame.draw.lines(screen, (34, 100, 34), False, surface_pts, 6)
+    # Translucent yellow tolerance band overlay (always dynamic — follows leader visually)
+    surface_pts_screen = [(x - cam_offset, get_track_y(x)) for x in range(0, TRACK_LENGTH + 1, 10)]
+    overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+    top_line = [(px, py - TRACK_TOLERANCE) for px, py in surface_pts_screen]
+    bot_line = [(px, py + TRACK_TOLERANCE) for px, py in surface_pts_screen]
+    band_poly = top_line + list(reversed(bot_line))
+    pygame.draw.polygon(overlay, (255, 255, 100, 60), band_poly)
+    screen.blit(overlay, (0, 0))
+    draw_markers(screen, cam_offset)
 
 # Helper: rotate a point (px, py) around origin by an angle (radians)
 def rotate_point(px, py, angle):
@@ -61,8 +122,8 @@ class Car:
     def __init__(self, gene=None, name=None, color=None, left_wheel_size=None, right_wheel_size=None):
         self.x = 50
         self.y = get_track_y(50)
-        # Set a random initial rotation
-        self.angle = random.uniform(0, 2 * math.pi)
+        # Deterministic initial rotation: all cars start facing right
+        self.angle = 0.0
         self.gene = gene if gene is not None else random.uniform(0.5, 1.5)
         self.name = name if name is not None else random.choice(VARIANT_NAMES)
         self.color = color if color is not None else random.choice(VARIANT_COLORS)
@@ -73,6 +134,7 @@ class Car:
         self.alive = True
         self.fitness = 0
         self.wheel_rotation = 0  # For rotation visualization
+        self.trail = []  # recent (x,y) positions for fading trail
 
     def update(self):
         if not self.alive:
@@ -96,10 +158,12 @@ class Car:
         right_touch = abs(ry_right - get_track_y(rx_right)) < ground_threshold
 
         if left_touch and right_touch:
-            self.x += SPEED * math.cos(self.angle)
-            self.wheel_rotation += SPEED / min(self.left_wheel_size, self.right_wheel_size)
+            dx = SPEED * math.cos(self.angle)
         else:
-            self.x += 0.2 * SPEED * math.cos(self.angle)
+            dx = 0.2 * SPEED * math.cos(self.angle)
+        self.x += dx
+        # Continuous wheel rotation proportional to horizontal velocity
+        self.wheel_rotation += dx / min(self.left_wheel_size, self.right_wheel_size)
 
         self.y += SPEED * math.sin(self.angle) + self.vy
         self.vy += GRAVITY
@@ -133,6 +197,11 @@ class Car:
         deviation = abs(self.y - baseline)
         self.fitness = self.x - 0.2 * deviation
 
+        # Maintain trail of last 20 positions for fading visual
+        self.trail.append((self.x, self.y))
+        if len(self.trail) > 20:
+            self.trail.pop(0)
+
         # Death conditions:
         # 1) Reached end of track
         if self.x >= TRACK_LENGTH:
@@ -144,6 +213,17 @@ class Car:
 
     def draw(self, screen, cam_offset):
         x_draw = int(self.x - cam_offset)
+        # Fading trail behind the car
+        if self.trail:
+            trail_surf = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+            n = len(self.trail)
+            for idx, (tx, ty) in enumerate(self.trail):
+                alpha = int(180 * (idx + 1) / n)
+                radius = max(1, int(3 * (idx + 1) / n))
+                pygame.draw.circle(trail_surf,
+                                   (self.color[0], self.color[1], self.color[2], alpha),
+                                   (int(tx - cam_offset), int(ty)), radius)
+            screen.blit(trail_surf, (0, 0))
         # Chassis: a thin rectangle (length=40, height=10)
         half_length, half_height = 20, 5
         local_corners = [(half_length, half_height), (half_length, -half_height),
@@ -230,14 +310,21 @@ class GeneticAlgorithm:
             gene += random.uniform(-0.2, 0.2)
         return max(0.1, gene)
 
-def draw_leaderboard(screen, population):
+def draw_leaderboard(screen, population, font):
     # Sort by fitness descending and display name and fitness
     sorted_pops = sorted(population, key=lambda c: c.fitness, reverse=True)
-    font = pygame.font.SysFont(None, 20)
+    panel_x = WIDTH - 170
+    panel_y = 5
+    panel_w = 165
+    panel_h = 10 + 20 * len(sorted_pops) + 5
+    panel = pygame.Surface((panel_w, panel_h), pygame.SRCALPHA)
+    pygame.draw.rect(panel, (20, 20, 20, 180), (0, 0, panel_w, panel_h), border_radius=8)
+    screen.blit(panel, (panel_x, panel_y))
     y_offset = 10
     for car in sorted_pops:
-        text = font.render(f"{car.name}: {int(car.fitness)}", True, (255,255,255))
-        screen.blit(text, (WIDTH - 150, y_offset))
+        pygame.draw.circle(screen, car.color, (panel_x + 12, y_offset + 8), 5)
+        text = font.render(f"{car.name}: {int(car.fitness)}", True, (255, 255, 255))
+        screen.blit(text, (panel_x + 24, y_offset))
         y_offset += 20
 
 def main():
@@ -246,8 +333,17 @@ def main():
     pygame.display.set_caption("Genetic Car Simulation")
     clock = pygame.time.Clock()
 
+    sky_surface = build_sky_gradient()
+    track_surface = build_track_surface()
+    FONT_HUD = pygame.font.SysFont(None, 24)
+    FONT_LEADER = pygame.font.SysFont(None, 20)
+    FONT_TITLE = pygame.font.SysFont(None, 60)
+
     ga = GeneticAlgorithm(POPULATION_SIZE)
     frame_count = 0
+    cam_offset = 0.0
+    transition_frames = 0
+    transition_label = ""
 
     running = True
     while running:
@@ -259,28 +355,46 @@ def main():
                 pygame.quit()
                 sys.exit(0)
 
-        if frame_count < SIMULATION_TIME and not ga.all_dead():
-            ga.update()
+        if transition_frames > 0:
+            transition_frames -= 1
         else:
-            ga.evolve()
-            frame_count = 0
+            if frame_count >= SIMULATION_TIME or ga.all_dead():
+                prev_gen = ga.generation
+                ga.evolve()
+                frame_count = 0
+                transition_frames = 30
+                transition_label = f"Gen {prev_gen} -> Gen {ga.generation}"
+            ga.update()
 
-        # Determine camera offset: follow the car with highest x
+        # Determine camera offset: smoothly follow the car with highest x
         leader = max(ga.population, key=lambda c: c.x)
-        cam_offset = leader.x - CAMERA_OFFSET_X
-        if cam_offset < 0: cam_offset = 0
+        target = leader.x - CAMERA_OFFSET_X
+        cam_offset += 0.1 * (target - cam_offset)
+        if cam_offset < 0: cam_offset = 0.0
 
-        screen.fill((100, 100, 100))
-        draw_track(screen, cam_offset)
+        screen.blit(sky_surface, (0, 0))
+        draw_track(screen, cam_offset, track_surface)
         ga.draw(screen, cam_offset)
         # Leaderboard
-        draw_leaderboard(screen, ga.population)
+        draw_leaderboard(screen, ga.population, FONT_LEADER)
         # Display generation counter
-        font = pygame.font.SysFont(None, 24)
-        gen_text = font.render(f"Gen: {ga.generation}", True, (255, 255, 255))
+        gen_text = FONT_HUD.render(f"Gen: {ga.generation}", True, (255, 255, 255))
         screen.blit(gen_text, (10, 10))
-        hint_text = font.render("ESC to quit", True, (255, 255, 255))
+        hint_text = FONT_HUD.render("ESC to quit", True, (255, 255, 255))
         screen.blit(hint_text, (10, HEIGHT - 24))
+
+        # Generation transition card overlay
+        if transition_frames > 0:
+            card_w, card_h = 420, 140
+            card_x = (WIDTH - card_w) // 2
+            card_y = (HEIGHT - card_h) // 2
+            card = pygame.Surface((card_w, card_h), pygame.SRCALPHA)
+            pygame.draw.rect(card, (20, 20, 20, 200), (0, 0, card_w, card_h), border_radius=12)
+            screen.blit(card, (card_x, card_y))
+            title = FONT_TITLE.render(transition_label, True, (255, 255, 255))
+            title_rect = title.get_rect(center=(WIDTH // 2, HEIGHT // 2))
+            screen.blit(title, title_rect)
+
         pygame.display.flip()
 
     pygame.quit()
