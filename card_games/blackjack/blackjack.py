@@ -223,7 +223,7 @@ def main():
                     pass
                 elif userSum <= 21 and len(userCard) == 5:
                     winNum += 1
-                elif userSum <= 21 and dealSum < userSum or dealSum > 21:
+                elif userSum <= 21 and (dealSum < userSum or dealSum > 21):
                     winNum += 1
                 else:
                     loseNum += 1

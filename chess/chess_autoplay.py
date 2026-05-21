@@ -157,7 +157,15 @@ def main():
                             draw_board(board, selected_square)
                     else:
                         # Try to make a move
-                        move = chess.Move(selected_square, clicked_square)
+                        piece = board.piece_at(selected_square)
+                        promotion = None
+                        if (
+                            piece is not None
+                            and piece.piece_type == chess.PAWN
+                            and chess.square_rank(clicked_square) in (0, 7)
+                        ):
+                            promotion = chess.QUEEN
+                        move = chess.Move(selected_square, clicked_square, promotion=promotion)
                         if move in board.legal_moves:
                             board.push(move)
                             selected_square = None

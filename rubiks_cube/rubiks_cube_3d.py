@@ -2,7 +2,22 @@ import pygame
 import sys
 import random
 import numpy as np
-from pygame.locals import DOUBLEBUF, KEYDOWN, K_b, K_d, K_f, K_l, K_r, K_u, MOUSEBUTTONDOWN, MOUSEMOTION, OPENGL, QUIT
+from pygame.locals import (
+    DOUBLEBUF,
+    KEYDOWN,
+    KMOD_SHIFT,
+    K_b,
+    K_d,
+    K_f,
+    K_l,
+    K_r,
+    K_u,
+    MOUSEBUTTONDOWN,
+    MOUSEBUTTONUP,
+    MOUSEMOTION,
+    OPENGL,
+    QUIT,
+)
 from OpenGL.GL import (
     GL_AMBIENT,
     GL_AMBIENT_AND_DIFFUSE,
