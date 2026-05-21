@@ -133,6 +133,15 @@ class Car:
         deviation = abs(self.y - baseline)
         self.fitness = self.x - 0.2 * deviation
 
+        # Death conditions:
+        # 1) Reached end of track
+        if self.x >= TRACK_LENGTH:
+            self.x = TRACK_LENGTH
+            self.alive = False
+        # 2) Fell off the track (deviation beyond tolerance or off-screen vertically)
+        elif deviation > TRACK_TOLERANCE or self.y > HEIGHT or self.y < 0:
+            self.alive = False
+
     def draw(self, screen, cam_offset):
         x_draw = int(self.x - cam_offset)
         # Chassis: a thin rectangle (length=40, height=10)

@@ -2,7 +2,6 @@ from os import environ
 environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'  # Hide pygame support prompt
 import pygame
 import random
-import heapq
 from collections import deque
 
 # Constants
@@ -65,39 +64,6 @@ class Player:
             distance_traveled += 1
 
 player = Player()
-
-def a_star_search(start, goal):
-    def heuristic(a, b):
-        return abs(a[0] - b[0]) + abs(a[1] - b[1])
-
-    open_set = []
-    heapq.heappush(open_set, (0, start))
-    came_from = {}
-    g_score = {start: 0}
-    f_score = {start: heuristic(start, goal)}
-
-    while open_set:
-        _, current = heapq.heappop(open_set)
-
-        if current == goal:
-            path = []
-            while current in came_from:
-                path.append(current)
-                current = came_from[current]
-            path.reverse()
-            return path
-
-        for direction in DIRECTIONS.values():
-            neighbor = (current[0] + direction[0], current[1] + direction[1])
-            if 0 <= neighbor[0] < COLS and 0 <= neighbor[1] < ROWS and maze[neighbor[1]][neighbor[0]] == 0:
-                tentative_g_score = g_score[current] + 1
-                if neighbor not in g_score or tentative_g_score < g_score[neighbor]:
-                    came_from[neighbor] = current
-                    g_score[neighbor] = tentative_g_score
-                    f_score[neighbor] = tentative_g_score + heuristic(neighbor, goal)
-                    heapq.heappush(open_set, (f_score[neighbor], neighbor))
-
-    return []
 
 def bfs_solve(start, goal):
     queue = deque([start])
@@ -187,6 +153,7 @@ def main():
     move_time = 0
     acceleration = 1.1
     speed = 1
+    MAX_SPEED = 8.0
     game_won = False
     show_modal = False
     ai_path = None
@@ -236,7 +203,7 @@ def main():
 
         if not game_won and not show_modal:
             if solving and ai_path:
-                if player.path[-1] != (COLS-1, ROWS-1):
+                if player.path[-1] != (COLS-1, ROWS-1) and len(player.path) < len(ai_path):
                     next_step = ai_path[len(player.path)]
                     player.move(next_step[0] - player.x, next_step[1] - player.y)
                 else:
@@ -248,19 +215,19 @@ def main():
                     if keys[pygame.K_UP]:
                         player.move(0, -1)
                         move_time = current_time
-                        speed *= acceleration
+                        speed = min(speed * acceleration, MAX_SPEED)
                     elif keys[pygame.K_DOWN]:
                         player.move(0, 1)
                         move_time = current_time
-                        speed *= acceleration
+                        speed = min(speed * acceleration, MAX_SPEED)
                     elif keys[pygame.K_LEFT]:
                         player.move(-1, 0)
                         move_time = current_time
-                        speed *= acceleration
+                        speed = min(speed * acceleration, MAX_SPEED)
                     elif keys[pygame.K_RIGHT]:
                         player.move(1, 0)
                         move_time = current_time
-                        speed *= acceleration
+                        speed = min(speed * acceleration, MAX_SPEED)
 
                 if player.x == COLS-1 and player.y == ROWS-1:
                     game_won = True

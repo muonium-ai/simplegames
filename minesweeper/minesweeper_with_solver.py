@@ -99,16 +99,24 @@ class Minesweeper:
         self.game_over = False
         self.victory = False
         self.step_count = 0  # Reset step count on a new game
-        self.place_mines()
+        # Defer mine placement until the first click so it can be made safe.
+        self.mines_placed = False
 
-    def place_mines(self):
-        """Randomly place mines on the grid."""
-        safe_cells = [(x, y) for x in range(GRID_WIDTH) for y in range(GRID_HEIGHT)]
-        mine_positions = random.sample(safe_cells, MINE_COUNT)
-        
+    def place_mines(self, safe_cells=None):
+        """Randomly place mines on the grid, avoiding any cells in safe_cells."""
+        safe_cells = set(safe_cells) if safe_cells else set()
+        candidate_cells = [
+            (x, y)
+            for x in range(GRID_WIDTH)
+            for y in range(GRID_HEIGHT)
+            if (x, y) not in safe_cells
+        ]
+        mine_count = min(MINE_COUNT, len(candidate_cells))
+        mine_positions = random.sample(candidate_cells, mine_count)
+
         for x, y in mine_positions:
             self.grid[y][x].is_mine = True
-        
+
         for y in range(GRID_HEIGHT):
             for x in range(GRID_WIDTH):
                 if not self.grid[y][x].is_mine:
@@ -119,10 +127,25 @@ class Minesweeper:
                     )
                     self.grid[y][x].neighbor_mines = count
 
+    def _ensure_mines_placed(self, click_x, click_y):
+        """Place mines on first click, excluding the clicked cell and its 8 neighbors."""
+        if self.mines_placed:
+            return
+        safe_cells = {
+            (click_x + dx, click_y + dy)
+            for dx in (-1, 0, 1)
+            for dy in (-1, 0, 1)
+            if 0 <= click_x + dx < GRID_WIDTH and 0 <= click_y + dy < GRID_HEIGHT
+        }
+        self.place_mines(safe_cells=safe_cells)
+        self.mines_placed = True
+
     def reveal_cell(self, x, y):
         """Reveal a cell and print debug information about clicked cells."""
         if not (0 <= x < GRID_WIDTH and 0 <= y < GRID_HEIGHT):
             return
+        # Guarantee the first revealed cell is safe by placing mines now.
+        self._ensure_mines_placed(x, y)
         cell = self.grid[y][x]
         if cell.state != CellState.HIDDEN:
             return

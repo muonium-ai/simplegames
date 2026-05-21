@@ -419,8 +419,21 @@ class Game:
                 self.draw()
 
             elif self.game_state == "victory":
-                self.menu.draw_victory(self.score, self.asteroid_stats, 
+                self.menu.draw_victory(self.score, self.asteroid_stats,
                                      self.final_time, self.shots_fired)  # Use final_time
+                for event in pygame.event.get():
+                    if event.type == pygame.QUIT:
+                        running = False
+                    elif event.type == pygame.MOUSEBUTTONDOWN:
+                        action = self.menu.handle_click(event.pos)
+                        if action == "start":
+                            self.start_game()
+                        elif action == "autoplay":
+                            self.start_game(autoplay=True)
+
+            elif self.game_state == "game_over":
+                # Return to menu on any input so player can restart
+                self.menu.draw()
                 for event in pygame.event.get():
                     if event.type == pygame.QUIT:
                         running = False
@@ -475,6 +488,30 @@ class Game:
                     if projectile in self.projectiles:
                         self.projectiles.remove(projectile)
                     self.split_asteroid(asteroid)
+                    break
+
+        # Check player-asteroid collisions (skip during invulnerability)
+        if not self.player.invulnerable:
+            player_radius = 20
+            for asteroid in self.asteroids[:]:
+                dist = math.hypot(
+                    self.player.position.x - asteroid["position"].x,
+                    self.player.position.y - asteroid["position"].y,
+                )
+                if dist < GameConfig.ASTEROID_SIZES[asteroid["size"]] + player_radius:
+                    self.player.lives -= 1
+                    self.split_asteroid(asteroid)
+                    # Reset player to center with brief invulnerability
+                    self.player.position = Vector2D(
+                        GameConfig.WINDOW_WIDTH / 2,
+                        GameConfig.WINDOW_HEIGHT / 2,
+                    )
+                    self.player.velocity = Vector2D(0, 0)
+                    self.player.invulnerable = True
+                    self.player.invulnerable_timer = GameConfig.PLAYER_INVULNERABILITY_TIME
+                    if self.player.lives <= 0:
+                        self.final_time = int(time.time() - self.start_time)
+                        self.game_state = "game_over"
                     break
 
     def split_asteroid(self, asteroid):

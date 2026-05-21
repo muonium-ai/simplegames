@@ -41,6 +41,7 @@ class Player(pygame.sprite.Sprite):
         self.rapid_fire_time = 0
         self.last_shot = 0
         self.shot_delay = 250  # Milliseconds between shots
+        self.invuln_until = 0  # Post-hit invincibility expiry (ms via pygame.time.get_ticks)
 
     def update(self):
         keys = pygame.key.get_pressed()
@@ -326,17 +327,20 @@ class Game:
                 self.score += enemy.points
                 enemy.kill()
         
-        # Enemy movement
-        move_down = False
-        for enemy in self.enemies:
-            if enemy.rect.right >= SCREEN_WIDTH or enemy.rect.left <= 0:
-                move_down = True
-                break
-        
-        if move_down:
-            for enemy in self.enemies:
-                enemy.rect.y += ENEMY_DROP_DISTANCE
-                enemy.direction *= -1
+        # Enemy movement: flip swarm direction & drop ONCE per frame, only when the
+        # NEXT step would push the swarm past a wall (prevents wall-edge oscillation
+        # when rows on opposite walls would otherwise re-flip every frame).
+        if self.enemies:
+            swarm_direction = next(iter(self.enemies)).direction
+            leftmost = min(e.rect.left for e in self.enemies)
+            rightmost = max(e.rect.right for e in self.enemies)
+            next_left = leftmost + ENEMY_MOVE_SPEED * swarm_direction
+            next_right = rightmost + ENEMY_MOVE_SPEED * swarm_direction
+            if next_right > SCREEN_WIDTH or next_left < 0:
+                new_direction = -swarm_direction
+                for enemy in self.enemies:
+                    enemy.rect.y += ENEMY_DROP_DISTANCE
+                    enemy.direction = new_direction
         
         # Random enemy shooting
         if self.enemies and random.random() < 0.02:
@@ -345,14 +349,19 @@ class Game:
             self.all_sprites.add(bullet)
             self.enemy_bullets.add(bullet)
         
-        # Check for game over conditions
-        if pygame.sprite.spritecollide(self.player, self.enemy_bullets, True) or \
-           pygame.sprite.spritecollide(self.player, self.enemies, False):
-            self.player.lives -= 1
-            if self.player.lives <= 0:
-                if self.score > self.high_score:
-                    self.high_score = self.score
-                self.game_state = "game_over"
+        # Check for game over conditions (skip while player is invulnerable post-hit
+        # so all lives don't drain in 2-3 frames from overlapping bullets/enemies).
+        current_time = pygame.time.get_ticks()
+        if current_time >= self.player.invuln_until:
+            bullet_hit = pygame.sprite.spritecollide(self.player, self.enemy_bullets, True)
+            enemy_hit = pygame.sprite.spritecollide(self.player, self.enemies, False)
+            if bullet_hit or enemy_hit:
+                self.player.lives -= 1
+                self.player.invuln_until = current_time + 2000  # 2s invincibility window
+                if self.player.lives <= 0:
+                    if self.score > self.high_score:
+                        self.high_score = self.score
+                    self.game_state = "game_over"
         
         # Check for level completion
         if not self.enemies:
@@ -361,6 +370,13 @@ class Game:
 
     def draw(self):
         self.screen.fill(BLACK)
+        # Flicker the player sprite during the post-hit invincibility window.
+        current_time = pygame.time.get_ticks()
+        player_invuln = current_time < self.player.invuln_until
+        if player_invuln and (current_time // 100) % 2 == 0:
+            self.player.image.set_alpha(80)
+        else:
+            self.player.image.set_alpha(255)
         self.all_sprites.draw(self.screen)
         
         # Draw HUD
