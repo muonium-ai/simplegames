@@ -1,5 +1,6 @@
 from os import environ
 environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'  # Hide pygame support prompt
+import sys
 import pygame
 import random
 
@@ -160,9 +161,9 @@ def main():
 
     while True:
         for event in pygame.event.get():
-            if event.type == pygame.QUIT:
+            if event.type == pygame.QUIT or (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE):
                 pygame.quit()
-                return
+                sys.exit(0)
             elif event.type == pygame.KEYDOWN and not game.is_game_over():
                 moved = False
                 if event.key == pygame.K_UP:
@@ -214,13 +215,19 @@ def main():
                             y + WINDOW_WIDTH // GAME_SIZE // 2,
                             text_color)
 
+        # Always visible ESC-to-quit hint (bottom-center)
+        draw_text(window, "ESC to quit", 16,
+                  WINDOW_WIDTH // 2, WINDOW_HEIGHT - 12, TEXT_DARK)
+
         if game.is_game_over():
             overlay = pygame.Surface((WINDOW_WIDTH, WINDOW_HEIGHT))
             overlay.fill((0, 0, 0))
             overlay.set_alpha(128)
             window.blit(overlay, (0, 0))
-            draw_text(window, f"Game Over! Max: {game.highest_tile}", 
+            draw_text(window, f"Game Over! Max: {game.highest_tile}",
                      64, WINDOW_WIDTH // 2, WINDOW_HEIGHT // 2, TEXT_LIGHT)
+            draw_text(window, "ESC to quit", 20,
+                      WINDOW_WIDTH // 2, WINDOW_HEIGHT // 2 + 50, TEXT_LIGHT)
         elif game.has_won():
             overlay = pygame.Surface((WINDOW_WIDTH, WINDOW_HEIGHT))
             overlay.fill((255, 223, 0))

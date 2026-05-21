@@ -293,6 +293,10 @@ darkGreen = 50, 122, 14 # for background
 screen = pygame.display.set_mode(screenSize)
 clock = pygame.time.Clock()
 
+# Font for ESC to quit hint
+hintFont = pygame.font.SysFont('arial', 22, bold=True)
+escHintSurface = hintFont.render('ESC to quit', True, (255, 255, 255))
+
 # initialise piles to none
 piles = None
 foundationPiles = None
@@ -376,9 +380,9 @@ while True:
 
     # Handle events
     for event in pygame.event.get():
-        if event.type == pygame.QUIT: 
+        if event.type == pygame.QUIT or (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE):
             pygame.quit()
-            sys.exit()
+            sys.exit(0)
 
         if event.type == pygame.MOUSEBUTTONDOWN:
             # handle reset button
@@ -413,6 +417,8 @@ while True:
     wastePile.draw(screen)
     resetButton.draw(screen)
     movingPile.draw(screen)
+    # draw ESC to quit hint
+    screen.blit(escHintSurface, (width - escHintSurface.get_width() - 20, 20))
     pygame.display.flip()
 
     # maintain 60 fps

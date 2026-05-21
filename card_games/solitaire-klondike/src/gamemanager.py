@@ -1,4 +1,4 @@
-import pygame, os
+import pygame, os, sys
 from gameboard import GameBoard
 from constants import *
 
@@ -29,10 +29,15 @@ class GameManager(object):
         # Restart button
         self.restart_button = pygame.Rect((20, TOPROW_Y), RESTART_BUTTON_SIZE)
 
+        # ESC to quit hint font/surface
+        self.hint_font = pygame.font.SysFont('arial', 20, bold=True)
+        self.esc_hint_surface = self.hint_font.render('ESC to quit', True, (255, 255, 255))
+
     def handleInput(self):
         for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                return 1
+            if event.type == pygame.QUIT or (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE):
+                pygame.quit()
+                sys.exit(0)
             else:
                 self.handleMouseInput(event)
 
@@ -66,6 +71,8 @@ class GameManager(object):
         else:
             self.screen.blit(self.restart_tex, self.restart_button.topleft)
         self.gameBoard.drawBoard(self.screen)
+        # Draw ESC to quit hint
+        self.screen.blit(self.esc_hint_surface, (WIDTH - self.esc_hint_surface.get_width() - 20, 20))
         pygame.display.flip()
 
     def loadTextures(self):

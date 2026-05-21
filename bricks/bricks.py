@@ -239,8 +239,9 @@ def show_modal(screen, font, prev_stats=None):
     
     while True:
         for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                pygame.quit(); sys.exit()
+            if event.type == pygame.QUIT or (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE):
+                pygame.quit()
+                sys.exit(0)
             if event.type == pygame.MOUSEBUTTONDOWN:
                 if start_button.collidepoint(event.pos):
                     return "manual"
@@ -248,11 +249,14 @@ def show_modal(screen, font, prev_stats=None):
                     return "autoplay"
                 if fast_button.collidepoint(event.pos):
                     return "fast_autoplay"
-        
+
         screen.fill(BLACK)
         # Draw title
         title = font.render("BRICK BREAKER", True, WHITE)
         screen.blit(title, (WINDOW_WIDTH//2 - title.get_width()//2, 100))
+        # ESC to quit hint
+        esc_hint = font.render("ESC to quit", True, WHITE)
+        screen.blit(esc_hint, (WINDOW_WIDTH//2 - esc_hint.get_width()//2, 130))
         
         # Draw previous game stats if available
         if prev_stats:
@@ -316,8 +320,9 @@ def main():
             mouse_pos = pygame.mouse.get_pos()
             
             for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    pygame.quit(); sys.exit()
+                if event.type == pygame.QUIT or (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE):
+                    pygame.quit()
+                    sys.exit(0)
                 elif event.type == pygame.MOUSEBUTTONDOWN and mode == "fast_autoplay":
                     # Check if clicked on a brick
                     for brick in bricks:
@@ -484,7 +489,8 @@ def main():
         final_hits = font.render(f"Total Hits: {paddle_hits}", True, WHITE)
         final_misses = font.render(f"Total Misses: {misses}", True, WHITE)
         restart_text = font.render("Press any button to restart", True, WHITE)
-        
+        esc_hint_text = font.render("ESC to quit", True, WHITE)
+
         # Position all end screen elements
         screen.blit(title_text, (WINDOW_WIDTH//2 - title_text.get_width()//2, WINDOW_HEIGHT//2 - 100))
         screen.blit(final_score_text, (WINDOW_WIDTH//2 - final_score_text.get_width()//2, WINDOW_HEIGHT//2 - 40))
@@ -492,15 +498,16 @@ def main():
         screen.blit(final_hits, (WINDOW_WIDTH//2 - final_hits.get_width()//2, WINDOW_HEIGHT//2 + 40))
         screen.blit(final_misses, (WINDOW_WIDTH//2 - final_misses.get_width()//2, WINDOW_HEIGHT//2 + 80))
         screen.blit(restart_text, (WINDOW_WIDTH//2 - restart_text.get_width()//2, WINDOW_HEIGHT//2 + 140))
-        
+        screen.blit(esc_hint_text, (WINDOW_WIDTH//2 - esc_hint_text.get_width()//2, WINDOW_HEIGHT//2 + 170))
+
         pygame.display.flip()
         # Non-blocking wait so QUIT events are still handled during the end screen
         _end_deadline = pygame.time.get_ticks() + 3000
         while pygame.time.get_ticks() < _end_deadline:
             for event in pygame.event.get():
-                if event.type == pygame.QUIT:
+                if event.type == pygame.QUIT or (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE):
                     pygame.quit()
-                    sys.exit()
+                    sys.exit(0)
             clock.tick(30)
 
 if __name__ == "__main__":

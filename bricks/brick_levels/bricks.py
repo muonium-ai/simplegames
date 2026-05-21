@@ -152,8 +152,9 @@ def main():
     while running:
         clock.tick(FPS)
         for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                running = False
+            if event.type == pygame.QUIT or (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE):
+                pygame.quit()
+                sys.exit(0)
             elif event.type == pygame.KEYDOWN:
                 # Launch the ball if it's stationary
                 if event.key == pygame.K_SPACE and ball.dx == 0 and ball.dy == 0:
@@ -212,12 +213,10 @@ def main():
     _end_deadline = pygame.time.get_ticks() + 3000
     while pygame.time.get_ticks() < _end_deadline:
         for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                break
-        else:
-            clock.tick(30)
-            continue
-        break
+            if event.type == pygame.QUIT or (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE):
+                pygame.quit()
+                sys.exit(0)
+        clock.tick(30)
 
     pygame.quit()
     sys.exit()

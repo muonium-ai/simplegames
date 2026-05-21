@@ -68,7 +68,10 @@ def show_game_details(game, game_id, game_dir):
     for i, line in enumerate(lines):
         text_surface = info_font.render(line, True, black)
         screen.blit(text_surface, (20, 30 + i * 30))
-    
+
+    quit_surface = info_font.render("ESC to quit", True, black)
+    screen.blit(quit_surface, (screen_size - quit_surface.get_width() - 10, 10))
+
     pygame.display.flip()
 
     # Save screenshot of the game info (including result)
@@ -80,9 +83,9 @@ def show_game_details(game, game_id, game_dir):
     wait_start = pygame.time.get_ticks()
     while pygame.time.get_ticks() - wait_start < 2000:
         for event in pygame.event.get():
-            if event.type == pygame.QUIT:
+            if event.type == pygame.QUIT or (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE):
                 pygame.quit()
-                sys.exit()
+                sys.exit(0)
         info_clock.tick(30)
 
 def draw_board(board, move_index, last_move):
@@ -95,9 +98,11 @@ def draw_board(board, move_index, last_move):
     step_surface = info_font.render(step_text, True, black)
     last_move_surface = info_font.render(last_move_text, True, black)
     fen_surface = info_font.render(fen_text, True, black)
+    quit_surface = info_font.render("ESC to quit", True, black)
     screen.blit(step_surface, (10, 10))
     screen.blit(last_move_surface, (10, 40))
     screen.blit(fen_surface, (10, 70))
+    screen.blit(quit_surface, (screen_size - quit_surface.get_width() - 10, 10))
 
     # Draw the chessboard
     for row in range(8):
@@ -152,9 +157,9 @@ def play_game(game, game_id):
 
     while running:
         for event in pygame.event.get():
-            if event.type == pygame.QUIT:
+            if event.type == pygame.QUIT or (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE):
                 pygame.quit()
-                sys.exit()
+                sys.exit(0)
 
         current_time = pygame.time.get_ticks()
 

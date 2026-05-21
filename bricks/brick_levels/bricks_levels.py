@@ -27,9 +27,9 @@ def show_modal(screen, font, prev_stats=None):
     
     while True:
         for event in pygame.event.get():
-            if event.type == pygame.QUIT:
+            if event.type == pygame.QUIT or (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE):
                 pygame.quit()
-                sys.exit()
+                sys.exit(0)
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 # Check radio button clicks
                 for button, level in level_buttons:
@@ -429,8 +429,9 @@ def main():
             _level_deadline = pygame.time.get_ticks() + 2000
             while pygame.time.get_ticks() < _level_deadline:
                 for event in pygame.event.get():
-                    if event.type == pygame.QUIT:
-                        pygame.quit(); sys.exit()
+                    if event.type == pygame.QUIT or (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE):
+                        pygame.quit()
+                        sys.exit(0)
                 clock.tick(30)
 
             running = True    
@@ -439,8 +440,9 @@ def main():
                 mouse_pos = pygame.mouse.get_pos()
                 
                 for event in pygame.event.get():
-                    if event.type == pygame.QUIT:
-                        pygame.quit(); sys.exit()
+                    if event.type == pygame.QUIT or (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE):
+                        pygame.quit()
+                        sys.exit(0)
                     elif event.type == pygame.MOUSEBUTTONDOWN and mode == "fast_autoplay":
                         # Check if clicked on a brick
                         for brick in bricks:
@@ -630,8 +632,9 @@ def main():
         _end_deadline = pygame.time.get_ticks() + 3000
         while pygame.time.get_ticks() < _end_deadline:
             for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    pygame.quit(); sys.exit()
+                if event.type == pygame.QUIT or (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE):
+                    pygame.quit()
+                    sys.exit(0)
             clock.tick(30)
 
         # Reset level manager for next game

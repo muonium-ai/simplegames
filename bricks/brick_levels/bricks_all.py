@@ -92,8 +92,9 @@ def show_modal(screen, font, prev_stats=None):
     
     while True:
         for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                pygame.quit(); sys.exit()
+            if event.type == pygame.QUIT or (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE):
+                pygame.quit()
+                sys.exit(0)
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 # Check level button clicks
                 for btn_rect, level in button_rects:

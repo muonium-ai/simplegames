@@ -2,6 +2,7 @@ from os import environ
 environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'  # Hide pygame support prompt
 
 import os
+import sys
 import pygame
 import random
 
@@ -91,6 +92,11 @@ def draw():
         if game_over:
             score_text = font.render(f"Final Score: {score}", True, (255, 0, 0))
             screen.blit(score_text, (WIDTH//2 - 70, HEIGHT//2 - 80))
+
+        # ESC to quit hint (start screen and game-over)
+        esc_hint = font.render("ESC to quit", True, (0, 0, 0))
+        esc_rect = esc_hint.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 60))
+        screen.blit(esc_hint, esc_rect)
     else:
         # Draw bird
         pygame.draw.circle(screen, (255, 255, 0), (bird_x, int(bird_y)), BIRD_RADIUS)
@@ -129,8 +135,9 @@ def main():
     while running:
         clock.tick(FPS)
         for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                running = False
+            if event.type == pygame.QUIT or (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE):
+                pygame.quit()
+                sys.exit(0)
             elif (not started or game_over) and event.type == pygame.MOUSEBUTTONDOWN:  # Modified condition
                 mx, my = event.pos
                 if START_BUTTON_RECT.top <= my <= START_BUTTON_RECT.bottom:

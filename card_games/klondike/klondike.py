@@ -2,6 +2,7 @@ from os import environ
 environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'
 import pygame
 import random
+import sys
 import time
 from enum import Enum
 import os
@@ -388,8 +389,9 @@ class Game:
             self.clock.tick(FPS)
             
             for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    running = False
+                if event.type == pygame.QUIT or (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE):
+                    pygame.quit()
+                    sys.exit(0)
                 elif event.type == pygame.MOUSEBUTTONDOWN:
                     self.handle_click(event.pos)
             
@@ -523,6 +525,10 @@ class Game:
         
         self.screen.blit(time_text, (10, 10))
         self.screen.blit(moves_text, (WINDOW_WIDTH - 120, 10))
+
+        # ESC to quit hint
+        esc_hint = self.font.render("ESC to quit", True, WHITE)
+        self.screen.blit(esc_hint, (WINDOW_WIDTH//2 - esc_hint.get_width()//2, 10))
         
         # Draw menu buttons
         for name, rect in self.menu_buttons.items():

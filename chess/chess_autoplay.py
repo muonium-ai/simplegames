@@ -54,10 +54,10 @@ def draw_board(board, selected_square=None):
             
             # Draw square
             pygame.draw.rect(
-                screen, 
-                color, 
-                pygame.Rect(col * square_size + label_offset, 
-                          row * square_size + label_offset, 
+                screen,
+                color,
+                pygame.Rect(col * square_size + label_offset,
+                          row * square_size + label_offset,
                           square_size, square_size)
             )
 
@@ -88,8 +88,11 @@ def draw_board(board, selected_square=None):
                                i * square_size + label_offset + square_size // 2 - 
                                row_label.get_height() // 2))
         screen.blit(row_label, (screen_width - label_offset // 2 - row_label.get_width(),
-                               i * square_size + label_offset + square_size // 2 - 
+                               i * square_size + label_offset + square_size // 2 -
                                row_label.get_height() // 2))
+
+    quit_label = label_font.render("ESC to quit", True, LABEL_COLOR)
+    screen.blit(quit_label, (screen_width - quit_label.get_width() - 2, screen_height - quit_label.get_height()))
 
     pygame.display.flip()
 
@@ -128,8 +131,18 @@ def display_game_over(board):
     text_surface = font.render(winner, True, (0, 0, 0))
     text_rect = text_surface.get_rect(center=(screen_width // 2, screen_height // 2))
     screen.blit(text_surface, text_rect)
+    quit_label = label_font.render("ESC to quit", True, (0, 0, 0))
+    screen.blit(quit_label, (screen_width // 2 - quit_label.get_width() // 2, screen_height // 2 + 40))
     pygame.display.flip()
-    pygame.time.wait(3000)
+    # Non-blocking wait (~3s) so QUIT/ESC stay responsive
+    _go_clock = pygame.time.Clock()
+    _go_deadline = pygame.time.get_ticks() + 3000
+    while pygame.time.get_ticks() < _go_deadline:
+        for _ev in pygame.event.get():
+            if _ev.type == pygame.QUIT or (_ev.type == pygame.KEYDOWN and _ev.key == pygame.K_ESCAPE):
+                pygame.quit()
+                sys.exit(0)
+        _go_clock.tick(30)
 
 def main():
     board = chess.Board()
@@ -141,9 +154,9 @@ def main():
 
     while not board.is_game_over():
         for event in pygame.event.get():
-            if event.type == pygame.QUIT:
+            if event.type == pygame.QUIT or (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE):
                 pygame.quit()
-                sys.exit()
+                sys.exit(0)
 
             if event.type == pygame.MOUSEBUTTONDOWN and board.turn == chess.BLACK:
                 clicked_square = get_square_from_mouse(event.pos)
@@ -178,9 +191,9 @@ def main():
                                 _move_clock = pygame.time.Clock()
                                 while pygame.time.get_ticks() < _move_deadline:
                                     for _ev in pygame.event.get():
-                                        if _ev.type == pygame.QUIT:
+                                        if _ev.type == pygame.QUIT or (_ev.type == pygame.KEYDOWN and _ev.key == pygame.K_ESCAPE):
                                             pygame.quit()
-                                            sys.exit()
+                                            sys.exit(0)
                                     _move_clock.tick(30)
                                 make_computer_move(board)
                                 draw_board(board)

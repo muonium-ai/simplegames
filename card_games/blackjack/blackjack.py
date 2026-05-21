@@ -189,6 +189,7 @@ def main():
     standTxt = font.render('Stand', True, black)
     restartTxt = font.render('Restart', True, black)
     gameoverTxt = font.render('GAME OVER', True, white)
+    escHintTxt = font.render('ESC to quit', True, white)
     userSum, userA, dealSum, dealA = initGame(ccards, userCard, dealCard)
 
     #Fill Background
@@ -216,9 +217,9 @@ def main():
 
         #checks for mouse clicks on buttons
         for event in pygame.event.get():
-            if event.type == QUIT:
+            if event.type == QUIT or (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE):
                 pygame.quit()
-                sys.exit()
+                sys.exit(0)
             elif event.type == pygame.MOUSEBUTTONDOWN and not (gameover or stand) and hitB.collidepoint(pygame.mouse.get_pos()):
                 #gives player a card if they don't break blackjack rules
                 card, cA = genCard(ccards, userCard)
@@ -263,6 +264,7 @@ def main():
         screen.blit(standTxt, (116, 448))
         screen.blit(winTxt, (565, 423))
         screen.blit(loseTxt, (565, 448))
+        screen.blit(escHintTxt, (260, 10))
 
         #displays dealer's cards
         for card in dealCard:
@@ -281,6 +283,7 @@ def main():
             pygame.draw.rect(background, gray, (270, 225, 75, 25))
             screen.blit(restartTxt, (287, 228))
             screen.blit(dealCard[1], (120, 10))
+            screen.blit(escHintTxt, (282, 260))
             
         pygame.display.update()
             

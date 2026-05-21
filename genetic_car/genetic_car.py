@@ -1,6 +1,6 @@
 from os import environ
 environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'
-import pygame, random, math
+import pygame, random, math, sys
 
 # Simulation and physics constants
 WIDTH, HEIGHT = 800, 600
@@ -255,8 +255,9 @@ def main():
         frame_count += 1
 
         for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                running = False
+            if event.type == pygame.QUIT or (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE):
+                pygame.quit()
+                sys.exit(0)
 
         if frame_count < SIMULATION_TIME and not ga.all_dead():
             ga.update()
@@ -278,6 +279,8 @@ def main():
         font = pygame.font.SysFont(None, 24)
         gen_text = font.render(f"Gen: {ga.generation}", True, (255, 255, 255))
         screen.blit(gen_text, (10, 10))
+        hint_text = font.render("ESC to quit", True, (255, 255, 255))
+        screen.blit(hint_text, (10, HEIGHT - 24))
         pygame.display.flip()
 
     pygame.quit()

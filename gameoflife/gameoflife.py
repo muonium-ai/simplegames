@@ -159,7 +159,12 @@ class GameOfLife:
             pygame.draw.rect(self.screen, (100, 100, 200), rect)
             text = font.render(name, True, (255, 255, 255))
             self.screen.blit(text, (rect.x + 5, rect.y + 10))
-        
+
+        # ESC to quit hint
+        hint_font = pygame.font.SysFont(None, 18)
+        hint_text = hint_font.render("ESC to quit", True, (80, 80, 80))
+        self.screen.blit(hint_text, (self.screen.get_width() - hint_text.get_width() - 5, self.screen.get_height() - hint_text.get_height() - 2))
+
         pygame.display.flip()
 
     def reset(self):
@@ -186,8 +191,9 @@ class GameOfLife:
         while running:
             self.clock.tick(10)  # Ensure at least 10 FPS
             for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    running = False
+                if event.type == pygame.QUIT or (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE):
+                    pygame.quit()
+                    sys.exit(0)
 
                 if event.type == pygame.MOUSEBUTTONDOWN:
                     pos = pygame.mouse.get_pos()

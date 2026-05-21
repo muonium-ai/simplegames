@@ -4,6 +4,7 @@ environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'
 import pygame
 import math
 import random
+import sys
 from typing import List, Tuple, Optional
 import time
 
@@ -214,7 +215,13 @@ class Menu:
             button_text = self.font.render(text.title(), True, GameConfig.WHITE)
             text_rect = button_text.get_rect(center=rect.center)
             self.screen.blit(button_text, text_rect)
-        
+
+        # Draw ESC-to-quit hint
+        hint_text = self.stats_font.render("ESC to quit", True, GameConfig.WHITE)
+        hint_rect = hint_text.get_rect(center=(GameConfig.WINDOW_WIDTH // 2,
+                                               GameConfig.WINDOW_HEIGHT - 30))
+        self.screen.blit(hint_text, hint_rect)
+
         pygame.display.flip()
 
     def handle_click(self, pos):
@@ -256,7 +263,13 @@ class Menu:
             button_text = self.font.render(text.title(), True, GameConfig.WHITE)
             text_rect = button_text.get_rect(center=rect.center)
             self.screen.blit(button_text, text_rect)
-        
+
+        # Draw ESC-to-quit hint
+        hint_text = self.stats_font.render("ESC to quit", True, GameConfig.WHITE)
+        hint_rect = hint_text.get_rect(center=(GameConfig.WINDOW_WIDTH // 2,
+                                               GameConfig.WINDOW_HEIGHT - 30))
+        self.screen.blit(hint_text, hint_rect)
+
         pygame.display.flip()
 
 class Game:
@@ -373,8 +386,9 @@ class Game:
             if self.game_state == "menu":
                 self.menu.draw()
                 for event in pygame.event.get():
-                    if event.type == pygame.QUIT:
-                        running = False
+                    if event.type == pygame.QUIT or (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE):
+                        pygame.quit()
+                        sys.exit(0)
                     elif event.type == pygame.MOUSEBUTTONDOWN:
                         action = self.menu.handle_click(event.pos)
                         if action == "start":
@@ -385,8 +399,9 @@ class Game:
             elif self.game_state == "playing":
                 # Handle events
                 for event in pygame.event.get():
-                    if event.type == pygame.QUIT:
-                        running = False
+                    if event.type == pygame.QUIT or (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE):
+                        pygame.quit()
+                        sys.exit(0)
                     elif event.type == pygame.KEYDOWN:
                         if event.key == pygame.K_SPACE:
                             self.fire_projectile()
@@ -422,8 +437,9 @@ class Game:
                 self.menu.draw_victory(self.score, self.asteroid_stats,
                                      self.final_time, self.shots_fired)  # Use final_time
                 for event in pygame.event.get():
-                    if event.type == pygame.QUIT:
-                        running = False
+                    if event.type == pygame.QUIT or (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE):
+                        pygame.quit()
+                        sys.exit(0)
                     elif event.type == pygame.MOUSEBUTTONDOWN:
                         action = self.menu.handle_click(event.pos)
                         if action == "start":
@@ -435,8 +451,9 @@ class Game:
                 # Return to menu on any input so player can restart
                 self.menu.draw()
                 for event in pygame.event.get():
-                    if event.type == pygame.QUIT:
-                        running = False
+                    if event.type == pygame.QUIT or (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE):
+                        pygame.quit()
+                        sys.exit(0)
                     elif event.type == pygame.MOUSEBUTTONDOWN:
                         action = self.menu.handle_click(event.pos)
                         if action == "start":
