@@ -320,7 +320,16 @@ def main():
     surface.blit(go_text, (WIN_WIDTH // 2 - go_text.get_width() // 2,
                            WIN_HEIGHT // 2 - go_text.get_height() // 2))
     pygame.display.update()
-    pygame.time.wait(3000)
+    # Non-blocking wait so the close button still works on the GAME OVER screen
+    _go_deadline = pygame.time.get_ticks() + 3000
+    while pygame.time.get_ticks() < _go_deadline:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                break
+        else:
+            clock.tick(30)
+            continue
+        break
 
     pygame.quit()
     sys.exit()

@@ -238,7 +238,14 @@ def main():
 
     # Display initial game reset screen
     reset_screen(window, game_instance.game_id)
-    pygame.time.delay(1000)  # Show reset screen briefly before starting the game
+    # Non-blocking wait so the window stays responsive
+    _reset_deadline = pygame.time.get_ticks() + 1000
+    while pygame.time.get_ticks() < _reset_deadline:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                return
+        clock.tick(30)
 
     while True:
         for event in pygame.event.get():

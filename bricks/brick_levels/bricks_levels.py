@@ -425,7 +425,13 @@ def main():
             level_text = font.render(f"Level {level_manager.current_level}", True, WHITE)
             screen.blit(level_text, (WINDOW_WIDTH//2 - level_text.get_width()//2, WINDOW_HEIGHT//2))
             pygame.display.flip()
-            pygame.time.wait(2000)
+            # Non-blocking wait so QUIT events stay responsive between levels
+            _level_deadline = pygame.time.get_ticks() + 2000
+            while pygame.time.get_ticks() < _level_deadline:
+                for event in pygame.event.get():
+                    if event.type == pygame.QUIT:
+                        pygame.quit(); sys.exit()
+                clock.tick(30)
 
             running = True    
             while running:
@@ -620,7 +626,13 @@ def main():
         screen.blit(restart_text, (WINDOW_WIDTH//2 - restart_text.get_width()//2, WINDOW_HEIGHT//2 + 140))
         
         pygame.display.flip()
-        pygame.time.wait(3000)
+        # Non-blocking wait so QUIT events are still handled during the end screen
+        _end_deadline = pygame.time.get_ticks() + 3000
+        while pygame.time.get_ticks() < _end_deadline:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit(); sys.exit()
+            clock.tick(30)
 
         # Reset level manager for next game
         level_manager.current_level = 1

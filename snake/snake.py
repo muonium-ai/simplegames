@@ -190,7 +190,14 @@ def game_loop(mode):
     draw_text("Game Over", RED, (SCREEN_WIDTH//2, SCREEN_HEIGHT//2 - 20))
     draw_text(final_score, WHITE, (SCREEN_WIDTH//2, SCREEN_HEIGHT//2 + 20))
     pygame.display.flip()
-    pygame.time.wait(2000)
+    # Non-blocking wait so QUIT events are still handled on the game-over screen
+    _go_deadline = pygame.time.get_ticks() + 2000
+    while pygame.time.get_ticks() < _go_deadline:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+        clock.tick(30)
     return final_score  # Return the score
 
 def main():

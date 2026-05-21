@@ -173,7 +173,15 @@ def main():
 
                             # Computer's turn
                             if not board.is_game_over():
-                                pygame.time.wait(500)  # Slight delay before computer moves
+                                # Non-blocking wait so QUIT events stay responsive
+                                _move_deadline = pygame.time.get_ticks() + 500
+                                _move_clock = pygame.time.Clock()
+                                while pygame.time.get_ticks() < _move_deadline:
+                                    for _ev in pygame.event.get():
+                                        if _ev.type == pygame.QUIT:
+                                            pygame.quit()
+                                            sys.exit()
+                                    _move_clock.tick(30)
                                 make_computer_move(board)
                                 draw_board(board)
                         else:

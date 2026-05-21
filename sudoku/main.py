@@ -46,6 +46,7 @@ def main():
 
     solver = None
     step_count = 0
+    clock = pygame.time.Clock()
 
     if args.solver:
         # Validate solver name against an explicit allowlist before dynamic import
@@ -97,9 +98,16 @@ def main():
                         message = "Victory!"
                         game_over = True
                         run = False  # Exit the game loop
-                # Control the speed of the solver if needed
-                pygame.time.delay(100)  # Delay in milliseconds
-                continue  # Skip event handling when solver is running
+                # Control the speed of the solver without blocking the event loop
+                _solver_deadline = pygame.time.get_ticks() + 100
+                while pygame.time.get_ticks() < _solver_deadline:
+                    for event in pygame.event.get():
+                        if event.type == pygame.QUIT:
+                            run = False
+                            pygame.quit()
+                            sys.exit()
+                    clock.tick(60)
+                continue  # Skip user-input handling when solver is running
 
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:

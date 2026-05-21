@@ -208,7 +208,16 @@ def main():
         end_text = font.render("Game Over!", True, WHITE)
     screen.blit(end_text, (WINDOW_WIDTH // 2 - end_text.get_width() // 2, WINDOW_HEIGHT // 2))
     pygame.display.flip()
-    pygame.time.wait(3000)
+    # Non-blocking wait so the close button still works on the end screen
+    _end_deadline = pygame.time.get_ticks() + 3000
+    while pygame.time.get_ticks() < _end_deadline:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                break
+        else:
+            clock.tick(30)
+            continue
+        break
 
     pygame.quit()
     sys.exit()

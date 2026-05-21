@@ -306,6 +306,7 @@ def main():
     solution_index = 0
     auto_solve = False
     status_message = "Ready"  # NEW: Status message for display
+    next_move_time = 0  # Earliest tick (ms) at which the next auto-solve move may run
     
     def draw_interface():
         screen.fill(WHITE)
@@ -375,14 +376,15 @@ def main():
                     solving = False
                     auto_solve = False
 
-        # If auto-solving, apply moves one at a time
+        # If auto-solving, apply moves one at a time (non-blocking pacing)
         if solving and auto_solve:
             if solution_index < len(solver.solution_moves):
-                move = solver.solution_moves[solution_index]
-                cube.apply_move(move)
-                solution_index += 1
-                # Instead of blocking time.sleep, you can use pygame.time.delay if preferred:
-                pygame.time.delay(500)
+                if pygame.time.get_ticks() >= next_move_time:
+                    move = solver.solution_moves[solution_index]
+                    cube.apply_move(move)
+                    solution_index += 1
+                    # Schedule the next move without blocking the event loop
+                    next_move_time = pygame.time.get_ticks() + 500
             else:
                 # Verify solution is complete
                 if cube.verify_solved_state():

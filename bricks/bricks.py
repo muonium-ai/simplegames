@@ -494,7 +494,14 @@ def main():
         screen.blit(restart_text, (WINDOW_WIDTH//2 - restart_text.get_width()//2, WINDOW_HEIGHT//2 + 140))
         
         pygame.display.flip()
-        pygame.time.wait(3000)
+        # Non-blocking wait so QUIT events are still handled during the end screen
+        _end_deadline = pygame.time.get_ticks() + 3000
+        while pygame.time.get_ticks() < _end_deadline:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    sys.exit()
+            clock.tick(30)
 
 if __name__ == "__main__":
     main()
