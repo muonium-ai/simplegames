@@ -70,10 +70,21 @@ class Minesweeper:
         self.step_count = 0  # Track the number of steps taken by the solver
         self.reset_game()
 
+    # Explicit allowlist of solver module names under solvers/.
+    # Validating against this list before importlib.import_module prevents
+    # arbitrary module loading via crafted CLI input.
+    ALLOWED_SOLVERS = {"random_solver"}
+
     def load_solver(self, solver_name):
         """Dynamically load a solver from the solvers folder, if specified."""
         if solver_name is None:
             return None
+        if solver_name not in self.ALLOWED_SOLVERS:
+            print(
+                f"Solver '{solver_name}' is not allowed. "
+                f"Valid solvers: {', '.join(sorted(self.ALLOWED_SOLVERS))}"
+            )
+            sys.exit(1)
         try:
             solver_module = importlib.import_module(f'solvers.{solver_name}')
             SolverClass = getattr(solver_module, 'Solver')

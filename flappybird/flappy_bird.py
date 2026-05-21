@@ -4,19 +4,14 @@ environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'  # Hide pygame support prompt
 import pygame
 import random
 
-pygame.init()
 WIDTH, HEIGHT = 400, 600
-screen = pygame.display.set_mode((WIDTH, HEIGHT))
-pygame.display.set_caption("Flappy Bird")
-
-clock = pygame.time.Clock()
 FPS = 60
 
+# Module-level placeholders; initialized in main()
+screen = None
+clock = None
+font = None
 music_enabled = True
-try:
-    pygame.mixer.init()
-except pygame.error:
-    music_enabled = False
 
 # Preload two background music tracks; place level1.mp3 and level2.mp3 in this directory
 LEVEL1_MUSIC = "level1.mp3"
@@ -46,10 +41,8 @@ PIPE_GAP = 200         # increased gap from 150
 pipe_speed = 2         # reduced speed from 3
 pipes = []
 SPAWN_PIPE = pygame.USEREVENT + 1
-pygame.time.set_timer(SPAWN_PIPE, 2000)  # increased delay from 1500ms
 
 score = 0
-font = pygame.font.SysFont(None, 36)
 game_over = False
 
 # New global flag for auto-play
@@ -58,6 +51,7 @@ auto_play = False
 # New global flag for game start
 started = False
 
+# Button rects are computed from constants and are safe at module scope
 START_BUTTON_RECT = pygame.Rect(WIDTH//2 - 130, HEIGHT//2 - 20, 120, 40)
 AUTO_START_BUTTON_RECT = pygame.Rect(WIDTH//2 + 10, HEIGHT//2 - 20, 120, 40)
 AUTOPLAY_BUTTON_RECT = pygame.Rect(WIDTH - 140, 10, 120, 40)
@@ -111,98 +105,119 @@ def draw():
         screen.blit(autoplay_text, autoplay_rect)
     pygame.display.flip()
 
-running = True
-while running:
-    clock.tick(FPS)
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            running = False
-        elif (not started or game_over) and event.type == pygame.MOUSEBUTTONDOWN:  # Modified condition
-            mx, my = event.pos
-            if START_BUTTON_RECT.top <= my <= START_BUTTON_RECT.bottom:
-                if START_BUTTON_RECT.left <= mx <= START_BUTTON_RECT.right:  # Regular Start
-                    reset_game()
-                    started = True
-                elif AUTO_START_BUTTON_RECT.left <= mx <= AUTO_START_BUTTON_RECT.right:  # Autoplay Start
-                    reset_game()
-                    started = True
+def main():
+    global screen, clock, font, music_enabled
+    global bird_y, bird_vel, pipes, score, game_over, started, auto_play
+
+    pygame.init()
+    screen = pygame.display.set_mode((WIDTH, HEIGHT))
+    pygame.display.set_caption("Flappy Bird")
+    clock = pygame.time.Clock()
+
+    try:
+        pygame.mixer.init()
+    except pygame.error:
+        music_enabled = False
+
+    font = pygame.font.SysFont(None, 36)
+    pygame.time.set_timer(SPAWN_PIPE, 2000)  # increased delay from 1500ms
+
+    running = True
+    while running:
+        clock.tick(FPS)
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
+            elif (not started or game_over) and event.type == pygame.MOUSEBUTTONDOWN:  # Modified condition
+                mx, my = event.pos
+                if START_BUTTON_RECT.top <= my <= START_BUTTON_RECT.bottom:
+                    if START_BUTTON_RECT.left <= mx <= START_BUTTON_RECT.right:  # Regular Start
+                        reset_game()
+                        started = True
+                    elif AUTO_START_BUTTON_RECT.left <= mx <= AUTO_START_BUTTON_RECT.right:  # Autoplay Start
+                        reset_game()
+                        started = True
+                        auto_play = True
+            # Activate autoplay if "Autoplay" button is clicked
+            elif started and event.type == pygame.MOUSEBUTTONDOWN:
+                mx, my = event.pos
+                if AUTOPLAY_BUTTON_RECT.left <= mx <= AUTOPLAY_BUTTON_RECT.right and AUTOPLAY_BUTTON_RECT.top <= my <= AUTOPLAY_BUTTON_RECT.bottom:
                     auto_play = True
-        # Activate autoplay if "Autoplay" button is clicked
-        elif started and event.type == pygame.MOUSEBUTTONDOWN:
-            mx, my = event.pos
-            if AUTOPLAY_BUTTON_RECT.left <= mx <= AUTOPLAY_BUTTON_RECT.right and AUTOPLAY_BUTTON_RECT.top <= my <= AUTOPLAY_BUTTON_RECT.bottom:
-                auto_play = True
-        if started and not game_over:
-            # Always allow SPACE events but let autoplay override
-            if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
-                if not auto_play:
-                    bird_vel = JUMP_STRENGTH
-            if event.type == SPAWN_PIPE:
-                pipe_height = random.randint(50, HEIGHT - PIPE_GAP - 50)
-                top_pipe = pygame.Rect(WIDTH, 0, PIPE_WIDTH, pipe_height)
-                bottom_pipe = pygame.Rect(WIDTH, pipe_height + PIPE_GAP, PIPE_WIDTH, HEIGHT - pipe_height - PIPE_GAP)
-                pipes.append({'top': top_pipe, 'bottom': bottom_pipe})
-        else:
-            if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
-                reset_game()
-
-    if started and not game_over:
-        # Refined autoplay logic with smoother transitions
-        if auto_play and pipes:
-            next_pipe = None
-            for pipe in pipes:
-                if pipe['top'].x + PIPE_WIDTH > bird_x:
-                    next_pipe = pipe
-                    break
-
-            if next_pipe:
-                gap_top = next_pipe['top'].height
-                gap_bottom = gap_top + PIPE_GAP
-                gap_center = (gap_top + gap_bottom) / 2
-                dx = next_pipe['top'].x - bird_x
-
-                # Adjusted jump logic with waiting period after crossing
-                if dx < 160:  # Reduced look-ahead distance
-                    # Only jump if significantly below center or falling fast
-                    if bird_y > gap_center + 25 or (bird_y > gap_center and bird_vel > 2):
+            if started and not game_over:
+                # Always allow SPACE events but let autoplay override
+                if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
+                    if not auto_play:
                         bird_vel = JUMP_STRENGTH
-                    # Wait a bit after passing pipe before next jump
-                    elif dx < PIPE_WIDTH and bird_vel < 0:
-                        bird_vel = 1  # Gentle fall after passing pipe
+                if event.type == SPAWN_PIPE:
+                    pipe_height = random.randint(50, HEIGHT - PIPE_GAP - 50)
+                    top_pipe = pygame.Rect(WIDTH, 0, PIPE_WIDTH, pipe_height)
+                    bottom_pipe = pygame.Rect(WIDTH, pipe_height + PIPE_GAP, PIPE_WIDTH, HEIGHT - pipe_height - PIPE_GAP)
+                    pipes.append({'top': top_pipe, 'bottom': bottom_pipe})
+            else:
+                if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
+                    reset_game()
 
-        # Update bird physics
-        bird_vel += GRAVITY
-        bird_y += bird_vel
+        if started and not game_over:
+            # Refined autoplay logic with smoother transitions
+            if auto_play and pipes:
+                next_pipe = None
+                for pipe in pipes:
+                    if pipe['top'].x + PIPE_WIDTH > bird_x:
+                        next_pipe = pipe
+                        break
 
-        # Simplified boundary protection for autoplay
-        if auto_play:
-            if bird_y - BIRD_RADIUS <= 5:
-                bird_vel = 1  # Gentle downward movement
-            elif bird_y + BIRD_RADIUS >= HEIGHT - 5:
-                bird_vel = JUMP_STRENGTH
-        else:
-            # Normal boundary checking for manual play
-            if bird_y - BIRD_RADIUS <= 0 or bird_y + BIRD_RADIUS >= HEIGHT:
-                game_over = True
+                if next_pipe:
+                    gap_top = next_pipe['top'].height
+                    gap_bottom = gap_top + PIPE_GAP
+                    gap_center = (gap_top + gap_bottom) / 2
+                    dx = next_pipe['top'].x - bird_x
 
-        # Move pipes and check for off-screen removal
-        for pipe in pipes:
-            pipe['top'].x -= pipe_speed
-            pipe['bottom'].x -= pipe_speed
-        pipes = [pipe for pipe in pipes if pipe['top'].x + PIPE_WIDTH > 0]
+                    # Adjusted jump logic with waiting period after crossing
+                    if dx < 160:  # Reduced look-ahead distance
+                        # Only jump if significantly below center or falling fast
+                        if bird_y > gap_center + 25 or (bird_y > gap_center and bird_vel > 2):
+                            bird_vel = JUMP_STRENGTH
+                        # Wait a bit after passing pipe before next jump
+                        elif dx < PIPE_WIDTH and bird_vel < 0:
+                            bird_vel = 1  # Gentle fall after passing pipe
 
-        # Collision detection
-        bird_rect = pygame.Rect(bird_x - BIRD_RADIUS, int(bird_y) - BIRD_RADIUS, BIRD_RADIUS * 2, BIRD_RADIUS * 2)
-        for pipe in pipes:
-            if bird_rect.colliderect(pipe['top']) or bird_rect.colliderect(pipe['bottom']):
-                game_over = True
+            # Update bird physics
+            bird_vel += GRAVITY
+            bird_y += bird_vel
 
-        # Score update
-        for pipe in pipes:
-            if pipe['top'].x + PIPE_WIDTH < bird_x and not pipe.get('scored'):
-                score += 1
-                pipe['scored'] = True
+            # Simplified boundary protection for autoplay
+            if auto_play:
+                if bird_y - BIRD_RADIUS <= 5:
+                    bird_vel = 1  # Gentle downward movement
+                elif bird_y + BIRD_RADIUS >= HEIGHT - 5:
+                    bird_vel = JUMP_STRENGTH
+            else:
+                # Normal boundary checking for manual play
+                if bird_y - BIRD_RADIUS <= 0 or bird_y + BIRD_RADIUS >= HEIGHT:
+                    game_over = True
 
-    draw()
+            # Move pipes and check for off-screen removal
+            for pipe in pipes:
+                pipe['top'].x -= pipe_speed
+                pipe['bottom'].x -= pipe_speed
+            pipes = [pipe for pipe in pipes if pipe['top'].x + PIPE_WIDTH > 0]
 
-pygame.quit()
+            # Collision detection
+            bird_rect = pygame.Rect(bird_x - BIRD_RADIUS, int(bird_y) - BIRD_RADIUS, BIRD_RADIUS * 2, BIRD_RADIUS * 2)
+            for pipe in pipes:
+                if bird_rect.colliderect(pipe['top']) or bird_rect.colliderect(pipe['bottom']):
+                    game_over = True
+
+            # Score update
+            for pipe in pipes:
+                if pipe['top'].x + PIPE_WIDTH < bird_x and not pipe.get('scored'):
+                    score += 1
+                    pipe['scored'] = True
+
+        draw()
+
+    pygame.quit()
+
+
+if __name__ == "__main__":
+    main()

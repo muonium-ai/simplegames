@@ -46,6 +46,15 @@ def main():
     step_count = 0
 
     if args.solver:
+        # Validate solver name against an explicit allowlist before dynamic import
+        # to prevent arbitrary module loading via crafted CLI input.
+        ALLOWED_SOLVERS = {"basic_solver", "solver_constraint"}
+        if args.solver not in ALLOWED_SOLVERS:
+            print(
+                f"Solver '{args.solver}' is not allowed. "
+                f"Valid solvers: {', '.join(sorted(ALLOWED_SOLVERS))}"
+            )
+            sys.exit(1)
         # Load the solver dynamically
         try:
             solver_module = importlib.import_module(f"solvers.{args.solver}")

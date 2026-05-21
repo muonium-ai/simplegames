@@ -30,7 +30,11 @@ class Game2048Client:
         if self.game_id is None:
             print("Please start a game first.")
             return None
-        response = requests.post(f"{self.server_url}/move", json={"direction": direction})
+        response = requests.post(
+            f"{self.server_url}/move",
+            params={"game_id": self.game_id},
+            json={"direction": direction},
+        )
         if response.status_code == 200:
             data = response.json()
             print(f"Move: {direction}")
@@ -48,7 +52,10 @@ class Game2048Client:
         if self.game_id is None:
             print("Please start a game first.")
             return None
-        response = requests.get(f"{self.server_url}/state")
+        response = requests.get(
+            f"{self.server_url}/state",
+            params={"game_id": self.game_id},
+        )
         if response.status_code == 200:
             data = response.json()
             print("Current Game State:")

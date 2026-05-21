@@ -553,17 +553,14 @@ class Minesweeper:
                     if event.key == pygame.K_r:
                         self.reset_game()
                     elif event.key == pygame.K_q:
-                        game.reset_game()
-                        game.quick_start()
+                        self.reset_game()
+                        self.quick_start()
                         print("New game started and quick start invoked via 'Q' key.")
                     elif event.key == pygame.K_h:
-                        game.hint()
+                        self.hint()
                         print("Hint invoked via 'H' key.")
                     elif event.key == pygame.K_m:
-                        if self.mark_probable_mines():
-                            print("Marked cells with 100% mine probability")
-                        else:
-                            print("No cells with 100% mine probability found")
+                        print("Mark-probable-mines (M key): not implemented")
                     else:
                         seed_input = self.seed_input_box.handle_event(event)
                         if seed_input is not None:

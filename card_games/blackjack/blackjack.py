@@ -7,96 +7,110 @@ import random
 import copy
 import sys
 
-#Load Images
-icon = pygame.image.load('resources/icon.png')
-cBack = pygame.image.load('resources/cards/cardback.png')
-diamondA = pygame.image.load('resources/cards/ad.png')
-clubA = pygame.image.load('resources/cards/ac.png')
-heartA = pygame.image.load('resources/cards/ah.png')
-spadeA = pygame.image.load('resources/cards/as.png')
-diamond2 = pygame.image.load('resources/cards/2d.png')
-club2 = pygame.image.load('resources/cards/2c.png')
-heart2 = pygame.image.load('resources/cards/2h.png')
-spade2 = pygame.image.load('resources/cards/2s.png')
-diamond3 = pygame.image.load('resources/cards/3d.png')
-club3 = pygame.image.load('resources/cards/3c.png')
-heart3 = pygame.image.load('resources/cards/3h.png')
-spade3 = pygame.image.load('resources/cards/3s.png')
-diamond4 = pygame.image.load('resources/cards/4d.png')
-club4 = pygame.image.load('resources/cards/4c.png')
-heart4 = pygame.image.load('resources/cards/4h.png')
-spade4 = pygame.image.load('resources/cards/4s.png')
-diamond5 = pygame.image.load('resources/cards/5d.png')
-club5 = pygame.image.load('resources/cards/5c.png')
-heart5 = pygame.image.load('resources/cards/5h.png')
-spade5 = pygame.image.load('resources/cards/5s.png')
-diamond6 = pygame.image.load('resources/cards/6d.png')
-club6 = pygame.image.load('resources/cards/6c.png')
-heart6 = pygame.image.load('resources/cards/6h.png')
-spade6 = pygame.image.load('resources/cards/6s.png')
-diamond7 = pygame.image.load('resources/cards/7d.png')
-club7 = pygame.image.load('resources/cards/7c.png')
-heart7 = pygame.image.load('resources/cards/7h.png')
-spade7 = pygame.image.load('resources/cards/7s.png')
-diamond8 = pygame.image.load('resources/cards/8d.png')
-club8 = pygame.image.load('resources/cards/8c.png')
-heart8 = pygame.image.load('resources/cards/8h.png')
-spade8 = pygame.image.load('resources/cards/8s.png')
-diamond9 = pygame.image.load('resources/cards/9d.png')
-club9 = pygame.image.load('resources/cards/9c.png')
-heart9 = pygame.image.load('resources/cards/9h.png')
-spade9 = pygame.image.load('resources/cards/9s.png')
-diamond10 = pygame.image.load('resources/cards/10d.png')
-club10 = pygame.image.load('resources/cards/10c.png')
-heart10 = pygame.image.load('resources/cards/10h.png')
-spade10 = pygame.image.load('resources/cards/10s.png')
-diamondJ = pygame.image.load('resources/cards/jd.png')
-clubJ = pygame.image.load('resources/cards/jc.png')
-heartJ = pygame.image.load('resources/cards/jh.png')
-spadeJ = pygame.image.load('resources/cards/js.png')
-diamondQ = pygame.image.load('resources/cards/qd.png')
-clubQ = pygame.image.load('resources/cards/qc.png')
-heartQ = pygame.image.load('resources/cards/qh.png')
-spadeQ = pygame.image.load('resources/cards/qs.png')
-diamondK = pygame.image.load('resources/cards/kd.png')
-clubK = pygame.image.load('resources/cards/kc.png')
-heartK = pygame.image.load('resources/cards/kh.png')
-spadeK = pygame.image.load('resources/cards/ks.png')
-
-#Set Icon
-pygame.display.set_icon(icon)
-
 #Global Constants
 black = (0,0,0)
 white = (255,255,255)
 gray = (192,192,192)
 
-cards = [ diamondA, clubA, heartA, spadeA, \
-          diamond2, club2, heart2, spade2, \
-          diamond3, club3, heart3, spade3, \
-          diamond4, club4, heart4, spade4, \
-          diamond5, club5, heart5, spade5, \
-          diamond6, club6, heart6, spade6, \
-          diamond7, club7, heart7, spade7, \
-          diamond8, club8, heart8, spade8, \
-          diamond9, club9, heart9, spade9, \
-          diamond10, club10, heart10, spade10, \
-          diamondJ, clubJ, heartJ, spadeJ, \
-          diamondQ, clubQ, heartQ, spadeQ, \
-          diamondK, clubK, heartK, spadeK ]
-cardA = [ diamondA, clubA, heartA, spadeA ]
-card2 = [ diamond2, club2, heart2, spade2 ]
-card3 = [ diamond3, club3, heart3, spade3 ]
-card4 = [ diamond4, club4, heart4, spade4 ]
-card5 = [ diamond5, club5, heart5, spade5 ]
-card6 = [ diamond6, club6, heart6, spade6 ]
-card7 = [ diamond7, club7, heart7, spade7 ]
-card8 = [ diamond8, club8, heart8, spade8 ]
-card9 = [ diamond9, club9, heart9, spade9 ]
-card10 = [ diamond10, club10, heart10, spade10, \
-            diamondJ, clubJ, heartJ, spadeJ, \
-            diamondQ, clubQ, heartQ, spadeQ, \
-            diamondK, clubK, heartK, spadeK ]
+#Image and card-list placeholders; populated by loadImages() after pygame.init()
+icon = None
+cBack = None
+cards = []
+cardA = []
+card2 = []
+card3 = []
+card4 = []
+card5 = []
+card6 = []
+card7 = []
+card8 = []
+card9 = []
+card10 = []
+
+def loadImages():
+    '''Loads all card/icon images. Must be called after pygame.init().'''
+    global icon, cBack, cards, cardA, card2, card3, card4, card5, card6, card7, card8, card9, card10
+    icon = pygame.image.load('resources/icon.png')
+    cBack = pygame.image.load('resources/cards/cardback.png')
+    diamondA = pygame.image.load('resources/cards/ad.png')
+    clubA = pygame.image.load('resources/cards/ac.png')
+    heartA = pygame.image.load('resources/cards/ah.png')
+    spadeA = pygame.image.load('resources/cards/as.png')
+    diamond2 = pygame.image.load('resources/cards/2d.png')
+    club2_ = pygame.image.load('resources/cards/2c.png')
+    heart2 = pygame.image.load('resources/cards/2h.png')
+    spade2 = pygame.image.load('resources/cards/2s.png')
+    diamond3 = pygame.image.load('resources/cards/3d.png')
+    club3_ = pygame.image.load('resources/cards/3c.png')
+    heart3 = pygame.image.load('resources/cards/3h.png')
+    spade3 = pygame.image.load('resources/cards/3s.png')
+    diamond4 = pygame.image.load('resources/cards/4d.png')
+    club4_ = pygame.image.load('resources/cards/4c.png')
+    heart4 = pygame.image.load('resources/cards/4h.png')
+    spade4 = pygame.image.load('resources/cards/4s.png')
+    diamond5 = pygame.image.load('resources/cards/5d.png')
+    club5_ = pygame.image.load('resources/cards/5c.png')
+    heart5 = pygame.image.load('resources/cards/5h.png')
+    spade5 = pygame.image.load('resources/cards/5s.png')
+    diamond6 = pygame.image.load('resources/cards/6d.png')
+    club6_ = pygame.image.load('resources/cards/6c.png')
+    heart6 = pygame.image.load('resources/cards/6h.png')
+    spade6 = pygame.image.load('resources/cards/6s.png')
+    diamond7 = pygame.image.load('resources/cards/7d.png')
+    club7_ = pygame.image.load('resources/cards/7c.png')
+    heart7 = pygame.image.load('resources/cards/7h.png')
+    spade7 = pygame.image.load('resources/cards/7s.png')
+    diamond8 = pygame.image.load('resources/cards/8d.png')
+    club8_ = pygame.image.load('resources/cards/8c.png')
+    heart8 = pygame.image.load('resources/cards/8h.png')
+    spade8 = pygame.image.load('resources/cards/8s.png')
+    diamond9 = pygame.image.load('resources/cards/9d.png')
+    club9_ = pygame.image.load('resources/cards/9c.png')
+    heart9 = pygame.image.load('resources/cards/9h.png')
+    spade9 = pygame.image.load('resources/cards/9s.png')
+    diamond10 = pygame.image.load('resources/cards/10d.png')
+    club10_ = pygame.image.load('resources/cards/10c.png')
+    heart10 = pygame.image.load('resources/cards/10h.png')
+    spade10 = pygame.image.load('resources/cards/10s.png')
+    diamondJ = pygame.image.load('resources/cards/jd.png')
+    clubJ = pygame.image.load('resources/cards/jc.png')
+    heartJ = pygame.image.load('resources/cards/jh.png')
+    spadeJ = pygame.image.load('resources/cards/js.png')
+    diamondQ = pygame.image.load('resources/cards/qd.png')
+    clubQ = pygame.image.load('resources/cards/qc.png')
+    heartQ = pygame.image.load('resources/cards/qh.png')
+    spadeQ = pygame.image.load('resources/cards/qs.png')
+    diamondK = pygame.image.load('resources/cards/kd.png')
+    clubK = pygame.image.load('resources/cards/kc.png')
+    heartK = pygame.image.load('resources/cards/kh.png')
+    spadeK = pygame.image.load('resources/cards/ks.png')
+
+    cards[:] = [ diamondA, clubA, heartA, spadeA,
+                 diamond2, club2_, heart2, spade2,
+                 diamond3, club3_, heart3, spade3,
+                 diamond4, club4_, heart4, spade4,
+                 diamond5, club5_, heart5, spade5,
+                 diamond6, club6_, heart6, spade6,
+                 diamond7, club7_, heart7, spade7,
+                 diamond8, club8_, heart8, spade8,
+                 diamond9, club9_, heart9, spade9,
+                 diamond10, club10_, heart10, spade10,
+                 diamondJ, clubJ, heartJ, spadeJ,
+                 diamondQ, clubQ, heartQ, spadeQ,
+                 diamondK, clubK, heartK, spadeK ]
+    cardA[:] = [ diamondA, clubA, heartA, spadeA ]
+    card2[:] = [ diamond2, club2_, heart2, spade2 ]
+    card3[:] = [ diamond3, club3_, heart3, spade3 ]
+    card4[:] = [ diamond4, club4_, heart4, spade4 ]
+    card5[:] = [ diamond5, club5_, heart5, spade5 ]
+    card6[:] = [ diamond6, club6_, heart6, spade6 ]
+    card7[:] = [ diamond7, club7_, heart7, spade7 ]
+    card8[:] = [ diamond8, club8_, heart8, spade8 ]
+    card9[:] = [ diamond9, club9_, heart9, spade9 ]
+    card10[:] = [ diamond10, club10_, heart10, spade10,
+                  diamondJ, clubJ, heartJ, spadeJ,
+                  diamondQ, clubQ, heartQ, spadeQ,
+                  diamondK, clubK, heartK, spadeK ]
 
 def getAmt(card):
     ''' Returns the amount the card is worth.
@@ -152,6 +166,11 @@ Returns if card is Ace and the total amount of the cards per person.'''
     return getAmt(card1) + getAmt(card3), userA, getAmt(card2) + getAmt(card4), dealA
 
 def main():
+    #Initialize Game
+    pygame.init()
+    loadImages()
+    pygame.display.set_icon(icon)
+
     #Local Variable
     ccards = copy.copy(cards)
     stand = False
@@ -159,9 +178,7 @@ def main():
     dealCard = []
     winNum = 0
     loseNum = 0
-   
-    #Initialize Game
-    pygame.init()
+
     screen = pygame.display.set_mode((640, 480))
     pygame.display.set_caption('Blackjack')
     font = pygame.font.SysFont('arial', 15)
@@ -178,6 +195,8 @@ def main():
     hitB = pygame.draw.rect(background, gray, (10, 445, 75, 25))
     standB = pygame.draw.rect(background, gray, (95, 445, 75, 25))
     ratioB = pygame.draw.rect(background, gray, (555, 420, 75, 50))
+    #Define restart button rect once up-front so click-handler can reference it safely
+    restartB = pygame.Rect(270, 225, 75, 25)
 
     #Event Loop
     while True:
@@ -233,7 +252,8 @@ def main():
                 dealCard = []
                 ccards = copy.copy(cards)
                 userSum, userA, dealSum, dealA = initGame(ccards, userCard, dealCard)
-                restartB = pygame.draw.rect(background, (80, 150, 15), (270, 225, 75, 25))
+                #erase restart button from background (rect already defined above)
+                pygame.draw.rect(background, (80, 150, 15), (270, 225, 75, 25))
 
         screen.blit(background, (0, 0))
         screen.blit(hitTxt, (39, 448))
@@ -255,7 +275,7 @@ def main():
         #when game is over, draws restart button and text, and shows the dealer's second card
         if gameover or stand:
             screen.blit(gameoverTxt, (270, 200))
-            restartB = pygame.draw.rect(background, gray, (270, 225, 75, 25))
+            pygame.draw.rect(background, gray, (270, 225, 75, 25))
             screen.blit(restartTxt, (287, 228))
             screen.blit(dealCard[1], (120, 10))
             

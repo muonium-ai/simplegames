@@ -156,6 +156,10 @@ def start_game():
 
 @app.route('/move', methods=['POST'])
 def make_move():
+    game_id = request.args.get("game_id")
+    if game_id is not None and game_id != game_instance.game_id:
+        return jsonify({"error": "Unknown game_id"}), 404
+
     direction = request.json.get("direction")
     if direction not in ["UP", "DOWN", "LEFT", "RIGHT"]:
         return jsonify({"error": "Invalid move direction"}), 400
@@ -174,6 +178,10 @@ def make_move():
 
 @app.route('/state', methods=['GET'])
 def get_state():
+    game_id = request.args.get("game_id")
+    if game_id is not None and game_id != game_instance.game_id:
+        return jsonify({"error": "Unknown game_id"}), 404
+
     status = "won" if game_instance.game_won else "over" if game_instance.game_over else "ongoing"
     return jsonify({
         "game_id": game_instance.game_id,
