@@ -102,18 +102,20 @@ def main():
                 _solver_deadline = pygame.time.get_ticks() + 100
                 while pygame.time.get_ticks() < _solver_deadline:
                     for event in pygame.event.get():
-                        if event.type == pygame.QUIT:
-                            run = False
+                        if event.type == pygame.QUIT or (
+                            event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE
+                        ):
                             pygame.quit()
-                            sys.exit()
+                            sys.exit(0)
                     clock.tick(60)
                 continue  # Skip user-input handling when solver is running
 
             for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    run = False
+                if event.type == pygame.QUIT or (
+                    event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE
+                ):
                     pygame.quit()
-                    sys.exit()
+                    sys.exit(0)
 
                 # ... existing event handling code for user input ...
 

@@ -6,6 +6,7 @@ from pygame.locals import (
     DOUBLEBUF,
     KEYDOWN,
     KMOD_SHIFT,
+    K_ESCAPE,
     K_b,
     K_d,
     K_f,
@@ -792,10 +793,10 @@ def main():
     
     while True:
         for event in pygame.event.get():
-            if event.type == QUIT:
+            if event.type == QUIT or (event.type == KEYDOWN and event.key == K_ESCAPE):
                 pygame.quit()
-                sys.exit()
-                
+                sys.exit(0)
+
             elif event.type == MOUSEBUTTONDOWN:
                 if event.button == 1:  # Left click
                     # Check for main button clicks
@@ -926,6 +927,10 @@ def main():
             text_surface = pygame.font.SysFont(None, 20).render(direction_text, True, (0, 0, 0))
             ui_surface.blit(text_surface, text_surface.get_rect(center=btn['rect'].center))
             
+        # ESC-to-quit hint
+        esc_hint = pygame.font.SysFont(None, 20).render("ESC to quit", True, (0, 0, 0))
+        ui_surface.blit(esc_hint, (WIDTH - esc_hint.get_width() - 10, HEIGHT - esc_hint.get_height() - 10))
+
         # Depth control buttons and label
         depth_label = pygame.font.SysFont(None, 20).render("Depth", True, (0, 0, 0))
         ui_surface.blit(depth_label, (WIDTH // 2 - 20, 10))

@@ -2,6 +2,7 @@ from os import environ
 environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'
 
 import pygame
+import sys
 import random
 from enum import Enum
 from typing import List, Tuple, Set
@@ -179,11 +180,17 @@ class Game:
         # Draw snake status efficiently
         y_pos = 10
         for i, snake in enumerate(self.snakes):
-            text = self.font.render(f"#{i+1}: {'A' if snake.alive else 'D'} L:{snake.length}", 
+            text = self.font.render(f"#{i+1}: {'A' if snake.alive else 'D'} L:{snake.length}",
                                   True, snake.color)
             self.screen.blit(text, (10, y_pos))
             y_pos += 25
-            
+
+        # ESC-to-quit hint
+        hint = self.font.render("ESC to quit", True, COLORS['WHITE'])
+        hint_rect = hint.get_rect(centerx=self.screen.get_width()//2,
+                                  y=self.screen.get_height() - 30)
+        self.screen.blit(hint, hint_rect)
+
         pygame.display.flip()
 
     def run(self):
@@ -191,8 +198,9 @@ class Game:
             current_time = time.time()
             
             for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    self.running = False
+                if event.type == pygame.QUIT or (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE):
+                    pygame.quit()
+                    sys.exit(0)
             
             if current_time - self.food_spawn_time > self.food_timeout:
                 self.food_pos = self.generate_food()

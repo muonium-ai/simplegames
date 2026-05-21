@@ -1,5 +1,6 @@
 from os import environ
 environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'
+import sys
 import pygame
 import random
 import heapq
@@ -257,6 +258,11 @@ def draw_maze(hex_grid, player, game_won=False, show_modal=False, solution_path=
     moves_text = font.render(f"Moves: {player.moves}", True, BLACK)
     screen.blit(moves_text, (10, HEIGHT + 15))
 
+    # Draw ESC to quit hint
+    hint_font = pygame.font.Font(None, 22)
+    hint_text = hint_font.render("ESC to quit", True, BLACK)
+    screen.blit(hint_text, (WIDTH - hint_text.get_width() - 10, HEIGHT + 20))
+
     # Draw victory screen
     if game_won:
         modal_bg = pygame.Surface((WIDTH, HEIGHT + 50))
@@ -301,8 +307,9 @@ def main():
 
     while running:
         for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                running = False
+            if event.type == pygame.QUIT or (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE):
+                pygame.quit()
+                sys.exit(0)
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 mouse_x, mouse_y = event.pos
                 if game_won:  # Handle victory screen buttons

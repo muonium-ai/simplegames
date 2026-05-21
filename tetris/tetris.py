@@ -215,6 +215,11 @@ def draw_window(surface, grid, locked_positions, score, level, current_piece, ne
     # Draw the next piece
     draw_next_piece(surface, next_piece, font)
 
+    # Draw "ESC to quit" hint in the HUD area
+    hint_font = pygame.font.SysFont('Arial', 16)
+    hint_label = hint_font.render("ESC to quit", True, WHITE)
+    surface.blit(hint_label, (SIDE_OFFSET, WIN_HEIGHT - 30))
+
     # Draw the sidebar outline
     pygame.draw.rect(surface, WHITE, (PLAY_WIDTH, 0, WIN_WIDTH - PLAY_WIDTH, WIN_HEIGHT), 2)
 
@@ -247,8 +252,9 @@ def main():
         fall_time += dt
 
         for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                running = False
+            if event.type == pygame.QUIT or (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE):
+                pygame.quit()
+                sys.exit(0)
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_p:
                     paused = not paused
@@ -319,17 +325,19 @@ def main():
     go_text = font.render("GAME OVER", True, WHITE)
     surface.blit(go_text, (WIN_WIDTH // 2 - go_text.get_width() // 2,
                            WIN_HEIGHT // 2 - go_text.get_height() // 2))
+    hint_font = pygame.font.SysFont('Arial', 20)
+    hint_text = hint_font.render("ESC to quit", True, WHITE)
+    surface.blit(hint_text, (WIN_WIDTH // 2 - hint_text.get_width() // 2,
+                             WIN_HEIGHT // 2 + go_text.get_height()))
     pygame.display.update()
     # Non-blocking wait so the close button still works on the GAME OVER screen
     _go_deadline = pygame.time.get_ticks() + 3000
     while pygame.time.get_ticks() < _go_deadline:
         for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                break
-        else:
-            clock.tick(30)
-            continue
-        break
+            if event.type == pygame.QUIT or (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE):
+                pygame.quit()
+                sys.exit(0)
+        clock.tick(30)
 
     pygame.quit()
     sys.exit()

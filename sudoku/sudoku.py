@@ -218,6 +218,10 @@ def redraw_window(win, grid, selected_num, elapsed_time, message):
     grid.draw(win)
     filled_cells = grid.count_filled()
     draw_status_bar(win, elapsed_time, message, filled_cells)
+    # Draw "ESC to quit" hint in the top-right corner above the menu bar
+    hint_font = pygame.font.SysFont("comicsans", 18)
+    hint_text = hint_font.render("ESC to quit", True, BLACK)
+    win.blit(hint_text, (WIDTH - hint_text.get_width() - 5, 2))
     pygame.display.update()
 
 def main():
@@ -233,10 +237,11 @@ def main():
         redraw_window(WIN, grid, selected_num, elapsed_time, message)
 
         for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                run = False
+            if event.type == pygame.QUIT or (
+                event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE
+            ):
                 pygame.quit()
-                sys.exit()
+                sys.exit(0)
 
             if event.type == pygame.MOUSEBUTTONDOWN:
                 pos = pygame.mouse.get_pos()

@@ -113,6 +113,13 @@ def redraw_window(win, grid, selected_num, elapsed_time, message, game_over):
     draw_menu(win, selected_num)
     grid.draw(win)
 
+    # Draw "ESC to quit" hint on the status bar (right-aligned)
+    hint_text = STATUS_FONT.render("ESC to quit", True, BLACK)
+    win.blit(
+        hint_text,
+        (WIDTH - hint_text.get_width() - 10, BUTTON_BAR_HEIGHT + 5),
+    )
+
     if game_over:
         # Display Victory message
         victory_text = FONT.render("Victory!", True, RED)

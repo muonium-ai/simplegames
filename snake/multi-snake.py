@@ -2,6 +2,7 @@ from os import environ
 environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'  # Hide pygame support prompt
 
 import pygame
+import sys
 import random
 import time
 from enum import Enum
@@ -231,6 +232,12 @@ class Menu:
             text_rect = text.get_rect(center=rect.center)
             self.screen.blit(text, text_rect)
 
+        # ESC-to-quit hint
+        hint_text = self.font.render("ESC to quit", True, WHITE)
+        hint_rect = hint_text.get_rect(centerx=self.screen.get_width()//2,
+                                       y=self.screen.get_height() - 40)
+        self.screen.blit(hint_text, hint_rect)
+
         # Show scores in a box below buttons
         if scores:
             score_box = pygame.Rect(self.screen.get_width()//4, 300, self.screen.get_width()//2, 200)
@@ -384,7 +391,13 @@ class Game:
             status_text = self.font.render(f"Snake {i+1}: {status} L:{snake.length}", True, snake.color)
             self.screen.blit(status_text, (10, y_pos))
             y_pos += 25
-        
+
+        # ESC-to-quit hint
+        hint_text = self.font.render("ESC to quit", True, WHITE)
+        hint_rect = hint_text.get_rect(centerx=self.WINDOW_WIDTH//2,
+                                       y=self.WINDOW_HEIGHT - 30)
+        self.screen.blit(hint_text, hint_rect)
+
         pygame.display.flip()
 
     def run(self):
@@ -395,8 +408,9 @@ class Game:
             if game_state == "menu":
                 self.menu.draw()
                 for event in pygame.event.get():
-                    if event.type == pygame.QUIT:
-                        running = False
+                    if event.type == pygame.QUIT or (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE):
+                        pygame.quit()
+                        sys.exit(0)
                     if event.type == pygame.MOUSEBUTTONDOWN:
                         action = self.menu.handle_click(event.pos)
                         if action == "start_small":
@@ -416,8 +430,9 @@ class Game:
                     self.food_pos = self.generate_food()
 
                 for event in pygame.event.get():
-                    if event.type == pygame.QUIT:
-                        running = False
+                    if event.type == pygame.QUIT or (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE):
+                        pygame.quit()
+                        sys.exit(0)
 
                 # Update snake positions
                 for snake in self.snakes:
@@ -445,10 +460,11 @@ class Game:
                                           key=lambda x: (x.length, x.survival_time),
                                           reverse=True)]
                 self.menu.draw(game_over=True, scores=scores)
-                
+
                 for event in pygame.event.get():
-                    if event.type == pygame.QUIT:
-                        running = False
+                    if event.type == pygame.QUIT or (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE):
+                        pygame.quit()
+                        sys.exit(0)
                     if event.type == pygame.MOUSEBUTTONDOWN:
                         action = self.menu.handle_click(event.pos)
                         if action == "start_small":

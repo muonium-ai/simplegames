@@ -229,8 +229,9 @@ class Minesweeper:
                     self.game_over = True  # Stop if solver has no moves
 
             for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    running = False
+                if event.type == pygame.QUIT or (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE):
+                    pygame.quit()
+                    sys.exit(0)
                 elif event.type == pygame.MOUSEBUTTONDOWN:
                     self.handle_click(event.pos, event.button == 3)
 
@@ -242,6 +243,12 @@ class Minesweeper:
 
     def draw(self):
         self.screen.fill(GRAY)
+
+        # ESC to quit hint
+        esc_font = pygame.font.Font(None, 20)
+        esc_hint = esc_font.render("ESC to quit", True, BLACK)
+        self.screen.blit(esc_hint, (WINDOW_WIDTH - esc_hint.get_width() - 10, 5))
+
         for y in range(GRID_HEIGHT):
             for x in range(GRID_WIDTH):
                 cell = self.grid[y][x]

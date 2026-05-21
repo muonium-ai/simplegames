@@ -36,11 +36,13 @@ def start_screen():
         pygame.draw.rect(screen, BLUE, autosnake_rect)
         draw_text("Start Game", BLACK, manual_rect.center)
         draw_text("Autosnake", BLACK, autosnake_rect.center)
+        draw_text("ESC to quit", WHITE, (SCREEN_WIDTH//2, SCREEN_HEIGHT - 30))
         pygame.display.flip()
-        
+
         for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                pygame.quit(); sys.exit()
+            if event.type == pygame.QUIT or (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE):
+                pygame.quit()
+                sys.exit(0)
             if event.type == pygame.MOUSEBUTTONDOWN:
                 if manual_rect.collidepoint(event.pos):
                     return "manual"
@@ -112,8 +114,9 @@ def game_loop(mode):
 
     while True:
         for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                pygame.quit(); sys.exit()
+            if event.type == pygame.QUIT or (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE):
+                pygame.quit()
+                sys.exit(0)
             # Handle keyboard for manual mode
             if mode == "manual" and event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_UP and direction != (0, BLOCK_SIZE):
@@ -180,7 +183,8 @@ def game_loop(mode):
         right_btn = pygame.Rect(SCREEN_WIDTH//2 + 70, 10, 30, 30)
         pygame.draw.rect(screen, BLUE, right_btn)
         draw_text(">", BLACK, right_btn.center)
-        
+        draw_text("ESC to quit", WHITE, (SCREEN_WIDTH//2, SCREEN_HEIGHT - 20))
+
         pygame.display.flip()
         clock.tick(current_fps)
     
@@ -189,14 +193,15 @@ def game_loop(mode):
     final_score = f"Score: {int(time.time()- start_time)} sec, {len(snake)}"
     draw_text("Game Over", RED, (SCREEN_WIDTH//2, SCREEN_HEIGHT//2 - 20))
     draw_text(final_score, WHITE, (SCREEN_WIDTH//2, SCREEN_HEIGHT//2 + 20))
+    draw_text("ESC to quit", WHITE, (SCREEN_WIDTH//2, SCREEN_HEIGHT - 30))
     pygame.display.flip()
     # Non-blocking wait so QUIT events are still handled on the game-over screen
     _go_deadline = pygame.time.get_ticks() + 2000
     while pygame.time.get_ticks() < _go_deadline:
         for event in pygame.event.get():
-            if event.type == pygame.QUIT:
+            if event.type == pygame.QUIT or (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE):
                 pygame.quit()
-                sys.exit()
+                sys.exit(0)
         clock.tick(30)
     return final_score  # Return the score
 

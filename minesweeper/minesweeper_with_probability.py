@@ -1,6 +1,7 @@
 from os import environ
 environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'  # Hide pygame support prompt
 import os
+import sys
 import pygame
 import random
 from enum import Enum
@@ -480,6 +481,10 @@ class Minesweeper:
         mines_text = self.font.render(f"Mines: {self.mines_remaining} | Hidden: {self.count_hidden()} ", True, RED)
         self.screen.blit(mines_text, (600 + 4 * PADDING, HEADER_HEIGHT - 35))
 
+        # ESC to quit hint
+        esc_hint = self.small_font.render("ESC to quit", True, WHITE)
+        self.screen.blit(esc_hint, (WINDOW_WIDTH - esc_hint.get_width() - PADDING, HEADER_HEIGHT - 18))
+
         # Draw grid
         for y in range(GRID_HEIGHT):
             for x in range(GRID_WIDTH):
@@ -517,8 +522,9 @@ class Minesweeper:
 
         while running:
             for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    running = False
+                if event.type == pygame.QUIT or (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE):
+                    pygame.quit()
+                    sys.exit(0)
                 elif event.type == pygame.MOUSEBUTTONDOWN:
                     if event.button == 1:
                         self.left_click_held = True

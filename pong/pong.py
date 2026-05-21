@@ -1,5 +1,7 @@
 """Simple local two-player Pong implementation using pygame."""
 
+import sys
+
 import pygame
 import random
 
@@ -121,6 +123,7 @@ def main():
     # score_sound = pygame.mixer.Sound("score.wav")
 
     score_font = pygame.font.SysFont(None, SCORE_FONT_SIZE)
+    hint_font = pygame.font.SysFont(None, 22)
 
     left_paddle = Paddle(50, WINDOW_HEIGHT // 2 - PADDLE_HEIGHT // 2)
     right_paddle = Paddle(WINDOW_WIDTH - 50 - PADDLE_WIDTH,
@@ -135,8 +138,9 @@ def main():
     while running:
         clock.tick(FPS)
         for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                running = False
+            if event.type == pygame.QUIT or (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE):
+                pygame.quit()
+                sys.exit(0)
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_p:
                     paused = not paused
@@ -186,6 +190,10 @@ def main():
         right_score_text = score_font.render(str(right_paddle.score), True, WHITE)
         screen.blit(left_score_text, (WINDOW_WIDTH // 4, 20))
         screen.blit(right_score_text, (WINDOW_WIDTH * 3 // 4, 20))
+
+        # ESC to quit hint
+        hint_surface = hint_font.render("ESC to quit", True, WHITE)
+        screen.blit(hint_surface, (10, WINDOW_HEIGHT - hint_surface.get_height() - 8))
 
         if paused and not game_over:
             blit_centered_text(screen, score_font, "Paused", WINDOW_HEIGHT // 2 - 20)

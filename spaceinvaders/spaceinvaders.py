@@ -273,14 +273,12 @@ class Game:
             self.clock.tick(FPS)
             
             for event in pygame.event.get():
-                if event.type == pygame.QUIT:
+                if event.type == pygame.QUIT or (event.type == pygame.KEYDOWN and event.key == pygame.K_q):
                     self.save_high_score()
-                    return
-                
+                    pygame.quit()
+                    sys.exit(0)
+
                 if event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_q:  # Add quit option
-                        self.save_high_score()
-                        return
                         
                     if event.key == pygame.K_ESCAPE:
                         if self.game_state == "playing":
@@ -394,7 +392,11 @@ class Game:
         # Add mode indicator
         mode_text = self.font.render("AUTO" if self.auto_mode else "MANUAL", True, WHITE)
         self.screen.blit(mode_text, (SCREEN_WIDTH - 100, 40))
-        
+
+        # Quit hint (ESC is bound to pause, so Q is used to quit)
+        quit_hint = self.font.render("Q to quit", True, WHITE)
+        self.screen.blit(quit_hint, (10, SCREEN_HEIGHT - 30))
+
         pygame.display.flip()
 
 def main():

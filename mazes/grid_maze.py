@@ -1,5 +1,6 @@
 from os import environ
 environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'  # Hide pygame support prompt
+import sys
 import pygame
 import random
 from collections import deque
@@ -108,6 +109,9 @@ def draw_maze(game_won=False, show_modal=False, ai_path=None):
     screen.blit(text, (WIDTH//2 - 25, HEIGHT + 15))
     distance_text = font.render(f"Distance: {distance_traveled}", True, BLACK)
     screen.blit(distance_text, (10, HEIGHT + 15))
+    hint_font = pygame.font.Font(None, 22)
+    hint_text = hint_font.render("ESC to quit", True, BLACK)
+    screen.blit(hint_text, (WIDTH - hint_text.get_width() - 10, HEIGHT + 20))
     if game_won or show_modal:
         modal_bg = pygame.Surface((WIDTH, HEIGHT))
         modal_bg.set_alpha(128)
@@ -162,8 +166,9 @@ def main():
     while running:
         current_time = pygame.time.get_ticks()
         for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                running = False
+            if event.type == pygame.QUIT or (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE):
+                pygame.quit()
+                sys.exit(0)
             elif event.type == pygame.KEYDOWN:
                 if event.key in (pygame.K_UP, pygame.K_DOWN, pygame.K_LEFT, pygame.K_RIGHT):
                     move_time = current_time

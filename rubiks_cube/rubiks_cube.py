@@ -2,7 +2,7 @@ from os import environ
 environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'  # Hide pygame support prompt
 
 import pygame, sys, random
-from pygame.locals import KEYDOWN, K_r, K_s, MOUSEBUTTONDOWN, QUIT
+from pygame.locals import KEYDOWN, K_ESCAPE, K_r, K_s, MOUSEBUTTONDOWN, QUIT
 import kociemba  # Make sure you have installed this library
 
 # Define colors for each face (using letters for cube state)
@@ -332,6 +332,10 @@ def main():
                 move_text = font.render(f"Move: {cube.current_move}", True, BLACK)
             screen.blit(move_text, (20, 60))
         
+        # ESC-to-quit hint
+        esc_hint = small_font.render("ESC to quit", True, BLACK)
+        screen.blit(esc_hint, (screen.get_width() - esc_hint.get_width() - 10, 10))
+
         # Draw move history with count
         history_y = 100
         history_text = small_font.render(f"Move History: (Total: {len(cube.move_history)})", True, BLACK)
@@ -348,8 +352,9 @@ def main():
     
     while True:
         for event in pygame.event.get():
-            if event.type == QUIT:
-                pygame.quit(); sys.exit()
+            if event.type == QUIT or (event.type == KEYDOWN and event.key == K_ESCAPE):
+                pygame.quit()
+                sys.exit(0)
             elif event.type == MOUSEBUTTONDOWN:
                 if solve_button.collidepoint(event.pos):
                     moves = solver.solve()
