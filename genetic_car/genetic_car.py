@@ -1,7 +1,11 @@
 from os import environ
 environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'
-import pygame, random, math, sys
+import pygame, random, math, sys, os, json
 import numpy as np
+
+# Anchor save-path next to this script so it works regardless of CWD.
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+SAVED_GENOME_PATH = os.path.join(SCRIPT_DIR, "saved_genome.json")
 
 # Simulation and physics constants
 WIDTH, HEIGHT = 800, 600
@@ -239,6 +243,46 @@ def mutate(genome):
 def clone_genome(genome):
     """Deep copy a genome dict of numpy arrays."""
     return {k: v.copy() for k, v in genome.items()}
+
+
+def save_best_genome(genome, color, lws, rws, name, path):
+    """Persist a best individual's genome + variant properties to JSON.
+
+    Numpy arrays are converted to nested Python lists. Errors are logged to
+    stderr but do not raise — failing to save must not crash the sim.
+    """
+    try:
+        payload = {
+            "genome": {k: v.tolist() for k, v in genome.items()},
+            "color": list(color),
+            "left_wheel_size": int(lws),
+            "right_wheel_size": int(rws),
+            "name": str(name),
+        }
+        with open(path, "w") as f:
+            json.dump(payload, f)
+    except Exception as exc:
+        print(f"save_best_genome failed: {exc}", file=sys.stderr)
+
+
+def load_best_genome(path):
+    """Load a previously saved best individual, or return None on failure."""
+    if not os.path.exists(path):
+        return None
+    try:
+        with open(path, "r") as f:
+            payload = json.load(f)
+        genome = {k: np.asarray(v, dtype=np.float64) for k, v in payload["genome"].items()}
+        return {
+            "genome": genome,
+            "color": tuple(payload.get("color", (200, 200, 200))),
+            "left_wheel_size": int(payload.get("left_wheel_size", 10)),
+            "right_wheel_size": int(payload.get("right_wheel_size", 10)),
+            "name": payload.get("name", random.choice(VARIANT_NAMES)),
+        }
+    except Exception as exc:
+        print(f"load_best_genome failed: {exc}", file=sys.stderr)
+        return None
 
 
 # Car class with extra variant properties and physics
@@ -559,22 +603,52 @@ def draw_sparkline(screen, history, x, y, w, h, font):
         pygame.draw.lines(screen, (0, 220, 220), False, points, 2)
 
 
-def draw_leaderboard(screen, population, font):
+def draw_leaderboard(screen, population, font, offset_y=0):
     # Sort by fitness descending and display name and fitness
     sorted_pops = sorted(population, key=lambda c: c.fitness, reverse=True)
     panel_x = WIDTH - 170
-    panel_y = 5
+    panel_y = 5 + offset_y
     panel_w = 165
     panel_h = 10 + 20 * len(sorted_pops) + 5
     panel = pygame.Surface((panel_w, panel_h), pygame.SRCALPHA)
     pygame.draw.rect(panel, (20, 20, 20, 180), (0, 0, panel_w, panel_h), border_radius=8)
     screen.blit(panel, (panel_x, panel_y))
-    y_offset = 10
+    y_offset = panel_y + 5
     for car in sorted_pops:
         pygame.draw.circle(screen, car.color, (panel_x + 12, y_offset + 8), 5)
         text = font.render(f"{car.name}: {int(car.fitness)}", True, (255, 255, 255))
         screen.blit(text, (panel_x + 24, y_offset))
         y_offset += 20
+
+def draw_minimap(screen, population, highlight_car, x, y, w=200, h=30):
+    """Top-right minimap: every car as a colored dot along the full track.
+
+    The highlighted car (followed or leader) gets a larger dot with a white
+    outline. A small vertical tick at the right edge marks TRACK_LENGTH.
+    """
+    panel = pygame.Surface((w, h), pygame.SRCALPHA)
+    pygame.draw.rect(panel, (20, 20, 20, 180), (0, 0, w, h), border_radius=6)
+    screen.blit(panel, (x, y))
+    # Horizontal track line down the middle of the panel
+    pad = 6
+    line_y = y + h // 2
+    pygame.draw.line(screen, (180, 180, 180), (x + pad, line_y),
+                     (x + w - pad, line_y), 1)
+    inner_w = w - 2 * pad
+    # Cars: small colored dots at x_norm * inner_w
+    for car in population:
+        x_norm = max(0.0, min(1.0, car.x / float(TRACK_LENGTH)))
+        cx = x + pad + int(x_norm * inner_w)
+        if car is highlight_car:
+            pygame.draw.circle(screen, (255, 255, 255), (cx, line_y), 5)
+            pygame.draw.circle(screen, car.color, (cx, line_y), 4)
+        else:
+            pygame.draw.circle(screen, car.color, (cx, line_y), 3)
+    # Finish tick at right edge
+    tick_x = x + pad + inner_w
+    pygame.draw.line(screen, (255, 255, 255),
+                     (tick_x, y + 4), (tick_x, y + h - 4), 2)
+
 
 def draw_ghost_car(screen, cam_offset, x, y, angle, color, left_wheel_size, right_wheel_size):
     """Render a translucent ghost-car at the given (x, y, angle) for replay."""
@@ -613,7 +687,19 @@ def main():
     FONT_LEADER = pygame.font.SysFont(None, 20)
     FONT_TITLE = pygame.font.SysFont(None, 60)
 
+    # Seed population from saved best genome if available (T-000090).
+    loaded_best = load_best_genome(SAVED_GENOME_PATH)
     ga = GeneticAlgorithm(POPULATION_SIZE)
+    if loaded_best is not None and ga.population:
+        ga.population[0] = Car(
+            genome=loaded_best["genome"],
+            color=loaded_best["color"],
+            left_wheel_size=loaded_best["left_wheel_size"],
+            right_wheel_size=loaded_best["right_wheel_size"],
+            name=loaded_best["name"],
+        )
+    # Toast frames remaining for "Loaded best from disk" hint (T-000090)
+    loaded_toast_frames = 180 if loaded_best is not None else 0
     frame_count = 0
     cam_offset = 0.0
     transition_frames = 0
@@ -624,6 +710,11 @@ def main():
     replay_frames = 0    # remaining replay frames
     replay_trail_idx = 0
     winning_run = None   # dict with snapshot of winner's full_trail/color/wheels/gen
+    # Pause + time-scale controls (T-000088)
+    paused = False
+    time_scale = 1  # cycles through 1, 2, 4
+    # Click-to-follow (T-000089)
+    followed_car = None
 
     running = True
     while running:
@@ -634,6 +725,35 @@ def main():
             if event.type == pygame.QUIT or (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE):
                 pygame.quit()
                 sys.exit(0)
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_SPACE:
+                    paused = not paused
+                elif event.key == pygame.K_TAB:
+                    # cycle 1 -> 2 -> 4 -> 1
+                    time_scale = {1: 2, 2: 4, 4: 1}.get(time_scale, 1)
+                elif event.key == pygame.K_BACKSPACE:
+                    # Release follow mode (T-000089)
+                    followed_car = None
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                if event.button == 1:
+                    # Left click: pick nearest car within ~20 px (T-000089)
+                    mx, my = event.pos
+                    world_x = mx + cam_offset
+                    world_y = my
+                    best = None
+                    best_d2 = 20 * 20
+                    for c in ga.population:
+                        dx = c.x - world_x
+                        dy = c.y - world_y
+                        d2 = dx * dx + dy * dy
+                        if d2 <= best_d2:
+                            best_d2 = d2
+                            best = c
+                    if best is not None:
+                        followed_car = best
+                elif event.button == 3:
+                    # Right click: release follow mode (T-000089)
+                    followed_car = None
 
         if replay_state == "playing":
             # Pause normal simulation; advance ghost trail at 1/3 speed.
@@ -654,6 +774,16 @@ def main():
                 if len(best_fitness_history) > 60:
                     best_fitness_history.pop(0)
                 ga.evolve()
+                # Persist the elite genome (T-000090): population[0] is the
+                # verbatim-cloned best after evolve().
+                if ga.population:
+                    elite = ga.population[0]
+                    save_best_genome(elite.genome, elite.color,
+                                     elite.left_wheel_size, elite.right_wheel_size,
+                                     elite.name, SAVED_GENOME_PATH)
+                # Clear follow target if it didn't survive (T-000089)
+                if followed_car is not None and followed_car not in ga.population:
+                    followed_car = None
                 frame_count = 0
                 transition_frames = 30
                 transition_label = f"Gen {prev_gen} -> Gen {ga.generation}"
@@ -686,17 +816,35 @@ def main():
                     if len(best_fitness_history) > 60:
                         best_fitness_history.pop(0)
                     ga.evolve()
+                    # Persist the elite genome (T-000090).
+                    if ga.population:
+                        elite = ga.population[0]
+                        save_best_genome(elite.genome, elite.color,
+                                         elite.left_wheel_size, elite.right_wheel_size,
+                                         elite.name, SAVED_GENOME_PATH)
+                    # Clear follow target if it didn't survive (T-000089)
+                    if followed_car is not None and followed_car not in ga.population:
+                        followed_car = None
                     frame_count = 0
                     transition_frames = 30
                     transition_label = f"Gen {prev_gen} -> Gen {ga.generation}"
-            if replay_state != "playing":
-                ga.update()
+            if replay_state != "playing" and not paused:
+                # Time-scale: run multiple simulation steps per rendered frame.
+                # Replay/transition/sparkline counters above advance by at most
+                # one per rendered frame, regardless of time_scale.
+                for _ in range(max(1, time_scale)):
+                    ga.update()
 
-        # Determine camera offset: smoothly follow the car with highest x
+        # Determine camera offset: smoothly follow the car with highest x,
+        # unless a specific car is being followed (T-000089).
         # (Skip lerp during replay: camera centered on ghost above.)
         leader = max(ga.population, key=lambda c: c.x)
+        # If the followed car somehow vanished from the population, drop it.
+        if followed_car is not None and followed_car not in ga.population:
+            followed_car = None
+        cam_target_car = followed_car if followed_car is not None else leader
         if replay_state != "playing":
-            target = leader.x - CAMERA_OFFSET_X
+            target = cam_target_car.x - CAMERA_OFFSET_X
             cam_offset += 0.1 * (target - cam_offset)
             if cam_offset < 0: cam_offset = 0.0
 
@@ -715,11 +863,13 @@ def main():
         else:
             ga.draw(screen, cam_offset)
             # Leader spotlight vignette (after world rendering, before HUD)
+            # Also follows the click-targeted car if one is set (T-000089).
             if VIGNETTE_ENABLED:
                 vignette = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
                 vignette.fill((0, 0, 0, 120))
-                cx = int(leader.x - cam_offset)
-                cy = int(leader.y)
+                spot_car = followed_car if followed_car is not None else leader
+                cx = int(spot_car.x - cam_offset)
+                cy = int(spot_car.y)
                 # Cut a soft hole by drawing successively smaller circles with
                 # lower alpha — outer rings stay darker, the leader sits in the
                 # brightest center. Drawn outer-to-inner so the smallest circle
@@ -727,16 +877,57 @@ def main():
                 for r, a in [(250, 90), (200, 60), (150, 30), (100, 10), (50, 0)]:
                     pygame.draw.circle(vignette, (0, 0, 0, a), (cx, cy), r)
                 screen.blit(vignette, (0, 0))
+        # Following label above leaderboard (T-000089)
+        leader_offset_y = 0
+        if followed_car is not None:
+            follow_text = FONT_LEADER.render(
+                f"Following: {followed_car.name} (BACKSPACE to release)",
+                True, (255, 255, 255))
+            ft_rect = follow_text.get_rect()
+            ft_x = WIDTH - 5 - ft_rect.width
+            ft_y = 5
+            # Translucent backing for legibility
+            bg = pygame.Surface((ft_rect.width + 8, ft_rect.height + 4), pygame.SRCALPHA)
+            pygame.draw.rect(bg, (20, 20, 20, 180), (0, 0, ft_rect.width + 8, ft_rect.height + 4),
+                             border_radius=6)
+            screen.blit(bg, (ft_x - 4, ft_y - 2))
+            screen.blit(follow_text, (ft_x, ft_y))
+            # Push minimap + leaderboard down so they don't overlap
+            leader_offset_y = ft_rect.height + 6
+        # Track minimap (T-000091): rendered after sparkline, before leaderboard
+        mini_w, mini_h = 200, 30
+        mini_x = WIDTH - 5 - mini_w
+        mini_y = 5 + leader_offset_y
+        highlight = followed_car if followed_car is not None else max(
+            ga.population, key=lambda c: c.x)
+        draw_minimap(screen, ga.population, highlight, mini_x, mini_y, mini_w, mini_h)
+        # Push leaderboard down below the minimap
+        leader_offset_y += mini_h + 5
         # Leaderboard
-        draw_leaderboard(screen, ga.population, FONT_LEADER)
-        # Display generation counter
-        gen_text = FONT_HUD.render(f"Gen: {ga.generation}", True, (255, 255, 255))
+        draw_leaderboard(screen, ga.population, FONT_LEADER, offset_y=leader_offset_y)
+        # Display generation counter + time-scale (T-000088)
+        gen_label = f"Gen: {ga.generation}"
+        if time_scale > 1:
+            gen_label += f"  x{time_scale}"
+        gen_text = FONT_HUD.render(gen_label, True, (255, 255, 255))
         screen.blit(gen_text, (10, 10))
         # Best-fitness sparkline directly under Gen label
         draw_sparkline(screen, best_fitness_history, 10, 10 + gen_text.get_height() + 4,
                        150, 40, FONT_LEADER)
-        hint_text = FONT_HUD.render("ESC to quit", True, (255, 255, 255))
+        hint_text = FONT_HUD.render("ESC quit  SPACE pause  TAB speed", True, (255, 255, 255))
         screen.blit(hint_text, (10, HEIGHT - 24))
+
+        # "Loaded best from disk" toast (T-000090): top-centered for 180 frames
+        if loaded_toast_frames > 0:
+            toast = FONT_HUD.render("Loaded best from disk", True, (255, 255, 255))
+            tr = toast.get_rect(center=(WIDTH // 2, 30))
+            tbg = pygame.Surface((tr.width + 16, tr.height + 8), pygame.SRCALPHA)
+            pygame.draw.rect(tbg, (20, 20, 20, 200),
+                             (0, 0, tr.width + 16, tr.height + 8), border_radius=8)
+            screen.blit(tbg, (tr.centerx - (tr.width + 16) // 2,
+                              tr.centery - (tr.height + 8) // 2))
+            screen.blit(toast, tr)
+            loaded_toast_frames -= 1
 
         # Winning-run replay overlay
         if replay_state == "playing" and winning_run is not None:
@@ -752,6 +943,19 @@ def main():
             screen.blit(card, (title_rect.centerx - card_w // 2,
                                title_rect.centery - card_h // 2))
             screen.blit(title, title_rect)
+
+        # Paused overlay (T-000088): translucent dark card with PAUSED title
+        if paused:
+            paused_title = FONT_TITLE.render("PAUSED", True, (255, 255, 255))
+            paused_rect = paused_title.get_rect(center=(WIDTH // 2, HEIGHT // 2))
+            pad = 24
+            pcard_w = paused_rect.width + pad * 2
+            pcard_h = paused_rect.height + pad
+            pcard = pygame.Surface((pcard_w, pcard_h), pygame.SRCALPHA)
+            pygame.draw.rect(pcard, (20, 20, 20, 200), (0, 0, pcard_w, pcard_h), border_radius=12)
+            screen.blit(pcard, (paused_rect.centerx - pcard_w // 2,
+                                paused_rect.centery - pcard_h // 2))
+            screen.blit(paused_title, paused_rect)
 
         # Generation transition card overlay
         if transition_frames > 0:
