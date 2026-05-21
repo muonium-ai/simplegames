@@ -348,7 +348,14 @@ class Car:
         lean, jump_decision = self.forward()
         self.angle += float(lean) * 0.05
 
-        ground_threshold = 5
+        # Wheel-size-driven physics: bigger wheels roll faster (more distance
+        # per tick), tolerate larger track gaps before losing contact, and
+        # store more spring (stronger jump). Selection pressure now acts on
+        # wheel sizes through fitness.
+        avg_wheel = 0.5 * (self.left_wheel_size + self.right_wheel_size)
+        wheel_speed_factor = avg_wheel / 10.0  # neutral at size 10
+        ground_threshold = max(3.0, max(self.left_wheel_size, self.right_wheel_size) * 0.6)
+        effective_speed = SPEED * wheel_speed_factor
         # Fixed local offsets for wheels relative to car center:
         # Left wheel at rear, right wheel at front.
         left_offset = (-20, 8)
@@ -362,14 +369,14 @@ class Car:
         right_touch = abs(ry_right - get_track_y(rx_right)) < ground_threshold
 
         if left_touch and right_touch:
-            dx = SPEED * math.cos(self.angle)
+            dx = effective_speed * math.cos(self.angle)
         else:
-            dx = 0.2 * SPEED * math.cos(self.angle)
+            dx = 0.2 * effective_speed * math.cos(self.angle)
         self.x += dx
         # Continuous wheel rotation proportional to horizontal velocity
         self.wheel_rotation += dx / min(self.left_wheel_size, self.right_wheel_size)
 
-        self.y += SPEED * math.sin(self.angle) + self.vy
+        self.y += effective_speed * math.sin(self.angle) + self.vy
         self.vy += GRAVITY
 
         grounded = abs(self.y - baseline) < ground_threshold and self.vy >= 0
@@ -377,7 +384,7 @@ class Car:
             self.y = baseline
             self.vy = 0
             if jump_decision > 0.5:
-                self.vy = JUMP_STRENGTH
+                self.vy = JUMP_STRENGTH * wheel_speed_factor
 
         # Enforce that no part of the car (chassis or wheels) goes below the track.
         max_corr = 0
@@ -565,10 +572,14 @@ class GeneticAlgorithm:
             # Inherit and mutate variant properties slightly
             child_color = tuple(min(255, max(0, int((parent1.color[i] + parent2.color[i]) / 2 +
                             random.randint(-10, 10)))) for i in range(3))
-            child_left_wheel_size = max(2, int((parent1.left_wheel_size + parent2.left_wheel_size) / 2 +
-                                          random.choice([-1,0,1])))
-            child_right_wheel_size = max(2, int((parent1.right_wheel_size + parent2.right_wheel_size) / 2 +
-                                          random.choice([-1,0,1])))
+            # Wheel-size mutation: weighted jitter favoring smaller steps but
+            # allowing occasional ±2 jumps; clamped to [4, 18] so visuals and
+            # physics stay in a sensible range.
+            wheel_jitter = [-2, -1, -1, 0, 0, 0, 1, 1, 2]
+            child_left_wheel_size = min(18, max(4, int((parent1.left_wheel_size + parent2.left_wheel_size) / 2 +
+                                          random.choice(wheel_jitter))))
+            child_right_wheel_size = min(18, max(4, int((parent1.right_wheel_size + parent2.right_wheel_size) / 2 +
+                                          random.choice(wheel_jitter))))
             child_name = random.choice(VARIANT_NAMES)
             new_population.append(Car(genome=child_genome, name=child_name, color=child_color,
                                       left_wheel_size=child_left_wheel_size, right_wheel_size=child_right_wheel_size))
