@@ -209,24 +209,29 @@ class RubiksCube:
 def kociemba_solve(cube_state):
     """Convert cube state to Kociemba notation, validate it, then solve."""
     def convert_to_kociemba_notation(state):
-        kociemba_map = {
-            'U': 'U',  # White
-            'D': 'D',  # Yellow
-            'F': 'F',  # Green
-            'B': 'B',  # Blue
-            'L': 'L',  # Orange
-            'R': 'R'   # Red
-        }
-        # Deep copy and fix centers
-        state_copy = {face: [row[:] for row in face_matrix] for face, face_matrix in state.items()}
-        centers = {'U': 'U', 'R': 'R', 'F': 'F', 'D': 'D', 'L': 'L', 'B': 'B'}
-        for face in centers:
-            state_copy[face][1][1] = centers[face]
+        # Build the color->face-label map from the ACTUAL current center stickers
+        # rather than forcing an identity mapping. The Kociemba library labels
+        # each face by whichever color currently occupies its center, so if a
+        # slice/whole-cube rotation ever moves the centers, we must follow them.
+        # (Note: in this codebase only face turns are applied and rotate_face
+        #  leaves the [1][1] center invariant, so today this resolves to the
+        #  identity map -- but deriving it from state is the correct behavior.)
+        kociemba_map = {}
+        for face in "URFDLB":
+            center_color = state[face][1][1]
+            if center_color in kociemba_map:
+                print(f"Error: duplicate center color {center_color} detected.")
+                return None
+            kociemba_map[center_color] = face
         cube_str = ""
         for face in ['U', 'R', 'F', 'D', 'L', 'B']:
             for row in range(3):
                 for col in range(3):
-                    cube_str += kociemba_map[state_copy[face][row][col]]
+                    sticker = state[face][row][col]
+                    if sticker not in kociemba_map:
+                        print(f"Error: unknown sticker color {sticker}.")
+                        return None
+                    cube_str += kociemba_map[sticker]
         
         print("Generated cube string:", cube_str)
         # Validate: should be 54 characters and each letter appears 9 times.

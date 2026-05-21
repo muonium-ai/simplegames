@@ -256,10 +256,10 @@ class GameOfLife:
                 ):
                     logger.info("Static live count detected over 5 generations. Pausing game.")
                     self.paused = True
-                # Check condition: same grid as two generations ago
-                if len(self.prev_grids) == self.GRID_HISTORY_LIMIT:
-                    if self.prev_grids[0] == self.prev_grids[2]:
-                        logger.info("Static grid detected compared to two generations ago. Pausing game.")
+                # Check condition: grid unchanged since previous generation (true still-life)
+                if len(self.prev_grids) >= 2:
+                    if self.prev_grids[-1] == self.prev_grids[-2]:
+                        logger.info("Static grid detected (unchanged since last generation). Pausing game.")
                         self.paused = True
 
             self.draw()

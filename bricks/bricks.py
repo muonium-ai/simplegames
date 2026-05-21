@@ -107,6 +107,8 @@ class Ball:
         self.dy = -BALL_SPEED
 
     def update(self, paddle, bricks):
+        prev_x = self.x
+        prev_y = self.y
         self.x += self.dx
         self.y += self.dy
 
@@ -127,13 +129,23 @@ class Ball:
             self.x <= paddle.x + paddle.width and
             self.dy > 0):
             self.y = paddle.y - BALL_SIZE
-            # Alter dx based on where it hits the paddle
-            hit_pos = (self.x + BALL_SIZE/2) - (paddle.x + paddle.width/2)
-            self.dx = hit_pos * 0.05
-            self.dy = -self.dy
+            # Alter bounce angle based on where it hits the paddle while preserving speed
+            speed = math.hypot(self.dx, self.dy)
+            if speed == 0:
+                speed = BALL_SPEED
+            half_paddle = paddle.width / 2
+            hit_pos = (self.x + BALL_SIZE/2) - (paddle.x + half_paddle)
+            normalized = max(-1.0, min(1.0, hit_pos / half_paddle))
+            max_angle = math.radians(60)
+            angle = normalized * max_angle
+            self.dx = speed * math.sin(angle)
+            self.dy = -speed * math.cos(angle)
             self.hit_paddle = True
 
-        # Collide with bricks
+        # Collide with bricks (handle all overlapping bricks this frame)
+        total_points = 0
+        flipped_x = False
+        flipped_y = False
         for brick in bricks:
             if brick.hit > 0:
                 if (self.x + BALL_SIZE > brick.x and
@@ -141,11 +153,37 @@ class Ball:
                     self.y + BALL_SIZE > brick.y and
                     self.y < brick.y + brick.height):
                     brick.hit -= 1
-                    if abs((self.x + BALL_SIZE) - brick.x) < 5 or abs(self.x - (brick.x + brick.width)) < 5:
-                        self.dx = -self.dx
+                    total_points += brick.points
+                    # Determine entry side using previous-frame position vs brick rect
+                    was_outside_x = (prev_x + BALL_SIZE <= brick.x) or (prev_x >= brick.x + brick.width)
+                    was_outside_y = (prev_y + BALL_SIZE <= brick.y) or (prev_y >= brick.y + brick.height)
+                    if was_outside_x and not was_outside_y:
+                        if not flipped_x:
+                            self.dx = -self.dx
+                            flipped_x = True
+                    elif was_outside_y and not was_outside_x:
+                        if not flipped_y:
+                            self.dy = -self.dy
+                            flipped_y = True
                     else:
-                        self.dy = -self.dy
-                    return brick.points  # Return the points from the collision
+                        # Corner hit or fully-inside: use overlap-depth comparison
+                        overlap_x = min(self.x + BALL_SIZE - brick.x, brick.x + brick.width - self.x)
+                        overlap_y = min(self.y + BALL_SIZE - brick.y, brick.y + brick.height - self.y)
+                        if overlap_x < overlap_y:
+                            if not flipped_x:
+                                self.dx = -self.dx
+                                flipped_x = True
+                        else:
+                            if not flipped_y:
+                                self.dy = -self.dy
+                                flipped_y = True
+        if total_points > 0:
+            if self.hit_paddle:
+                if self.last_distance_to_target is not None:
+                    current_distance = self.distance_to_target(self.x, self.y)
+                    self.hits_getting_closer = current_distance < self.last_distance_to_target
+                self.last_distance_to_target = None
+            return total_points
         if self.hit_paddle:
             # After paddle hit, if we have a last_distance, check if we're getting closer
             if self.last_distance_to_target is not None:

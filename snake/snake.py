@@ -140,10 +140,13 @@ def game_loop(mode):
 
         new_head = (snake[0][0] + direction[0], snake[0][1] + direction[1])
         
-        # Simplified collision detection using actual snake body
+        # Simplified collision detection using actual snake body.
+        # When no food is eaten this tick the tail (snake[-1]) is vacated,
+        # so exclude it from the body check; if food is eaten the tail stays.
+        body_to_check = snake[1:] if new_head == food else snake[1:-1]
         if (new_head[0] < 0 or new_head[0] >= SCREEN_WIDTH or
             new_head[1] < 0 or new_head[1] >= SCREEN_HEIGHT or
-            (len(snake) > 2 and new_head in snake[1:])):  # Only check body collision if snake length > 2
+            (len(snake) > 2 and new_head in body_to_check)):  # Only check body collision if snake length > 2
             break
         
         snake.insert(0, new_head)

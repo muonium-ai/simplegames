@@ -69,11 +69,20 @@ def show_game_details(game, game_id, game_dir):
         screen.blit(text_surface, (20, 30 + i * 30))
     
     pygame.display.flip()
-    pygame.time.delay(2000)  # Display game details for 2 seconds
 
     # Save screenshot of the game info (including result)
     info_screenshot_path = os.path.join(game_dir, "info.png")
     pygame.image.save(screen, info_screenshot_path)
+
+    # Non-blocking wait (~2 seconds) so QUIT events and redraws stay responsive
+    info_clock = pygame.time.Clock()
+    wait_start = pygame.time.get_ticks()
+    while pygame.time.get_ticks() - wait_start < 2000:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+        info_clock.tick(30)
 
 def draw_board(board, move_index, last_move):
     screen.fill(white)
@@ -138,6 +147,7 @@ def play_game(game, game_id):
 
     running = True
     last_move_time = pygame.time.get_ticks()
+    end_game_deadline = None  # Set once all moves played; loop exits when reached
 
     while running:
         for event in pygame.event.get():
@@ -146,7 +156,7 @@ def play_game(game, game_id):
                 sys.exit()
 
         current_time = pygame.time.get_ticks()
-        
+
         # Display the next move every 0.1 seconds
         if move_index < len(moves) and current_time - last_move_time >= 100:
             last_move = board.san(moves[move_index])
@@ -154,14 +164,16 @@ def play_game(game, game_id):
             draw_board(board, move_index, last_move)
             move_index += 1
             last_move_time = current_time
-            
+
             # Save screenshot for each move
             screenshot_path = os.path.join(game_dir, f"{move_index:03}.png")
             pygame.image.save(screen, screenshot_path)
-        
-        elif move_index >= len(moves):  # Exit when all moves are played
-            pygame.time.delay(2000)  # Pause for 2 seconds at end of game
-            running = False
+
+        elif move_index >= len(moves):  # All moves played: pause ~2s non-blockingly
+            if end_game_deadline is None:
+                end_game_deadline = current_time + 2000
+            elif current_time >= end_game_deadline:
+                running = False
 
         clock.tick(30)
 

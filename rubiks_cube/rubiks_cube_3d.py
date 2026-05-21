@@ -648,7 +648,10 @@ class RubiksCube:
         
         for move in reversed(self.move_history):
             # Invert the move
-            if "'" in move:
+            if "2" in move:
+                # A 180-degree turn is its own inverse
+                self.solution_moves.append(move)
+            elif "'" in move:
                 self.solution_moves.append(move[0])
             else:
                 self.solution_moves.append(f"{move[0]}'")
