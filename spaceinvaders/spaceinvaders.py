@@ -398,7 +398,19 @@ class Game:
         pygame.display.flip()
 
 def main():
+    import argparse
+    parser = argparse.ArgumentParser(description="Space Invaders")
+    parser.add_argument(
+        "--autoplay",
+        action="store_true",
+        help="Start the game directly in autoplay (AI) mode.",
+    )
+    args = parser.parse_args()
+
     game = Game()
+    if args.autoplay:
+        # Bypass the start screen and launch the AI-driven game immediately.
+        game.new_game(auto_mode=True)
     game.run()
     pygame.quit()
 

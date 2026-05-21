@@ -263,6 +263,25 @@ class Minesweeper:
                     pygame.draw.circle(self.screen, RED, (x * CELL_SIZE + CELL_SIZE // 2, y * CELL_SIZE + HEADER_HEIGHT + CELL_SIZE // 2), CELL_SIZE // 4)
 
 if __name__ == "__main__":
-    solver_name = sys.argv[1] if len(sys.argv) > 1 else None
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Minesweeper with optional solver")
+    parser.add_argument(
+        "--solver",
+        type=str,
+        default=None,
+        help="Name of the solver module to load from solvers/ (e.g. 'random_solver').",
+    )
+    # Accept a positional name for backward-compatibility with the previous
+    # `python minesweeper_with_solver.py <solver_name>` invocation pattern.
+    parser.add_argument(
+        "solver_positional",
+        nargs="?",
+        default=None,
+        help=argparse.SUPPRESS,
+    )
+    args = parser.parse_args()
+
+    solver_name = args.solver if args.solver is not None else args.solver_positional
     game = Minesweeper(solver_name)
     game.run()
