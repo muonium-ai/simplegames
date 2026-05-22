@@ -163,20 +163,22 @@ def show_start_screen(surface, clock, highest_unlocked):
         clock.tick(30)
 
 # Make the window bigger/taller
-WIN_WIDTH = 600
-WIN_HEIGHT = 800
-
-# Increase the top box height to show a full 4-block Tetromino
-TOP_BOX_HEIGHT = 120
-
-# Keep the grid the same size, but draw it lower on the screen
-PLAY_WIDTH = 200   # 10 columns * 20 px
-PLAY_HEIGHT = 400  # 20 rows * 20 px
-BLOCK_SIZE = 20
+BLOCK_SIZE = 30
 GRID_COLS = 10
 GRID_ROWS = 20
 
-SIDE_OFFSET = 320
+PLAY_WIDTH = GRID_COLS * BLOCK_SIZE   # 300
+PLAY_HEIGHT = GRID_ROWS * BLOCK_SIZE  # 600
+
+# Redundant "Current Piece Movement" top panel removed; the piece is
+# already visible inside the play area.
+TOP_BOX_HEIGHT = 0
+
+SIDEBAR_WIDTH = 180
+WIN_WIDTH = PLAY_WIDTH + SIDEBAR_WIDTH   # 480
+WIN_HEIGHT = PLAY_HEIGHT + 60            # 660 (room for ESC hint)
+
+SIDE_OFFSET = PLAY_WIDTH + 20            # 320
 
 BLACK = (0, 0, 0)
 GRAY = (50, 50, 50)
@@ -489,31 +491,10 @@ def draw_next_piece(surface, next_piece, font):
         y = 100 + (r - next_piece.y + offset_y) * BLOCK_SIZE
         pygame.draw.rect(surface, next_piece.color, (x, y, BLOCK_SIZE, BLOCK_SIZE))
 
-def draw_current_piece_top(surface, current_piece):
-    # Draw a bounding box above the main grid
-    pygame.draw.rect(surface, WHITE, (0, 0, PLAY_WIDTH, TOP_BOX_HEIGHT), 2)
-
-    font = pygame.font.SysFont('Arial', 18)
-    info = font.render("Current Piece Movement:", True, WHITE)
-    surface.blit(info, (10, 5))
-
-    # We'll place the piece squares in this top area
-    offset_y = 40  # a bit lower to fit 4-block height
-    for (r, c) in current_piece.current_positions():
-        draw_x = c * BLOCK_SIZE
-        draw_y = offset_y  # ignoring piece.y for vertical
-        # For each row, shift downward
-        draw_y += (r * BLOCK_SIZE // 2)
-        pygame.draw.rect(surface,
-                         current_piece.color,
-                         (draw_x, draw_y, BLOCK_SIZE, BLOCK_SIZE))
-
 def draw_window(surface, grid, locked_positions, score, level, current_piece, next_piece, autoplay=False):
     surface.fill(BLACK)
-    # Draw the top area showing the current piece
-    draw_current_piece_top(surface, current_piece)
 
-    # Draw placed blocks in the main grid area, offset by TOP_BOX_HEIGHT
+    # Draw placed (locked) blocks
     for r in range(GRID_ROWS):
         for c in range(GRID_COLS):
             if grid[r][c]:
@@ -523,6 +504,16 @@ def draw_window(surface, grid, locked_positions, score, level, current_piece, ne
                                   r * BLOCK_SIZE + TOP_BOX_HEIGHT,
                                   BLOCK_SIZE,
                                   BLOCK_SIZE))
+
+    # Draw the active falling piece so the player can see what's in motion.
+    for (r, c) in current_piece.current_positions():
+        if 0 <= r < GRID_ROWS and 0 <= c < GRID_COLS:
+            pygame.draw.rect(surface,
+                             current_piece.color,
+                             (c * BLOCK_SIZE,
+                              r * BLOCK_SIZE + TOP_BOX_HEIGHT,
+                              BLOCK_SIZE,
+                              BLOCK_SIZE))
 
     draw_grid_lines(surface)
 
