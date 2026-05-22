@@ -3,6 +3,7 @@ import random
 import sys
 import os
 import json
+import time
 import argparse
 
 pygame.init()
@@ -587,6 +588,8 @@ def main():
     game_over = False
     level_up_deadline = 0
     overlay_font = pygame.font.SysFont('Arial', 56, bold=True)
+    # T-000114: per-level monotonic start time for terminal completion print
+    level_start_time = time.monotonic()
 
     # Autoplay bot state: one planned placement per active piece.
     bot_plan = None
@@ -628,6 +631,8 @@ def main():
                     bot_plan = None
                     bot_plan_piece_id = None
                     bot_step_accum = 0.0
+                    # T-000114: reset level timer on restart
+                    level_start_time = time.monotonic()
                 if not paused and not game_over and not autoplay:
                     if event.key == pygame.K_LEFT:
                         move_piece(current_piece, -1, 0, grid)
@@ -678,9 +683,15 @@ def main():
                 lines_cleared_total += cleared
 
                 if lines_cleared_total >= level * 10:
+                    # T-000114: terminal print on level step-up (before bumping level)
+                    cleared_level = level
+                    elapsed = time.monotonic() - level_start_time
+                    print(f"[tetris] Level {cleared_level} completed in {elapsed:.2f}s", flush=True)
                     level += 1
                     fall_speed = max(0.05, fall_speed * 0.9)
                     level_up_deadline = pygame.time.get_ticks() + 1000
+                    # Reset per-level timer for the next level
+                    level_start_time = time.monotonic()
                     if level > highest_unlocked:
                         highest_unlocked = min(LEVEL_CAP, level)
 

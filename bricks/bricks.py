@@ -7,6 +7,7 @@ import random
 import math
 import os
 import json
+import time
 import argparse
 
 # --- Constants ---
@@ -612,6 +613,8 @@ def main():
 
         # Intro overlay for the starting level
         show_level_overlay(screen, font, clock, current_level, duration_ms=1000)
+        # T-000114: record monotonic start time for terminal "level completed" prints
+        level_start_time = time.monotonic()
 
         running = True
         victory = False
@@ -727,6 +730,11 @@ def main():
 
             # Check if all *breakable* bricks destroyed -> level clear / advance.
             if all(brick.hit <= 0 for brick in bricks):
+                # T-000114: terminal progress print on level clear
+                _cleared_level = current_level
+                _cleared_name = LEVELS[_cleared_level - 1]["name"]
+                _cleared_elapsed = time.monotonic() - level_start_time
+                print(f"[bricks] Level {_cleared_level} ({_cleared_name}) completed in {_cleared_elapsed:.2f}s", flush=True)
                 # Persist progress (next level unlocked, or final level cleared).
                 next_level = current_level + 1
                 if next_level <= TOTAL_LEVELS:
@@ -739,6 +747,8 @@ def main():
                     # Reset ball; preserve paddle position, lives, score
                     ball.reset()
                     chosen_brick = None
+                    # Reset per-level timer for the next level's print
+                    level_start_time = time.monotonic()
                 else:
                     # Final level cleared
                     highest_unlocked = TOTAL_LEVELS

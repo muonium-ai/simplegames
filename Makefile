@@ -16,7 +16,7 @@ GAMES := 2048 asteroid blackjack bricks chess chess-autoplay chess-game \
          multi-snake pong rubiks rubiks-3d snake solitaire \
          spaceinvaders sudoku tetris
 
-EXTRA_TARGETS := 2048-server play-all
+EXTRA_TARGETS := 2048-server play-all play-all-auto
 
 .PHONY: help install list $(GAMES) $(EXTRA_TARGETS)
 
@@ -28,6 +28,7 @@ help:
 	@echo "  make list                     # list every game target"
 	@echo "  make <game>                   # run a game (see 'make list')"
 	@echo "  make play-all                 # run every game sequentially (ESC to advance)"
+	@echo "  make play-all-auto            # run every game in autoplay mode with a per-game timeout"
 	@echo "  make chess PGN=path/to.pgn    # chess replay viewer needs a PGN file"
 	@echo "  make 2048-server              # start the 2048 AI solver Flask service"
 	@echo ""
@@ -42,6 +43,9 @@ install:
 
 play-all:
 	@./play-all.sh
+
+play-all-auto:
+	@./play-all-auto.sh
 
 # --- Games ---
 

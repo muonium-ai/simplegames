@@ -399,6 +399,8 @@ def play_round(difficulty):
     key = None
     selected_num = None
     start_time = time.time()
+    # T-000114: monotonic start for terminal "difficulty solved" print
+    level_start_time = time.monotonic()
     message = ""
     clock = pygame.time.Clock()
     solved_deadline = None  # Non-blocking overlay timer (ticks)
@@ -496,6 +498,9 @@ def play_round(difficulty):
                             # Check if the puzzle is solved
                             if grid.is_solved():
                                 message = "Solved!"
+                                # T-000114: terminal print on solve
+                                elapsed = time.monotonic() - level_start_time
+                                print(f"[sudoku] Difficulty {difficulty} solved in {elapsed:.2f}s", flush=True)
                                 # Non-blocking deadline pattern (T-000056)
                                 solved_deadline = pygame.time.get_ticks() + 1500
                         else:

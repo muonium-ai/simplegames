@@ -3,6 +3,7 @@ environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'  # Hide pygame support prompt
 import json
 import os
 import sys
+import time
 import pygame
 import random
 
@@ -81,6 +82,8 @@ class Game:
         self.milestone_announce = None
         # Personal best across runs, loaded from disk.
         self.personal_best = load_saved_progress()
+        # T-000114: monotonic timestamp at game start for milestone print
+        self.start_time = time.monotonic()
         self.add_new_tile()
         self.add_new_tile()
 
@@ -101,6 +104,9 @@ class Game:
                     self.milestones[milestone] = True
                     newly_unlocked.append(milestone)
                     print(f"Achievement Unlocked: {milestone}!")
+                    # T-000114: terminal print with monotonic elapsed-from-start
+                    elapsed = time.monotonic() - self.start_time
+                    print(f"[2048] Milestone {milestone} reached in {elapsed:.2f}s", flush=True)
             if newly_unlocked:
                 top = max(newly_unlocked)
                 # Current "level" tracks the highest milestone unlocked this run.

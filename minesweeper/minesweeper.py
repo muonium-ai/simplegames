@@ -3,6 +3,7 @@ environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'  # Hide pygame support prompt
 import os
 import sys
 import json
+import time
 import pygame
 import random
 from enum import Enum
@@ -340,6 +341,8 @@ class Minesweeper:
         self.unmarked_boxes = GRID_WIDTH * GRID_HEIGHT
         self.start_time = pygame.time.get_ticks()
         self.elapsed_time = 0
+        # T-000114: monotonic timestamp for terminal "difficulty cleared" print
+        self.level_start_time = time.monotonic()
         self.first_click = True
         self.points = 0
         self.used_hint_or_quickplay = False
@@ -502,8 +505,14 @@ class Minesweeper:
 
     def handle_victory(self):
         """Handle victory state and display"""
+        # Guard against double-firing (check_victory can call this twice).
+        if self.victory:
+            return
         self.victory = True
         self.game_over = True
+        # T-000114: terminal print on win
+        elapsed = time.monotonic() - getattr(self, "level_start_time", time.monotonic())
+        print(f"[minesweeper] Difficulty {self.difficulty} cleared in {elapsed:.2f}s", flush=True)
         # T-000099: persist highest beaten difficulty.
         try:
             cur_idx = DIFFICULTY_ORDER.index(self.difficulty)

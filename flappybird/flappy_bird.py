@@ -5,6 +5,7 @@ import argparse
 import os
 import sys
 import json
+import time
 import pygame
 import random
 
@@ -107,6 +108,11 @@ overlay_level = 1
 # Selected starting level on the start screen
 selected_level = 1
 
+# T-000114: monotonic timestamp recorded when a level begins; updated in
+# reset_game and advance_level so the level-clear print measures wall time
+# from level start to advance.
+level_start_time = 0.0
+
 # Button rects are computed from constants and are safe at module scope
 START_BUTTON_RECT = pygame.Rect(WIDTH//2 - 130, HEIGHT//2 - 20, 120, 40)
 AUTO_START_BUTTON_RECT = pygame.Rect(WIDTH//2 + 10, HEIGHT//2 - 20, 120, 40)
@@ -126,7 +132,7 @@ LEVEL_BUTTON_RECTS = {
 
 def reset_game(start_level=1):
     global bird_y, bird_vel, pipes, score, game_over, started, auto_play
-    global level_overlay_frames, overlay_level
+    global level_overlay_frames, overlay_level, level_start_time
     bird_y = HEIGHT // 2
     bird_vel = 0
     pipes = []
@@ -137,17 +143,25 @@ def reset_game(start_level=1):
     apply_level(start_level)
     overlay_level = start_level
     level_overlay_frames = LEVEL_OVERLAY_FRAMES
+    # T-000114: record start time for terminal level-completion print
+    level_start_time = time.monotonic()
 
 def advance_level():
     """Auto-progress to the next level; bumps highest_level + persists."""
-    global score, level_overlay_frames, overlay_level, highest_level
+    global score, level_overlay_frames, overlay_level, highest_level, level_start_time
     next_level = current_level + 1
     if next_level > MAX_LEVEL:
         return False
+    # T-000114: terminal print before advancing — note the level that just cleared
+    cleared_level = current_level
+    elapsed = time.monotonic() - level_start_time
+    print(f"[flappybird] Level {cleared_level} completed in {elapsed:.2f}s", flush=True)
     apply_level(next_level)
     score = 0  # Reset per-level score so the next bump fires after SCORE_TO_ADVANCE more pipes
     overlay_level = next_level
     level_overlay_frames = LEVEL_OVERLAY_FRAMES
+    # Reset per-level timer for the next level
+    level_start_time = time.monotonic()
     if next_level > highest_level:
         highest_level = next_level
         save_progress()
