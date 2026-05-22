@@ -106,6 +106,10 @@ def draw_board(board, selected_square=None):
     quit_label = label_font.render("ESC to quit", True, LABEL_COLOR)
     screen.blit(quit_label, (screen_width - quit_label.get_width() - 2, screen_height - quit_label.get_height()))
 
+    # Computer (White) is always the AI in chess_autoplay; show an "AI" badge in the HUD.
+    ai_badge = label_font.render("AI", True, (200, 0, 0))
+    screen.blit(ai_badge, (2, screen_height - ai_badge.get_height()))
+
     pygame.display.flip()
 
 def get_square_from_mouse(pos):
@@ -198,8 +202,9 @@ def main():
 
                             # Computer's turn
                             if not board.is_game_over():
-                                # Non-blocking wait so QUIT events stay responsive
-                                _move_deadline = pygame.time.get_ticks() + 500
+                                # Non-blocking wait so QUIT events stay responsive.
+                                # Halved from 500ms -> 250ms for the uniform autoplay speedup.
+                                _move_deadline = pygame.time.get_ticks() + 250
                                 _move_clock = pygame.time.Clock()
                                 while pygame.time.get_ticks() < _move_deadline:
                                     for _ev in pygame.event.get():

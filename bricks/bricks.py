@@ -616,8 +616,9 @@ def main():
         running = True
         victory = False
         while running:
-            clock.tick(FPS)
-            
+            # Speed up the game loop when an autoplay mode is active.
+            clock.tick(FPS * 2 if mode in ("autoplay", "fast_autoplay") else FPS)
+
             # Get mouse position for hover effect
             mouse_pos = pygame.mouse.get_pos()
             
@@ -765,7 +766,8 @@ def main():
             
             # Draw scores in two lines with better spacing
             # First line: Score, Lives, Time, Level
-            score_text = font.render(f"Score: {score}", True, WHITE)
+            score_label = f"Score: {score}" + ("  [AI]" if mode in ("autoplay", "fast_autoplay") else "")
+            score_text = font.render(score_label, True, WHITE)
             lives_text = font.render(f"Lives: {lives}", True, WHITE)
             elapsed_sec = (pygame.time.get_ticks() - start_time) // 1000
             time_text = font.render(f"Time: {elapsed_sec} sec", True, WHITE)

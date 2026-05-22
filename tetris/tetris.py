@@ -578,7 +578,8 @@ def main():
 
     fall_time = 0
     level = starting_level
-    fall_speed = initial_fall_speed_for_level(level)
+    # Halve the fall interval in autoplay mode (uniform autoplay speedup).
+    fall_speed = initial_fall_speed_for_level(level) * (0.5 if autoplay else 1.0)
     lines_cleared_total = (level - 1) * 10
     score = 0
     running = True
@@ -590,8 +591,9 @@ def main():
     # Autoplay bot state: one planned placement per active piece.
     bot_plan = None
     bot_plan_piece_id = None
-    # Throttle bot ticks so the play remains watchable.
-    bot_step_interval = 0.06  # seconds between bot actions
+    # Throttle bot ticks so the play remains watchable. The interval is halved
+    # below when --autoplay is on, so the bot moves at ~2x normal pace.
+    bot_step_interval = 0.03 if autoplay else 0.06  # seconds between bot actions
     bot_step_accum = 0.0
 
     while running:
@@ -617,7 +619,7 @@ def main():
                     next_piece = get_new_piece()
                     fall_time = 0
                     level = starting_level
-                    fall_speed = initial_fall_speed_for_level(level)
+                    fall_speed = initial_fall_speed_for_level(level) * (0.5 if autoplay else 1.0)
                     lines_cleared_total = (level - 1) * 10
                     score = 0
                     paused = False

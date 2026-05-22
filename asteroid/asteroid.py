@@ -463,7 +463,7 @@ class Game:
                             self.start_game(autoplay=True)
 
             # Maintain frame rate
-            self.clock.tick(GameConfig.FPS)
+            self.clock.tick(GameConfig.FPS * 2 if self.autoplay else GameConfig.FPS)
 
         pygame.quit()
 
@@ -586,7 +586,7 @@ class Game:
         # Use final_time if game is won, otherwise use current time
         elapsed_time = self.final_time if self.game_state == "victory" else int(time.time() - self.start_time)
         hud_texts = [
-            f"Score: {self.score}",
+            f"Score: {self.score}" + ("  [AI]" if self.autoplay else ""),
             f"Lives: {self.player.lives}",
             f"Time: {elapsed_time}s",
             f"Shots: {self.shots_fired}",
@@ -594,7 +594,7 @@ class Game:
             f"Medium: {self.asteroid_stats['medium']}",
             f"Small: {self.asteroid_stats['small']}"
         ]
-        
+
         for text in hud_texts:
             surface = self.font.render(text, True, GameConfig.WHITE)
             self.screen.blit(surface, (10, y_pos))

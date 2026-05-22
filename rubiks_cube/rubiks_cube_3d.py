@@ -757,6 +757,9 @@ def main():
 
     cube = RubiksCube()
     if autoplay:
+        # Double the per-frame rotation speed for the uniform autoplay/solver
+        # speedup convention.
+        cube.animation_speed = cube.animation_speed * 2
         cube.scramble(20)
 
     # Mouse drag tracking
@@ -958,6 +961,11 @@ def main():
         # ESC-to-quit hint
         esc_hint = pygame.font.SysFont(None, 20).render("ESC to quit", True, (0, 0, 0))
         ui_surface.blit(esc_hint, (WIDTH - esc_hint.get_width() - 10, HEIGHT - esc_hint.get_height() - 10))
+
+        # SOLVER badge when autoplay is active.
+        if autoplay:
+            badge = pygame.font.SysFont(None, 24).render("SOLVER", True, (200, 0, 0))
+            ui_surface.blit(badge, (WIDTH // 2 - badge.get_width() // 2, HEIGHT - badge.get_height() - 10))
 
         # Depth control buttons and label
         depth_label = pygame.font.SysFont(None, 20).render("Depth", True, (0, 0, 0))

@@ -58,7 +58,8 @@ def game_loop(mode):
     food = (random.randrange(BLOCK_SIZE, SCREEN_WIDTH - BLOCK_SIZE, BLOCK_SIZE),
             random.randrange(BLOCK_SIZE, SCREEN_HEIGHT - BLOCK_SIZE, BLOCK_SIZE))
     start_time = time.time()
-    current_fps = FPS
+    # Double the default FPS in autosnake (AI) mode for the uniform autoplay UX.
+    current_fps = FPS * 2 if mode == "autosnake" else FPS
     
     def ai_direction(head, food, current_direction):
         import math
@@ -172,7 +173,8 @@ def game_loop(mode):
             pygame.draw.rect(screen, color, pygame.Rect(block[0], block[1], BLOCK_SIZE, BLOCK_SIZE))
         
         elapsed = int(time.time() - start_time)
-        draw_text(f"Time: {elapsed} sec", WHITE, (80, 20))
+        time_label = f"Time: {elapsed} sec" + ("  [AI]" if mode == "autosnake" else "")
+        draw_text(time_label, WHITE, (100, 20))
         draw_text(f"Length: {len(snake)}", WHITE, (SCREEN_WIDTH - 80, 20))
         # Draw speed text
         draw_text(f"Speed: {current_fps} FPS", WHITE, (SCREEN_WIDTH//2, 20))

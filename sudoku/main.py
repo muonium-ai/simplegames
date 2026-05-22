@@ -73,8 +73,12 @@ def main():
             if not game_over:
                 elapsed_time = time.time() - start_time
 
-            # Get button rectangles from redraw_window
-            buttons = redraw_window(WIN, grid, selected_num, elapsed_time, message, game_over)
+            # Get button rectangles from redraw_window. When a solver is active,
+            # append a "[SOLVER]" badge to the status message (uniform autoplay UX).
+            display_message = (
+                f"{message}  [SOLVER]" if (solver is not None and not message.endswith("[SOLVER]")) else message
+            )
+            buttons = redraw_window(WIN, grid, selected_num, elapsed_time, display_message, game_over)
 
             # Take screenshot
             screenshot_path = os.path.join(screenshots_dir, f"step_{step_count:03d}.png")
@@ -98,8 +102,9 @@ def main():
                         message = "Victory!"
                         game_over = True
                         run = False  # Exit the game loop
-                # Control the speed of the solver without blocking the event loop
-                _solver_deadline = pygame.time.get_ticks() + 100
+                # Control the speed of the solver without blocking the event loop.
+                # Halved from 100ms -> 50ms for the uniform solver speedup.
+                _solver_deadline = pygame.time.get_ticks() + 50
                 while pygame.time.get_ticks() < _solver_deadline:
                     for event in pygame.event.get():
                         if event.type == pygame.QUIT or (

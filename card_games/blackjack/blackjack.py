@@ -213,7 +213,8 @@ def main():
     userSum, userA, dealSum, dealA = initGame(ccards, userCard, dealCard)
     clock = pygame.time.Clock()
     autoFrameCounter = 0
-    AUTO_FRAMES_PER_DECISION = 30
+    # Halved (30 -> 15 frames per AI decision) for the uniform autoplay speedup.
+    AUTO_FRAMES_PER_DECISION = 15
 
     #Fill Background
     background = pygame.Surface(screen.get_size())

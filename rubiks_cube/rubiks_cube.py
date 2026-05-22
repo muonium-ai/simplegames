@@ -360,6 +360,11 @@ def main():
         esc_hint = small_font.render("ESC to quit", True, BLACK)
         screen.blit(esc_hint, (screen.get_width() - esc_hint.get_width() - 10, 10))
 
+        # SOLVER badge when autoplay is active.
+        if autoplay:
+            badge = small_font.render("SOLVER", True, (200, 0, 0))
+            screen.blit(badge, (screen.get_width() - badge.get_width() - 10, 32))
+
         # Draw move history with count
         history_y = 100
         history_text = small_font.render(f"Move History: (Total: {len(cube.move_history)})", True, BLACK)
@@ -412,8 +417,10 @@ def main():
                     move = solver.solution_moves[solution_index]
                     cube.apply_move(move)
                     solution_index += 1
-                    # Schedule the next move without blocking the event loop
-                    next_move_time = pygame.time.get_ticks() + 500
+                    # Schedule the next move without blocking the event loop.
+                    # Halved from 500ms -> 250ms when --autoplay is on so the
+                    # solver runs at ~2x normal pace.
+                    next_move_time = pygame.time.get_ticks() + (250 if autoplay else 500)
             else:
                 # Verify solution is complete
                 if cube.verify_solved_state():

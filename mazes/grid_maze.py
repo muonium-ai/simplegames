@@ -108,7 +108,10 @@ def draw_maze(game_won=False, show_modal=False, ai_path=None):
     pygame.draw.rect(screen, BLACK, (WIDTH//2 - 50, HEIGHT + 10, 100, 30))
     text = font.render("Solve", True, WHITE)
     screen.blit(text, (WIDTH//2 - 25, HEIGHT + 15))
-    distance_text = font.render(f"Distance: {distance_traveled}", True, BLACK)
+    distance_label = f"Distance: {distance_traveled}"
+    if ai_path is not None:
+        distance_label += "  [SOLVER]"
+    distance_text = font.render(distance_label, True, BLACK)
     screen.blit(distance_text, (10, HEIGHT + 15))
     hint_font = pygame.font.Font(None, 22)
     hint_text = hint_font.render("ESC to quit", True, BLACK)
@@ -255,7 +258,9 @@ def main():
 
         draw_maze(game_won, show_modal, ai_path)
         pygame.display.flip()
-        clock.tick(60)
+        # Double the FPS cap while the BFS solver is animating, so SOLVER mode
+        # runs at ~2x normal speed (uniform autoplay UX).
+        clock.tick(120 if solving else 60)
     
     pygame.quit()
 

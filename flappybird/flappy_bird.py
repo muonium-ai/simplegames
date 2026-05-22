@@ -202,8 +202,9 @@ def draw():
         for pipe in pipes:
             pygame.draw.rect(screen, (34, 139, 34), pipe['top'])
             pygame.draw.rect(screen, (34, 139, 34), pipe['bottom'])
-        # Draw score
-        score_text = font.render(f"Score: {score}", True, (0, 0, 0))
+        # Draw score (append AI badge when autoplay is active)
+        score_label = f"Score: {score}" + ("  [AI]" if auto_play else "")
+        score_text = font.render(score_label, True, (0, 0, 0))
         screen.blit(score_text, (10, 10))
         # HUD: current level (T-000094 spec)
         level_text = font.render(f"Level: {current_level}", True, (0, 0, 0))
@@ -369,10 +370,12 @@ def main():
                 if bird_y - BIRD_RADIUS <= 0 or bird_y + BIRD_RADIUS >= HEIGHT:
                     game_over = True
 
-            # Move pipes and check for off-screen removal
+            # Move pipes and check for off-screen removal. Double scroll speed when autoplay
+            # is on so AI demos run at ~2x the normal pace.
+            effective_pipe_speed = pipe_speed * 2 if auto_play else pipe_speed
             for pipe in pipes:
-                pipe['top'].x -= pipe_speed
-                pipe['bottom'].x -= pipe_speed
+                pipe['top'].x -= effective_pipe_speed
+                pipe['bottom'].x -= effective_pipe_speed
             pipes = [pipe for pipe in pipes if pipe['top'].x + PIPE_WIDTH > 0]
 
             # Collision detection

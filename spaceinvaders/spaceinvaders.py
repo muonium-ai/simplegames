@@ -270,7 +270,8 @@ class Game:
 
     def run(self):
         while True:
-            self.clock.tick(FPS)
+            # Bump the FPS cap when in autoplay mode (uniform autoplay UX).
+            self.clock.tick(FPS * 2 if self.auto_mode else FPS)
             
             for event in pygame.event.get():
                 if event.type == pygame.QUIT or (event.type == pygame.KEYDOWN and event.key == pygame.K_q):
@@ -389,8 +390,8 @@ class Game:
         self.screen.blit(lives_text, (10, 40))
         self.screen.blit(level_text, (SCREEN_WIDTH - 100, 10))
         
-        # Add mode indicator
-        mode_text = self.font.render("AUTO" if self.auto_mode else "MANUAL", True, WHITE)
+        # Add mode indicator (use the uniform "AI" badge in auto mode).
+        mode_text = self.font.render("AI" if self.auto_mode else "MANUAL", True, WHITE)
         self.screen.blit(mode_text, (SCREEN_WIDTH - 100, 40))
 
         # Quit hint (ESC is bound to pause, so Q is used to quit)

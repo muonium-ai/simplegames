@@ -162,6 +162,10 @@ def main(argv=None):
     pygame.display.set_caption("Pong")
     clock = pygame.time.Clock()
 
+    # Uniform autoplay speedup: when any AI is driving, run at ~2x normal FPS.
+    autoplay_active = ai_left or ai_right
+    effective_fps = FPS * 2 if autoplay_active else FPS
+
     # Sound placeholders (optional)
     # paddle_sound = pygame.mixer.Sound("paddle_beep.wav")
     # score_sound = pygame.mixer.Sound("score.wav")
@@ -180,7 +184,7 @@ def main(argv=None):
 
     running = True
     while running:
-        clock.tick(FPS)
+        clock.tick(effective_fps)
         for event in pygame.event.get():
             if event.type == pygame.QUIT or (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE):
                 pygame.quit()

@@ -237,7 +237,9 @@ class Minesweeper:
 
             self.draw()
             pygame.display.flip()
-            self.clock.tick(60)
+            # Double the FPS cap when a solver is driving the game, matching the
+            # uniform autoplay/solver speedup convention.
+            self.clock.tick(120 if self.is_solver_active else 60)
 
         pygame.quit()
 
@@ -248,6 +250,12 @@ class Minesweeper:
         esc_font = pygame.font.Font(None, 20)
         esc_hint = esc_font.render("ESC to quit", True, BLACK)
         self.screen.blit(esc_hint, (WINDOW_WIDTH - esc_hint.get_width() - 10, 5))
+
+        # SOLVER badge in the header when a solver is driving the game.
+        if self.is_solver_active:
+            badge_font = pygame.font.Font(None, 28)
+            badge = badge_font.render("SOLVER", True, RED)
+            self.screen.blit(badge, (10, 5))
 
         for y in range(GRID_HEIGHT):
             for x in range(GRID_WIDTH):

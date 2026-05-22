@@ -255,8 +255,11 @@ def draw_maze(hex_grid, player, game_won=False, show_modal=False, solution_path=
     text_rect = solve_text.get_rect(center=(WIDTH//2, HEIGHT + 25))
     screen.blit(solve_text, text_rect)
 
-    # Draw move counter
-    moves_text = font.render(f"Moves: {player.moves}", True, BLACK)
+    # Draw move counter (append SOLVER badge while the BFS path is being followed)
+    moves_label = f"Moves: {player.moves}"
+    if solution_path is not None:
+        moves_label += "  [SOLVER]"
+    moves_text = font.render(moves_label, True, BLACK)
     screen.blit(moves_text, (10, HEIGHT + 15))
 
     # Draw ESC to quit hint
@@ -396,7 +399,8 @@ def main():
         draw_maze(hex_grid, player, game_won, False, solution_path)
         control_guide.draw()
         pygame.display.flip()
-        clock.tick(60)
+        # Double the FPS cap while solving so SOLVER mode runs at ~2x normal speed.
+        clock.tick(120 if solving else 60)
 
     pygame.quit()
 

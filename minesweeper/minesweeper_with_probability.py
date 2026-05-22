@@ -138,6 +138,8 @@ class Minesweeper:
         
         # Initialize game state # crash fixing
         self.total_moves = 0
+        # SOLVER mode: when True, draw a "SOLVER" badge in the HUD and bump FPS.
+        self.autoplay = False
         self.window_size = (WINDOW_WIDTH, WINDOW_HEIGHT)
         self.window = pygame.display.set_mode(self.window_size)
         
@@ -469,7 +471,8 @@ class Minesweeper:
         # Draw second line of header with seed, time, points, hints
         self.seed_input_box.draw(self.screen)
 
-        timer_text = self.font.render(f"Time: {self.elapsed_time}", True, RED)
+        timer_label = f"Time: {self.elapsed_time}" + ("  [SOLVER]" if self.autoplay else "")
+        timer_text = self.font.render(timer_label, True, RED)
         self.screen.blit(timer_text, (120 + PADDING, HEADER_HEIGHT - 35))
         
         points_text = self.font.render(f"Points: {self.points}", True, RED)
@@ -580,7 +583,8 @@ class Minesweeper:
                 self.elapsed_time = self.get_game_time()
             self.draw()
             pygame.display.flip()
-            self.clock.tick(60)
+            # Double the FPS cap while in autoplay/solver mode (uniform autoplay UX).
+            self.clock.tick(120 if self.autoplay else 60)
 
         pygame.quit()
 
@@ -821,5 +825,19 @@ class Minesweeper:
         return marked_count > 0
 
 if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Minesweeper with probability hints")
+    parser.add_argument(
+        "--autoplay",
+        action="store_true",
+        default=False,
+        help="Auto-invoke the solver at startup (shows a SOLVER badge in the HUD).",
+    )
+    args = parser.parse_args()
+
     game = Minesweeper()
+    if args.autoplay:
+        game.autoplay = True
+        game.solve_it()
     game.run()
