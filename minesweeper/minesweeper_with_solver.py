@@ -74,7 +74,7 @@ class Minesweeper:
     # Explicit allowlist of solver module names under solvers/.
     # Validating against this list before importlib.import_module prevents
     # arbitrary module loading via crafted CLI input.
-    ALLOWED_SOLVERS = {"random_solver"}
+    ALLOWED_SOLVERS = {"random_solver", "basic_solver", "subset_solver", "csp_solver"}
 
     def load_solver(self, solver_name):
         """Dynamically load a solver from the solvers folder, if specified."""
@@ -200,10 +200,13 @@ class Minesweeper:
             self.reveal_cell(x, y)
 
     def reveal_all_mines(self):
+        # Reveal unflagged mines only; preserve FLAGGED state so the solver's
+        # correct flags survive the post-mortem (and remain countable).
         for y in range(GRID_HEIGHT):
             for x in range(GRID_WIDTH):
-                if self.grid[y][x].is_mine:
-                    self.grid[y][x].state = CellState.REVEALED
+                cell = self.grid[y][x]
+                if cell.is_mine and cell.state != CellState.FLAGGED:
+                    cell.state = CellState.REVEALED
 
     def run(self):
         running = True
@@ -249,7 +252,22 @@ class Minesweeper:
             if self.is_solver_active and (self.game_over or self.victory):
                 outcome = "WIN" if self.victory else "LOSS"
                 elapsed = time.monotonic() - self._round_start_time
-                print(f"[minesweeper-solver] {outcome} in {elapsed:.2f}s", flush=True)
+                # Progress made before the game ended. reveal_all_mines now
+                # preserves FLAGGED state, so the count reflects real flags.
+                opened = sum(
+                    1 for row in self.grid for c in row
+                    if c.state == CellState.REVEALED and not c.is_mine
+                )
+                flagged = sum(
+                    1 for row in self.grid for c in row
+                    if c.state == CellState.FLAGGED
+                )
+                safe_total = GRID_WIDTH * GRID_HEIGHT - MINE_COUNT
+                print(
+                    f"[minesweeper-solver] {outcome} in {elapsed:.2f}s "
+                    f"— flagged {flagged}/{MINE_COUNT}, opened {opened}/{safe_total}",
+                    flush=True,
+                )
                 restart_deadline = pygame.time.get_ticks() + 1000
                 while pygame.time.get_ticks() < restart_deadline:
                     for event in pygame.event.get():

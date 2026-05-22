@@ -276,6 +276,115 @@ class Minesweeper:
         # End the game and stop the timer
         self.game_over = True
 
+    def _deduce_certain_moves(self):
+        """Scan every revealed numbered cell and derive certain mines / safes
+        directly from its local constraint. Returns (mines_set, safes_set)
+        of (x, y) tuples. This bypasses update_probabilities, which uses max()
+        when refining and therefore loses 'this cell is definitely safe'
+        (local_prob = 0) constraints under the base probability."""
+        certain_mines = set()
+        certain_safes = set()
+        for y in range(GRID_HEIGHT):
+            for x in range(GRID_WIDTH):
+                cell = self.grid[y][x]
+                if cell.state != CellState.REVEALED or cell.number <= 0:
+                    continue
+                hidden_neighbors = []
+                flagged = 0
+                for ax, ay in self.get_adjacent_cells(x, y):
+                    n = self.grid[ay][ax]
+                    if n.state == CellState.FLAGGED:
+                        flagged += 1
+                    elif n.state == CellState.HIDDEN:
+                        hidden_neighbors.append((ax, ay))
+                if not hidden_neighbors:
+                    continue
+                remaining = cell.number - flagged
+                if remaining == 0:
+                    certain_safes.update(hidden_neighbors)
+                elif remaining == len(hidden_neighbors):
+                    certain_mines.update(hidden_neighbors)
+        return certain_mines, certain_safes
+
+    def autoplay_step(self):
+        """Play one turn of the probability solver. Returns True if a move
+        was made. Drains all certain deductions per tick, then falls back to
+        a lowest-probability guess only when no deduction is available."""
+        if self.game_over or self.victory:
+            return False
+
+        # First move: start near the center so the mine-free 3x3 around the
+        # seed opens up a sizable flood-filled region to build inference from.
+        if self.first_click:
+            sx = GRID_WIDTH // 2
+            sy = GRID_HEIGHT // 2
+            self.place_mines(sx, sy)
+            self.first_click = False
+            self.reveal_cell(sx, sy)
+            self.check_victory()
+            return True
+
+        # Drain all certain deductions this tick — they're free moves.
+        moved_any = False
+        while True:
+            certain_mines, certain_safes = self._deduce_certain_moves()
+            if not certain_mines and not certain_safes:
+                break
+            for x, y in certain_mines:
+                cell = self.grid[y][x]
+                if cell.state == CellState.HIDDEN:
+                    cell.state = CellState.FLAGGED
+                    self.mines_remaining -= 1
+                    moved_any = True
+            for x, y in certain_safes:
+                cell = self.grid[y][x]
+                if cell.state != CellState.HIDDEN:
+                    continue
+                if cell.is_mine:
+                    # Should never happen if deduction is sound.
+                    self.handle_game_over((x, y))
+                    return True
+                self.reveal_cell(x, y)
+                moved_any = True
+        if moved_any:
+            self.check_victory()
+            return True
+
+        # No deduction available — take the lowest-probability guess. Prefer
+        # frontier cells (touching a revealed number); fall back to the
+        # generic base probability for fully-disconnected hidden regions.
+        self.update_probabilities()
+        frontier_best = (1.1, None)
+        interior_best = (1.1, None)
+        for y in range(GRID_HEIGHT):
+            for x in range(GRID_WIDTH):
+                cell = self.grid[y][x]
+                if cell.state != CellState.HIDDEN:
+                    continue
+                p = cell.probability
+                on_frontier = any(
+                    self.grid[ay][ax].state == CellState.REVEALED
+                    and self.grid[ay][ax].number > 0
+                    for ax, ay in self.get_adjacent_cells(x, y)
+                )
+                if on_frontier:
+                    if p < frontier_best[0]:
+                        frontier_best = (p, (x, y))
+                elif p < interior_best[0]:
+                    interior_best = (p, (x, y))
+
+        target = frontier_best[1] or interior_best[1]
+        if target is None:
+            return False
+        x, y = target
+        cell = self.grid[y][x]
+        if cell.is_mine:
+            self.handle_game_over((x, y))
+        else:
+            self.reveal_cell(x, y)
+            self.check_victory()
+        return True
+
     def place_mines(self, first_x, first_y):
         safe_cells = [(first_x, first_y)]
         for dx in [-1, 0, 1]:
@@ -579,6 +688,15 @@ class Minesweeper:
                         if seed_input is not None:
                             self.reset_game(seed_input)
 
+            # In --autoplay, play one solver step every ~80ms so the board
+            # fills in visibly instead of being painted in a single tick.
+            if self.autoplay and not self.game_over:
+                now = pygame.time.get_ticks()
+                last = getattr(self, "_last_autoplay_tick", 0)
+                if now - last >= 80:
+                    self.autoplay_step()
+                    self._last_autoplay_tick = now
+
             # Update timer only if the game is active
             if not self.game_over:
                 self.elapsed_time = self.get_game_time()
@@ -590,11 +708,24 @@ class Minesweeper:
             # T-000117: in autoplay/solver mode, when game ends print outcome,
             # hold ~1s, and start a new round.
             if self.autoplay and self.game_over:
-                # solve_it() reveals every cell correctly and stops the timer:
-                # treat that as a WIN even if the victory flag wasn't flipped.
                 outcome = "WIN" if (self.victory or self._all_safe_revealed()) else "LOSS"
                 elapsed = time.monotonic() - getattr(self, "_round_start_time", time.monotonic())
-                print(f"[minesweeper-probability] {outcome} in {elapsed:.2f}s", flush=True)
+                # Progress made before the game ended. handle_game_over reveals
+                # every mine on loss, so filter mines out of the opened count.
+                opened = sum(
+                    1 for row in self.grid for c in row
+                    if c.state == CellState.REVEALED and not c.is_mine
+                )
+                flagged = sum(
+                    1 for row in self.grid for c in row
+                    if c.state == CellState.FLAGGED
+                )
+                safe_total = GRID_WIDTH * GRID_HEIGHT - MINE_COUNT
+                print(
+                    f"[minesweeper-probability] {outcome} in {elapsed:.2f}s "
+                    f"— flagged {flagged}/{MINE_COUNT}, opened {opened}/{safe_total}",
+                    flush=True,
+                )
                 restart_deadline = pygame.time.get_ticks() + 1000
                 while pygame.time.get_ticks() < restart_deadline:
                     for event in pygame.event.get():
@@ -604,8 +735,8 @@ class Minesweeper:
                     self.clock.tick(60)
                 self.reset_game()
                 self._round_start_time = time.monotonic()
-                # Re-invoke the solver for the new round.
-                self.solve_it()
+                # autoplay_step() at the top of the next iteration will make
+                # the first move on the freshly-reset board.
 
         pygame.quit()
 
@@ -813,16 +944,18 @@ class Minesweeper:
     def handle_game_over(self, clicked_pos=None):
         """Handle game over state and reveal all mines"""
         self.game_over = True
-        
+
         # Mark clicked mine
         if clicked_pos:
             x, y = clicked_pos
             self.grid[y][x].was_clicked = True
-        
-        # Reveal all mines
+
+        # Reveal unflagged mines; preserve FLAGGED state so the player's
+        # correct flags are still visible (and countable) post-mortem. The
+        # black mine circle is overdrawn in draw_cell regardless of state.
         for row in self.grid:
             for cell in row:
-                if cell.is_mine:
+                if cell.is_mine and cell.state != CellState.FLAGGED:
                     cell.state = CellState.REVEALED
 
     def mark_probable_mines(self):
@@ -869,5 +1002,4 @@ if __name__ == "__main__":
     if args.autoplay:
         game.autoplay = True
         game._round_start_time = time.monotonic()
-        game.solve_it()
     game.run()
