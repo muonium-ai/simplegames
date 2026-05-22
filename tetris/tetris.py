@@ -1,8 +1,147 @@
 import pygame
 import random
 import sys
+import os
+import json
 
 pygame.init()
+
+# Level select / progression
+LEVEL_CAP = 9  # classic Tetris convention; in-game level may climb beyond
+SAVED_PROGRESS_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "saved_progress.json")
+
+
+def load_highest_level():
+    try:
+        with open(SAVED_PROGRESS_PATH, "r") as fh:
+            data = json.load(fh)
+        val = int(data.get("highest_level", 1))
+        return max(1, min(LEVEL_CAP, val))
+    except (OSError, ValueError, TypeError, json.JSONDecodeError):
+        return 1
+
+
+def save_highest_level(level):
+    try:
+        capped = max(1, min(LEVEL_CAP, int(level)))
+        with open(SAVED_PROGRESS_PATH, "w") as fh:
+            json.dump({"highest_level": capped}, fh)
+    except (OSError, ValueError, TypeError):
+        pass
+
+
+def parse_argv_level():
+    for i, arg in enumerate(sys.argv[1:], start=1):
+        if arg == "--level" and i + 1 <= len(sys.argv) - 1:
+            try:
+                return max(1, min(LEVEL_CAP, int(sys.argv[i + 1])))
+            except ValueError:
+                return None
+        if arg.startswith("--level="):
+            try:
+                return max(1, min(LEVEL_CAP, int(arg.split("=", 1)[1])))
+            except ValueError:
+                return None
+    return None
+
+
+def initial_fall_speed_for_level(level):
+    # Mirror in-game ramp: fall_speed *= 0.9 per level, floor 0.05
+    speed = 0.8
+    for _ in range(max(0, level - 1)):
+        speed = max(0.05, speed * 0.9)
+    return speed
+
+
+def show_start_screen(surface, clock, highest_unlocked):
+    """Level select. Returns chosen level (>=1), or exits on QUIT/ESC."""
+    title_font = pygame.font.SysFont('Arial', 40, bold=True)
+    sub_font = pygame.font.SysFont('Arial', 20)
+    btn_font = pygame.font.SysFont('Arial', 28, bold=True)
+
+    # 3x3 grid of level buttons
+    cols, rows = 3, 3
+    btn_w, btn_h = 80, 60
+    gap = 20
+    grid_w = cols * btn_w + (cols - 1) * gap
+    grid_h = rows * btn_h + (rows - 1) * gap
+    grid_x = (WIN_WIDTH - grid_w) // 2
+    grid_y = 260
+
+    buttons = []
+    for n in range(1, LEVEL_CAP + 1):
+        idx = n - 1
+        col = idx % cols
+        row = idx // cols
+        rect = pygame.Rect(
+            grid_x + col * (btn_w + gap),
+            grid_y + row * (btn_h + gap),
+            btn_w, btn_h
+        )
+        buttons.append((n, rect))
+
+    selected = 1
+    while True:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT or (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE):
+                pygame.quit()
+                sys.exit(0)
+            if event.type == pygame.KEYDOWN:
+                if event.key in (pygame.K_RETURN, pygame.K_SPACE):
+                    return selected
+                if event.key == pygame.K_LEFT and selected > 1:
+                    if selected - 1 <= highest_unlocked:
+                        selected -= 1
+                if event.key == pygame.K_RIGHT and selected < LEVEL_CAP:
+                    if selected + 1 <= highest_unlocked:
+                        selected += 1
+                if event.key == pygame.K_UP and selected - 3 >= 1:
+                    if selected - 3 <= highest_unlocked:
+                        selected -= 3
+                if event.key == pygame.K_DOWN and selected + 3 <= LEVEL_CAP:
+                    if selected + 3 <= highest_unlocked:
+                        selected += 3
+                # number keys 1-9
+                if pygame.K_1 <= event.key <= pygame.K_9:
+                    n = event.key - pygame.K_0
+                    if n <= highest_unlocked:
+                        selected = n
+                        return selected
+            if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                mx, my = event.pos
+                for n, rect in buttons:
+                    if rect.collidepoint(mx, my) and n <= highest_unlocked:
+                        return n
+
+        surface.fill(BLACK)
+        title = title_font.render("TETRIS", True, WHITE)
+        surface.blit(title, (WIN_WIDTH // 2 - title.get_width() // 2, 80))
+        sub = sub_font.render("Select starting level", True, WHITE)
+        surface.blit(sub, (WIN_WIDTH // 2 - sub.get_width() // 2, 150))
+        hint = sub_font.render("Arrows/Click to choose - Enter to start - ESC to quit", True, GRAY)
+        surface.blit(hint, (WIN_WIDTH // 2 - hint.get_width() // 2, 190))
+
+        for n, rect in buttons:
+            unlocked = n <= highest_unlocked
+            if not unlocked:
+                color = (40, 40, 40)
+                text_color = (90, 90, 90)
+            elif n == selected:
+                color = (80, 140, 200)
+                text_color = WHITE
+            else:
+                color = (60, 60, 60)
+                text_color = WHITE
+            pygame.draw.rect(surface, color, rect)
+            pygame.draw.rect(surface, WHITE, rect, 2)
+            label = btn_font.render(str(n), True, text_color)
+            surface.blit(label, (rect.centerx - label.get_width() // 2, rect.centery - label.get_height() // 2))
+
+        unlocked_hint = sub_font.render(f"Highest unlocked: {highest_unlocked}", True, WHITE)
+        surface.blit(unlocked_hint, (WIN_WIDTH // 2 - unlocked_hint.get_width() // 2, grid_y + grid_h + 30))
+
+        pygame.display.update()
+        clock.tick(30)
 
 # Make the window bigger/taller
 WIN_WIDTH = 600
@@ -225,11 +364,28 @@ def draw_window(surface, grid, locked_positions, score, level, current_piece, ne
 
     pygame.display.update()
 
+def _draw_level_overlay(surface, font, level):
+    text = font.render(f"Level {level}", True, WHITE)
+    bg = pygame.Surface((text.get_width() + 40, text.get_height() + 20), pygame.SRCALPHA)
+    bg.fill((0, 0, 0, 180))
+    bg_rect = bg.get_rect(center=(WIN_WIDTH // 2, WIN_HEIGHT // 2))
+    surface.blit(bg, bg_rect)
+    surface.blit(text, text.get_rect(center=(WIN_WIDTH // 2, WIN_HEIGHT // 2)))
+
+
 def main():
     surface = pygame.display.set_mode((WIN_WIDTH, WIN_HEIGHT))
     pygame.display.set_caption("Tetris")
 
     clock = pygame.time.Clock()
+
+    highest_unlocked = load_highest_level()
+
+    argv_level = parse_argv_level()
+    if argv_level is not None:
+        starting_level = min(argv_level, max(highest_unlocked, 1))
+    else:
+        starting_level = show_start_screen(surface, clock, highest_unlocked)
 
     locked_positions = {}
     grid = create_grid(locked_positions)
@@ -238,13 +394,15 @@ def main():
     next_piece = get_new_piece()
 
     fall_time = 0
-    fall_speed = 0.8
-    level = 1
-    lines_cleared_total = 0
+    level = starting_level
+    fall_speed = initial_fall_speed_for_level(level)
+    lines_cleared_total = (level - 1) * 10
     score = 0
     running = True
     paused = False
     game_over = False
+    level_up_deadline = 0
+    overlay_font = pygame.font.SysFont('Arial', 56, bold=True)
 
     while running:
         grid = create_grid(locked_positions)
@@ -253,24 +411,26 @@ def main():
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT or (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE):
+                save_highest_level(max(highest_unlocked, min(LEVEL_CAP, level)))
                 pygame.quit()
                 sys.exit(0)
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_p:
                     paused = not paused
                 if event.key == pygame.K_r:
-                    # restart
+                    # restart at the chosen starting level
                     locked_positions = {}
                     grid = create_grid(locked_positions)
                     current_piece = get_new_piece()
                     next_piece = get_new_piece()
                     fall_time = 0
-                    fall_speed = 0.8
-                    level = 1
-                    lines_cleared_total = 0
+                    level = starting_level
+                    fall_speed = initial_fall_speed_for_level(level)
+                    lines_cleared_total = (level - 1) * 10
                     score = 0
                     paused = False
                     game_over = False
+                    level_up_deadline = 0
                 if not paused and not game_over:
                     if event.key == pygame.K_LEFT:
                         move_piece(current_piece, -1, 0, grid)
@@ -290,6 +450,9 @@ def main():
 
         if paused or game_over:
             draw_window(surface, grid, locked_positions, score, level, current_piece, next_piece)
+            if pygame.time.get_ticks() < level_up_deadline:
+                _draw_level_overlay(surface, overlay_font, level)
+                pygame.display.update()
             continue
 
         # Gravity
@@ -311,13 +474,21 @@ def main():
                 if lines_cleared_total >= level * 10:
                     level += 1
                     fall_speed = max(0.05, fall_speed * 0.9)
+                    level_up_deadline = pygame.time.get_ticks() + 1000
+                    if level > highest_unlocked:
+                        highest_unlocked = min(LEVEL_CAP, level)
 
                 current_piece = next_piece
                 next_piece = get_new_piece()
                 if not valid_space(current_piece, grid):
+                    if not game_over:
+                        save_highest_level(max(highest_unlocked, min(LEVEL_CAP, level)))
                     game_over = True
 
         draw_window(surface, grid, locked_positions, score, level, current_piece, next_piece)
+        if pygame.time.get_ticks() < level_up_deadline:
+            _draw_level_overlay(surface, overlay_font, level)
+            pygame.display.update()
 
     # Game Over screen
     font = pygame.font.SysFont('Arial', 48, bold=True)

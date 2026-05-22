@@ -1,8 +1,13 @@
 from os import environ
 environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'  # Hide pygame support prompt
-import pygame
+import copy
+import json
+import os
+import random
 import sys
 import time
+
+import pygame
 
 pygame.init()
 
@@ -19,24 +24,115 @@ LIGHT_GRAY = (200, 200, 200)
 SELECTED_CELL_COLOR = (189, 214, 255)
 HIGHLIGHT_COLOR = (255, 255, 0)
 RED = (255, 0, 0)
+GREEN = (0, 128, 0)
+BLUE = (0, 0, 255)
 
 # Fonts
 FONT = pygame.font.SysFont("comicsans", 40)
 NUMBER_FONT = pygame.font.SysFont("comicsans", 40)
-STATUS_FONT = pygame.font.SysFont("comicsans", 30)
+STATUS_FONT = pygame.font.SysFont("comicsans", 24)
+TITLE_FONT = pygame.font.SysFont("comicsans", 56)
+BUTTON_FONT = pygame.font.SysFont("comicsans", 36)
+SMALL_FONT = pygame.font.SysFont("comicsans", 20)
 
-# Sample Sudoku board (0 represents empty cells)
-board = [
-    [7, 8, 0, 4, 0, 0, 1, 2, 0],
-    [6, 0, 0, 0, 7, 5, 0, 0, 9],
-    [0, 0, 0, 6, 0, 1, 0, 7, 8],
-    [0, 0, 7, 0, 4, 0, 2, 6, 0],
-    [0, 0, 1, 0, 5, 0, 9, 3, 0],
-    [9, 0, 4, 0, 6, 0, 0, 0, 5],
-    [0, 7, 0, 3, 0, 0, 0, 1, 2],
-    [1, 2, 0, 0, 0, 7, 4, 0, 0],
-    [0, 4, 9, 2, 0, 6, 0, 0, 7]
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+SAVE_PATH = os.path.join(SCRIPT_DIR, "saved_progress.json")
+
+# Difficulty levels: number of given clues range (min, max)
+DIFFICULTIES = {
+    "Easy": (36, 40),
+    "Medium": (28, 32),
+    "Hard": (22, 26),
+}
+DIFFICULTY_ORDER = ["Easy", "Medium", "Hard"]
+DIFFICULTY_RANK = {"Easy": 1, "Medium": 2, "Hard": 3}
+
+# Hand-authored fully-solved Sudoku boards. Picking one and blanking cells
+# per difficulty avoids running an expensive generator at startup.
+SOLVED_BOARDS = [
+    [
+        [5, 3, 4, 6, 7, 8, 9, 1, 2],
+        [6, 7, 2, 1, 9, 5, 3, 4, 8],
+        [1, 9, 8, 3, 4, 2, 5, 6, 7],
+        [8, 5, 9, 7, 6, 1, 4, 2, 3],
+        [4, 2, 6, 8, 5, 3, 7, 9, 1],
+        [7, 1, 3, 9, 2, 4, 8, 5, 6],
+        [9, 6, 1, 5, 3, 7, 2, 8, 4],
+        [2, 8, 7, 4, 1, 9, 6, 3, 5],
+        [3, 4, 5, 2, 8, 6, 1, 7, 9],
+    ],
+    [
+        [1, 2, 3, 4, 5, 6, 7, 8, 9],
+        [4, 5, 6, 7, 8, 9, 1, 2, 3],
+        [7, 8, 9, 1, 2, 3, 4, 5, 6],
+        [2, 3, 4, 5, 6, 7, 8, 9, 1],
+        [5, 6, 7, 8, 9, 1, 2, 3, 4],
+        [8, 9, 1, 2, 3, 4, 5, 6, 7],
+        [3, 4, 5, 6, 7, 8, 9, 1, 2],
+        [6, 7, 8, 9, 1, 2, 3, 4, 5],
+        [9, 1, 2, 3, 4, 5, 6, 7, 8],
+    ],
+    [
+        [9, 1, 2, 3, 4, 5, 6, 7, 8],
+        [3, 4, 5, 6, 7, 8, 9, 1, 2],
+        [6, 7, 8, 9, 1, 2, 3, 4, 5],
+        [1, 2, 3, 4, 5, 6, 7, 8, 9],
+        [4, 5, 6, 7, 8, 9, 1, 2, 3],
+        [7, 8, 9, 1, 2, 3, 4, 5, 6],
+        [2, 3, 4, 5, 6, 7, 8, 9, 1],
+        [5, 6, 7, 8, 9, 1, 2, 3, 4],
+        [8, 9, 1, 2, 3, 4, 5, 6, 7],
+    ],
+    [
+        [8, 2, 7, 1, 5, 4, 3, 9, 6],
+        [9, 6, 5, 3, 2, 7, 1, 4, 8],
+        [3, 4, 1, 6, 8, 9, 7, 5, 2],
+        [5, 9, 3, 4, 6, 8, 2, 7, 1],
+        [4, 7, 2, 5, 1, 3, 6, 8, 9],
+        [6, 1, 8, 9, 7, 2, 4, 3, 5],
+        [7, 8, 6, 2, 3, 5, 9, 1, 4],
+        [1, 5, 4, 7, 9, 6, 8, 2, 3],
+        [2, 3, 9, 8, 4, 1, 5, 6, 7],
+    ],
 ]
+
+
+def generate_puzzle_for_difficulty(difficulty):
+    """Pick a random solved board and blank cells until the desired number of
+    clues remains. Returns the puzzle board with zeros at blanked positions."""
+    low, high = DIFFICULTIES[difficulty]
+    target_clues = random.randint(low, high)
+    base = random.choice(SOLVED_BOARDS)
+    puzzle = copy.deepcopy(base)
+    positions = [(r, c) for r in range(9) for c in range(9)]
+    random.shuffle(positions)
+    to_blank = 81 - target_clues
+    for r, c in positions[:to_blank]:
+        puzzle[r][c] = 0
+    return puzzle
+
+
+def load_progress():
+    try:
+        with open(SAVE_PATH, "r") as f:
+            data = json.load(f)
+        if not isinstance(data, dict):
+            return {"highest_difficulty": "Easy", "puzzles_solved": 0}
+        return {
+            "highest_difficulty": data.get("highest_difficulty", "Easy"),
+            "puzzles_solved": int(data.get("puzzles_solved", 0)),
+        }
+    except (OSError, ValueError):
+        return {"highest_difficulty": "Easy", "puzzles_solved": 0}
+
+
+def save_progress(progress):
+    try:
+        with open(SAVE_PATH, "w") as f:
+            json.dump(progress, f)
+    except OSError:
+        pass
+
 
 class Cell:
     def __init__(self, value, row, col, width, height, editable):
@@ -198,43 +294,134 @@ def draw_menu(win, selected_num):
         text = NUMBER_FONT.render(str(i+1), True, RED)
         win.blit(text, (x + (gap/2 - text.get_width()/2), y + (60/2 - text.get_height()/2)))
 
-def draw_status_bar(win, elapsed_time, message, filled_cells):
+def draw_status_bar(win, elapsed_time, message, filled_cells, difficulty):
     status_bar_height = 40
     y = HEIGHT - status_bar_height
     pygame.draw.rect(win, LIGHT_GRAY, (0, y, WIDTH, status_bar_height))
     pygame.draw.line(win, BLACK, (0, y), (WIDTH, y), 2)
 
     time_text = STATUS_FONT.render(f"Time: {int(elapsed_time)}s", True, BLACK)
-    cells_text = STATUS_FONT.render(f"Filled Cells: {filled_cells}/81", True, BLACK)
+    cells_text = STATUS_FONT.render(f"Cells: {filled_cells}/81", True, BLACK)
+    diff_text = STATUS_FONT.render(f"Difficulty: {difficulty}", True, BLACK)
     message_text = STATUS_FONT.render(message, True, RED if message else BLACK)
 
-    win.blit(time_text, (10, y + 5))
-    win.blit(cells_text, (200, y +5))
-    win.blit(message_text, (400, y +5))
+    win.blit(time_text, (8, y + 8))
+    win.blit(cells_text, (110, y + 8))
+    win.blit(diff_text, (230, y + 8))
+    win.blit(message_text, (400, y + 8))
 
-def redraw_window(win, grid, selected_num, elapsed_time, message):
+def redraw_window(win, grid, selected_num, elapsed_time, message, difficulty):
     win.fill(WHITE)
     draw_menu(win, selected_num)
     grid.draw(win)
     filled_cells = grid.count_filled()
-    draw_status_bar(win, elapsed_time, message, filled_cells)
+    draw_status_bar(win, elapsed_time, message, filled_cells, difficulty)
     # Draw "ESC to quit" hint in the top-right corner above the menu bar
     hint_font = pygame.font.SysFont("comicsans", 18)
     hint_text = hint_font.render("ESC to quit", True, BLACK)
     win.blit(hint_text, (WIDTH - hint_text.get_width() - 5, 2))
     pygame.display.update()
 
-def main():
-    run = True
-    grid = Grid(board, WIDTH, WIDTH)
+
+def _level_button_rects():
+    button_w, button_h = 320, 70
+    gap = 24
+    start_y = 200
+    x = (WIDTH - button_w) // 2
+    rects = {}
+    for i, name in enumerate(DIFFICULTY_ORDER):
+        rects[name] = pygame.Rect(x, start_y + i * (button_h + gap), button_w, button_h)
+    return rects
+
+
+def draw_level_select(win, progress):
+    win.fill(WHITE)
+    title = TITLE_FONT.render("Sudoku", True, BLACK)
+    win.blit(title, ((WIDTH - title.get_width()) // 2, 60))
+
+    subtitle = STATUS_FONT.render("Select difficulty", True, BLACK)
+    win.blit(subtitle, ((WIDTH - subtitle.get_width()) // 2, 140))
+
+    rects = _level_button_rects()
+    highest = progress.get("highest_difficulty", "Easy")
+    for name, rect in rects.items():
+        is_highlight = name == highest
+        bg = HIGHLIGHT_COLOR if is_highlight else LIGHT_GRAY
+        pygame.draw.rect(win, bg, rect)
+        pygame.draw.rect(win, BLACK, rect, 3)
+        label = BUTTON_FONT.render(name, True, BLUE)
+        win.blit(
+            label,
+            (
+                rect.x + (rect.width - label.get_width()) // 2,
+                rect.y + (rect.height - label.get_height()) // 2,
+            ),
+        )
+
+    info = SMALL_FONT.render(
+        f"Solved: {progress.get('puzzles_solved', 0)}  |  Highest: {highest}",
+        True,
+        BLACK,
+    )
+    win.blit(info, ((WIDTH - info.get_width()) // 2, 470))
+
+    hint = SMALL_FONT.render("ESC to quit", True, BLACK)
+    win.blit(hint, (WIDTH - hint.get_width() - 5, 5))
+
+    pygame.display.update()
+    return rects
+
+
+def run_level_select(progress):
+    """Block on a level-select screen. Returns the chosen difficulty name."""
+    clock = pygame.time.Clock()
+    while True:
+        rects = draw_level_select(WIN, progress)
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT or (
+                event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE
+            ):
+                pygame.quit()
+                sys.exit(0)
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                pos = pygame.mouse.get_pos()
+                for name, rect in rects.items():
+                    if rect.collidepoint(pos):
+                        return name
+        clock.tick(60)
+
+
+def play_round(difficulty):
+    """Play a single round. Returns True if solved, False on quit (handled
+    earlier via sys.exit)."""
+    puzzle = generate_puzzle_for_difficulty(difficulty)
+    grid = Grid(puzzle, WIDTH, WIDTH)
     key = None
     selected_num = None
     start_time = time.time()
     message = ""
+    clock = pygame.time.Clock()
+    solved_deadline = None  # Non-blocking overlay timer (ticks)
 
-    while run:
+    while True:
         elapsed_time = time.time() - start_time
-        redraw_window(WIN, grid, selected_num, elapsed_time, message)
+        # Show "Solved!" overlay until deadline expires
+        if solved_deadline is not None:
+            redraw_window(WIN, grid, selected_num, elapsed_time, "Solved!", difficulty)
+            # Draw centered overlay
+            overlay = TITLE_FONT.render("Solved!", True, GREEN)
+            WIN.blit(
+                overlay,
+                (
+                    (WIDTH - overlay.get_width()) // 2,
+                    (HEIGHT - overlay.get_height()) // 2,
+                ),
+            )
+            pygame.display.update()
+            if pygame.time.get_ticks() >= solved_deadline:
+                return True
+        else:
+            redraw_window(WIN, grid, selected_num, elapsed_time, message, difficulty)
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT or (
@@ -242,6 +429,10 @@ def main():
             ):
                 pygame.quit()
                 sys.exit(0)
+
+            # Lock out input while solved overlay is showing
+            if solved_deadline is not None:
+                continue
 
             if event.type == pygame.MOUSEBUTTONDOWN:
                 pos = pygame.mouse.get_pos()
@@ -304,10 +495,28 @@ def main():
                             message = ""
                             # Check if the puzzle is solved
                             if grid.is_solved():
-                                message = "Victory!"
+                                message = "Solved!"
+                                # Non-blocking deadline pattern (T-000056)
+                                solved_deadline = pygame.time.get_ticks() + 1500
                         else:
                             message = "Invalid Move"
                         key = None
+
+        clock.tick(60)
+
+
+def main():
+    progress = load_progress()
+    while True:
+        difficulty = run_level_select(progress)
+        solved = play_round(difficulty)
+        if solved:
+            progress["puzzles_solved"] = int(progress.get("puzzles_solved", 0)) + 1
+            current_rank = DIFFICULTY_RANK.get(progress.get("highest_difficulty", "Easy"), 1)
+            new_rank = DIFFICULTY_RANK[difficulty]
+            if new_rank > current_rank:
+                progress["highest_difficulty"] = difficulty
+            save_progress(progress)
 
     pygame.quit()
 

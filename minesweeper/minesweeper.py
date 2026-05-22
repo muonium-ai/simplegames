@@ -2,21 +2,40 @@ from os import environ
 environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'  # Hide pygame support prompt
 import os
 import sys
+import json
 import pygame
 import random
 from enum import Enum
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+SAVED_PROGRESS_PATH = os.path.join(SCRIPT_DIR, "saved_progress.json")
 
 # Constants
 CELL_SIZE = 32
-GRID_WIDTH = 30
-GRID_HEIGHT = 16
-MINE_COUNT = 99
-WINDOW_WIDTH = GRID_WIDTH * CELL_SIZE
-WINDOW_HEIGHT = GRID_HEIGHT * CELL_SIZE + 100  # Extra height for two-line header
 HEADER_HEIGHT = 70  # Adjusted for two-line header
 PADDING = 10  # Padding for spacing between buttons and elements
+
+# T-000099: named difficulty levels (classic Windows Minesweeper sizing).
+# Stored as ordered list so we can compare "highest beaten".
+DIFFICULTIES = {
+    "Beginner":     {"width":  9, "height":  9, "mines": 10},
+    "Intermediate": {"width": 16, "height": 16, "mines": 40},
+    "Expert":       {"width": 30, "height": 16, "mines": 99},
+}
+DIFFICULTY_ORDER = ["Beginner", "Intermediate", "Expert"]
+DEFAULT_DIFFICULTY = "Beginner"
+
+# Current active difficulty (set when a level is chosen). Defaults to Beginner
+# so module-level references don't crash if any external code imports these.
+_current = DIFFICULTIES[DEFAULT_DIFFICULTY]
+GRID_WIDTH = _current["width"]
+GRID_HEIGHT = _current["height"]
+MINE_COUNT = _current["mines"]
+WINDOW_WIDTH = GRID_WIDTH * CELL_SIZE
+WINDOW_HEIGHT = GRID_HEIGHT * CELL_SIZE + 100  # Extra height for two-line header
+
+# Minimum window width so the header buttons + level-select buttons fit even on Beginner.
+MIN_WINDOW_WIDTH = 960
 
 # Colors
 GRAY = (192, 192, 192)
@@ -121,22 +140,49 @@ class Cell:
         self.state = CellState.HIDDEN
         self.neighbor_mines = 0
 
+def load_saved_progress():
+    """T-000099: load highest difficulty ever beaten (or None)."""
+    try:
+        with open(SAVED_PROGRESS_PATH, "r") as fh:
+            data = json.load(fh)
+        h = data.get("highest_difficulty")
+        if h in DIFFICULTIES:
+            return h
+    except (FileNotFoundError, json.JSONDecodeError, OSError):
+        pass
+    return None
+
+
+def save_progress(highest_difficulty):
+    """T-000099: persist highest beaten difficulty to gitignored JSON."""
+    try:
+        with open(SAVED_PROGRESS_PATH, "w") as fh:
+            json.dump({"highest_difficulty": highest_difficulty}, fh)
+    except OSError as e:
+        print(f"Could not save progress: {e}")
+
+
 class Minesweeper:
     # Add image paths as class constants
     FLAG_IMAGE_PATH = os.path.join(SCRIPT_DIR, "images/red-flag.png")
     MINE_IMAGE_PATH = os.path.join(SCRIPT_DIR, "images/landmine.png")
 
-    def __init__(self):
+    def __init__(self, difficulty=DEFAULT_DIFFICULTY):
         pygame.init()
+        # Difficulty must be applied before we size the window.
+        self.difficulty = difficulty
+        self._apply_difficulty(difficulty)
+        self.highest_beaten = load_saved_progress()
+
         self.screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
         pygame.display.set_caption("Minesweeper")
         self.clock = pygame.time.Clock()
-        self.font = pygame.font.Font(None, 36)\
-        
+        self.font = pygame.font.Font(None, 36)
+
         # Initialize game state # crash fixing
         self.total_moves = 0
         self.window_size = (WINDOW_WIDTH, WINDOW_HEIGHT)
-        self.window = pygame.display.set_mode(self.window_size)
+        self.window = self.screen
         
         # Button layout with dynamic widths
         button_height = 30
@@ -190,6 +236,101 @@ class Minesweeper:
         except (pygame.error, FileNotFoundError) as e:
             print(f"Error loading images: {e}")
             self.images_loaded = False
+
+    def _apply_difficulty(self, name):
+        """T-000099: switch module-level grid constants to selected difficulty.
+
+        Using globals keeps the existing reveal/draw code (which references
+        GRID_WIDTH/HEIGHT, MINE_COUNT, WINDOW_WIDTH/HEIGHT directly) working
+        without touching the cell-reveal recursion.
+        """
+        global GRID_WIDTH, GRID_HEIGHT, MINE_COUNT, WINDOW_WIDTH, WINDOW_HEIGHT
+        cfg = DIFFICULTIES[name]
+        GRID_WIDTH = cfg["width"]
+        GRID_HEIGHT = cfg["height"]
+        MINE_COUNT = cfg["mines"]
+        WINDOW_WIDTH = max(GRID_WIDTH * CELL_SIZE, MIN_WINDOW_WIDTH)
+        WINDOW_HEIGHT = GRID_HEIGHT * CELL_SIZE + 100
+        self.difficulty = name
+
+    def _resize_window(self):
+        """Resize the pygame window to match current WINDOW_WIDTH/HEIGHT."""
+        self.window_size = (WINDOW_WIDTH, WINDOW_HEIGHT)
+        self.screen = pygame.display.set_mode(self.window_size)
+        self.window = self.screen
+
+    def show_level_select(self):
+        """T-000099: blocking level-select start screen. Returns chosen name."""
+        # Use a comfortable fixed size for the menu screen.
+        menu_w, menu_h = 640, 480
+        self.window_size = (menu_w, menu_h)
+        self.screen = pygame.display.set_mode(self.window_size)
+        self.window = self.screen
+
+        title_font = pygame.font.Font(None, 64)
+        btn_font = pygame.font.Font(None, 48)
+        sub_font = pygame.font.Font(None, 28)
+
+        # Default highlight = highest beaten, else Beginner.
+        default_name = self.highest_beaten or DEFAULT_DIFFICULTY
+
+        button_w, button_h = 360, 60
+        gap = 20
+        start_y = 140
+        buttons = []
+        for i, name in enumerate(DIFFICULTY_ORDER):
+            rect = pygame.Rect(
+                (menu_w - button_w) // 2,
+                start_y + i * (button_h + gap),
+                button_w,
+                button_h,
+            )
+            buttons.append((name, rect))
+
+        clock = pygame.time.Clock()
+        while True:
+            mouse_pos = pygame.mouse.get_pos()
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT or (
+                    event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE
+                ):
+                    pygame.quit()
+                    sys.exit(0)
+                if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                    for name, rect in buttons:
+                        if rect.collidepoint(event.pos):
+                            return name
+
+            self.screen.fill(GRAY)
+            title = title_font.render("Minesweeper", True, BLACK)
+            self.screen.blit(title, title.get_rect(center=(menu_w // 2, 60)))
+            sub = sub_font.render("Select difficulty (ESC to quit)", True, DARK_BLUE)
+            self.screen.blit(sub, sub.get_rect(center=(menu_w // 2, 100)))
+
+            for name, rect in buttons:
+                hovered = rect.collidepoint(mouse_pos)
+                is_default = (name == default_name)
+                color = BUTTON_HOVER_COLOR if hovered else BUTTON_COLOR
+                pygame.draw.rect(self.screen, color, rect, border_radius=6)
+                if is_default:
+                    pygame.draw.rect(self.screen, DARK_GREEN, rect, 4, border_radius=6)
+                cfg = DIFFICULTIES[name]
+                label = btn_font.render(name, True, WHITE)
+                self.screen.blit(label, label.get_rect(center=rect.center))
+                meta = sub_font.render(
+                    f"{cfg['width']}x{cfg['height']}  -  {cfg['mines']} mines",
+                    True, WHITE,
+                )
+                self.screen.blit(meta, (rect.right + 12, rect.centery - meta.get_height() // 2))
+
+            if self.highest_beaten:
+                hb = sub_font.render(
+                    f"Highest beaten: {self.highest_beaten}", True, BLACK
+                )
+                self.screen.blit(hb, hb.get_rect(center=(menu_w // 2, menu_h - 30)))
+
+            pygame.display.flip()
+            clock.tick(60)
 
     def reset_game(self, seed=None):
         self.grid = [[Cell() for _ in range(GRID_WIDTH)] for _ in range(GRID_HEIGHT)]
@@ -363,6 +504,18 @@ class Minesweeper:
         """Handle victory state and display"""
         self.victory = True
         self.game_over = True
+        # T-000099: persist highest beaten difficulty.
+        try:
+            cur_idx = DIFFICULTY_ORDER.index(self.difficulty)
+            prev_idx = (
+                DIFFICULTY_ORDER.index(self.highest_beaten)
+                if self.highest_beaten in DIFFICULTY_ORDER else -1
+            )
+            if cur_idx > prev_idx:
+                self.highest_beaten = self.difficulty
+                save_progress(self.difficulty)
+        except ValueError:
+            pass
         self.show_victory_screen()
 
     def show_victory_screen(self):
@@ -438,10 +591,18 @@ class Minesweeper:
         mines_text = self.font.render(f"Mines: {self.mines_remaining} | Hidden: {self.count_hidden()} ", True, RED)
         self.screen.blit(mines_text, (600 + 4 * PADDING, HEADER_HEIGHT - 35))
 
+        # T-000099: difficulty label in HUD (right side of second row).
+        diff_text = self.font.render(f"Difficulty: {self.difficulty}", True, BLACK)
+        diff_x = max(
+            mines_text.get_width() + 600 + 5 * PADDING,
+            WINDOW_WIDTH - diff_text.get_width() - PADDING,
+        )
+        self.screen.blit(diff_text, (diff_x, HEADER_HEIGHT - 35))
+
         # ESC to quit hint
         esc_font = pygame.font.Font(None, 20)
         esc_hint = esc_font.render("ESC to quit", True, WHITE)
-        self.screen.blit(esc_hint, (WINDOW_WIDTH - esc_hint.get_width() - PADDING, HEADER_HEIGHT - 18))
+        self.screen.blit(esc_hint, (WINDOW_WIDTH - esc_hint.get_width() - PADDING, HEADER_HEIGHT - 6))
 
         # Draw grid
         for y in range(GRID_HEIGHT):
@@ -500,14 +661,24 @@ class Minesweeper:
         text = self.font.render(message, True, WHITE)
         text_rect = text.get_rect(center=(WINDOW_WIDTH // 2, WINDOW_HEIGHT // 2))
         self.screen.blit(text, text_rect)
-        restart_text = self.font.render("Press R to restart", True, WHITE)
+        restart_text = self.font.render("Press R to restart  |  M for menu", True, WHITE)
         restart_rect = restart_text.get_rect(center=(WINDOW_WIDTH // 2, WINDOW_HEIGHT // 2 + 50))
         self.screen.blit(restart_text, restart_rect)
 
     def run(self):
+        # T-000099: outer loop returns to level-select after each game.
+        while True:
+            chosen = self.show_level_select()
+            self._apply_difficulty(chosen)
+            self._resize_window()
+            self.reset_game()
+            self._play_one_game()
+
+    def _play_one_game(self):
         running = True
         self.left_click_held = False
         self.right_click_held = False
+        victory_return_at = None  # pygame ticks at which to auto-return to menu
 
         while running:
             for event in pygame.event.get():
@@ -550,19 +721,30 @@ class Minesweeper:
                 elif event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_r:
                         self.reset_game()
+                        victory_return_at = None
+                    elif event.key == pygame.K_m:
+                        # T-000099: return to level-select on demand.
+                        return
                     else:
                         seed_input = self.seed_input_box.handle_event(event)
                         if seed_input is not None:
                             self.reset_game(seed_input)
+                            victory_return_at = None
 
             # Update timer only if the game is active
             if not self.game_over:
                 self.elapsed_time = self.get_game_time()
             self.draw()
             pygame.display.flip()
-            self.clock.tick(60)
 
-        pygame.quit()
+            # T-000099: after a win, return to level-select after a brief pause
+            # so the player can see the victory screen.
+            if self.victory and victory_return_at is None:
+                victory_return_at = pygame.time.get_ticks() + 2500
+            if victory_return_at is not None and pygame.time.get_ticks() >= victory_return_at:
+                return
+
+            self.clock.tick(60)
 
     def handle_both_clicks(self, pos):
         """Handle simultaneous left and right clicks for fast reveal and auto-flagging of adjacent cells."""

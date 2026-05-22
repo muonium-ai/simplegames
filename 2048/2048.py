@@ -1,12 +1,23 @@
 from os import environ
 environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'  # Hide pygame support prompt
+import json
+import os
 import sys
 import pygame
 import random
 
 # Window size
 WINDOW_WIDTH = 400
-WINDOW_HEIGHT = 500
+WINDOW_HEIGHT = 560
+
+# Persistence
+SAVE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'saved_progress.json')
+
+# Full milestone ladder used for HUD/level panel (smaller tiles first)
+ALL_MILESTONES = [128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768, 65536]
+
+# Milestone announcement duration (ms) - non-blocking overlay
+MILESTONE_ANNOUNCE_MS = 1000
 
 # Game size
 GAME_SIZE = 4
@@ -35,6 +46,25 @@ TILE_COLORS = {
 TEXT_DARK = (119, 110, 101)
 TEXT_LIGHT = (249, 246, 242)
 
+def load_saved_progress():
+    """Load persisted personal-best milestone. Returns int (0 if missing/invalid)."""
+    try:
+        with open(SAVE_PATH, 'r') as f:
+            data = json.load(f)
+        return int(data.get('highest_milestone', 0))
+    except (OSError, ValueError, TypeError):
+        return 0
+
+
+def save_progress(highest_milestone):
+    """Persist personal-best milestone to gitignored save file."""
+    try:
+        with open(SAVE_PATH, 'w') as f:
+            json.dump({'highest_milestone': int(highest_milestone)}, f)
+    except OSError:
+        pass
+
+
 class Game:
     def __init__(self):
         self.grid = [[0 for _ in range(GAME_SIZE)] for _ in range(GAME_SIZE)]
@@ -42,8 +72,15 @@ class Game:
         self.total_moves = 0  # Add moves counter
         self.highest_tile = 0
         self.max_tile = 2    # Add max tile tracker
-        self.milestones = {2048: False, 4096: False, 8192: False, 
-                          16384: False, 32768: False, 65536: False}
+        # Track all milestones (including the smaller 128/256/512/1024 tier
+        # used by the Levels-reached panel) so we can show progression.
+        self.milestones = {m: False for m in ALL_MILESTONES}
+        # Highest milestone reached this run (0 if none yet) - powers HUD "Level".
+        self.current_level = 0
+        # Newly-unlocked milestone announcement (value, expires_at_ms).
+        self.milestone_announce = None
+        # Personal best across runs, loaded from disk.
+        self.personal_best = load_saved_progress()
         self.add_new_tile()
         self.add_new_tile()
 
@@ -58,10 +95,26 @@ class Game:
         if current_max > self.highest_tile:
             self.highest_tile = current_max
             # Check milestones
+            newly_unlocked = []
             for milestone in sorted(self.milestones.keys()):
                 if current_max >= milestone and not self.milestones[milestone]:
                     self.milestones[milestone] = True
+                    newly_unlocked.append(milestone)
                     print(f"Achievement Unlocked: {milestone}!")
+            if newly_unlocked:
+                top = max(newly_unlocked)
+                # Current "level" tracks the highest milestone unlocked this run.
+                if top > self.current_level:
+                    self.current_level = top
+                # Trigger non-blocking ~1s announcement overlay.
+                self.milestone_announce = (
+                    top,
+                    pygame.time.get_ticks() + MILESTONE_ANNOUNCE_MS,
+                )
+                # Persist if it beats the saved personal best.
+                if top > self.personal_best:
+                    self.personal_best = top
+                    save_progress(self.personal_best)
 
     def move(self, direction):
         original_grid = [row[:] for row in self.grid]
@@ -144,11 +197,57 @@ def draw_text(window, text, font_size, x, y, color):
         font_size = int(font_size * 0.8)
     if len(str(text)) > 5:
         font_size = int(font_size * 0.7)
-    
+
     font = pygame.font.SysFont('Arial', font_size, bold=True)
     text_surface = font.render(str(text), True, color)
     text_rect = text_surface.get_rect(center=(x, y))
     window.blit(text_surface, text_rect)
+
+
+def draw_text_left(window, text, font_size, x, y, color):
+    """Render text with its left edge anchored at (x, y) (vertical center)."""
+    font = pygame.font.SysFont('Arial', font_size, bold=True)
+    text_surface = font.render(str(text), True, color)
+    rect = text_surface.get_rect(midleft=(x, y))
+    window.blit(text_surface, rect)
+
+
+def draw_levels_panel(window, game, top_y):
+    """Render the 'Levels reached' panel: one row of milestone chips.
+
+    Unlocked milestones get a filled colored chip with a check glyph; locked
+    ones get a dim empty chip with a dash.
+    """
+    panel_w = WINDOW_WIDTH - 20
+    panel_h = 70
+    pygame.draw.rect(window, EMPTY_CELL, (10, top_y, panel_w, panel_h), border_radius=5)
+    draw_text_left(window, "Levels reached:", 16, 18, top_y + 14, TEXT_DARK)
+
+    milestones = ALL_MILESTONES
+    n = len(milestones)
+    chip_w = (panel_w - 20) // n
+    chip_h = 32
+    chip_y = top_y + 28
+    for i, m in enumerate(milestones):
+        cx = 10 + 10 + i * chip_w
+        unlocked = game.milestones.get(m, False)
+        color = TILE_COLORS.get(m, EMPTY_CELL) if unlocked else (170, 160, 150)
+        pygame.draw.rect(window, color,
+                         (cx, chip_y, chip_w - 4, chip_h), border_radius=4)
+        glyph = "v" if unlocked else "-"
+        text_color = TEXT_DARK if (unlocked and m <= 4) else TEXT_LIGHT
+        # Tile label
+        label_font = pygame.font.SysFont('Arial', 12, bold=True)
+        label_surf = label_font.render(str(m), True, text_color)
+        window.blit(label_surf,
+                    label_surf.get_rect(center=(cx + (chip_w - 4) // 2,
+                                                chip_y + chip_h // 2 - 6)))
+        # Status glyph
+        glyph_font = pygame.font.SysFont('Arial', 12, bold=True)
+        glyph_surf = glyph_font.render(glyph, True, text_color)
+        window.blit(glyph_surf,
+                    glyph_surf.get_rect(center=(cx + (chip_w - 4) // 2,
+                                                chip_y + chip_h // 2 + 8)))
 
 def main():
     pygame.init()
@@ -181,16 +280,20 @@ def main():
         # Draw background
         window.fill(BACKGROUND)
 
-        # Draw score and stats
-        pygame.draw.rect(window, EMPTY_CELL, (10, 10, WINDOW_WIDTH - 20, 60), border_radius=5)
-        draw_text(window, f"Score: {game.score} | Moves: {game.total_moves} | Max: {game.max_tile}", 
-                 24, WINDOW_WIDTH // 2, 40, TEXT_DARK)
+        # Draw score and stats (two-line HUD: stats on top, level/personal best below)
+        pygame.draw.rect(window, EMPTY_CELL, (10, 10, WINDOW_WIDTH - 20, 80), border_radius=5)
+        draw_text(window, f"Score: {game.score} | Moves: {game.total_moves} | Max: {game.max_tile}",
+                 22, WINDOW_WIDTH // 2, 30, TEXT_DARK)
+        level_label = game.current_level if game.current_level else "-"
+        best_label = game.personal_best if game.personal_best else "-"
+        draw_text(window, f"Level: {level_label}  |  Personal best: {best_label}",
+                 18, WINDOW_WIDTH // 2, 62, TEXT_DARK)
 
         # Draw grid with updated colors and font sizes
         for i in range(GAME_SIZE):
             for j in range(GAME_SIZE):
                 x = j * (WINDOW_WIDTH // GAME_SIZE)
-                y = i * (WINDOW_WIDTH // GAME_SIZE) + 100
+                y = i * (WINDOW_WIDTH // GAME_SIZE) + 110
                 value = game.grid[i][j]
                 
                 pygame.draw.rect(window, 
@@ -219,22 +322,41 @@ def main():
         draw_text(window, "ESC to quit", 16,
                   WINDOW_WIDTH // 2, WINDOW_HEIGHT - 12, TEXT_DARK)
 
+        # Non-blocking ~1s milestone announcement overlay (T-000056 pattern).
+        if game.milestone_announce is not None:
+            value, expires = game.milestone_announce
+            if pygame.time.get_ticks() < expires:
+                banner = pygame.Surface((WINDOW_WIDTH, 60))
+                banner.fill((40, 40, 40))
+                banner.set_alpha(200)
+                window.blit(banner, (0, WINDOW_HEIGHT // 2 - 30))
+                draw_text(window, f"Milestone Reached: {value}!",
+                          28, WINDOW_WIDTH // 2, WINDOW_HEIGHT // 2, TEXT_LIGHT)
+            else:
+                game.milestone_announce = None
+
         if game.is_game_over():
             overlay = pygame.Surface((WINDOW_WIDTH, WINDOW_HEIGHT))
             overlay.fill((0, 0, 0))
-            overlay.set_alpha(128)
+            overlay.set_alpha(160)
             window.blit(overlay, (0, 0))
             draw_text(window, f"Game Over! Max: {game.highest_tile}",
-                     64, WINDOW_WIDTH // 2, WINDOW_HEIGHT // 2, TEXT_LIGHT)
+                     48, WINDOW_WIDTH // 2, 130, TEXT_LIGHT)
+            draw_text(window, f"Level: {game.current_level if game.current_level else '-'}  |  Best: {game.personal_best if game.personal_best else '-'}",
+                      20, WINDOW_WIDTH // 2, 175, TEXT_LIGHT)
+            draw_levels_panel(window, game, WINDOW_HEIGHT - 160)
             draw_text(window, "ESC to quit", 20,
-                      WINDOW_WIDTH // 2, WINDOW_HEIGHT // 2 + 50, TEXT_LIGHT)
+                      WINDOW_WIDTH // 2, WINDOW_HEIGHT - 80, TEXT_LIGHT)
         elif game.has_won():
             overlay = pygame.Surface((WINDOW_WIDTH, WINDOW_HEIGHT))
             overlay.fill((255, 223, 0))
-            overlay.set_alpha(128)
+            overlay.set_alpha(160)
             window.blit(overlay, (0, 0))
-            draw_text(window, "65536 Achieved!", 
-                     64, WINDOW_WIDTH // 2, WINDOW_HEIGHT // 2, TEXT_DARK)
+            draw_text(window, "65536 Achieved!",
+                     48, WINDOW_WIDTH // 2, 130, TEXT_DARK)
+            draw_text(window, f"Level: {game.current_level}  |  Best: {game.personal_best}",
+                      20, WINDOW_WIDTH // 2, 175, TEXT_DARK)
+            draw_levels_panel(window, game, WINDOW_HEIGHT - 160)
 
         pygame.display.update()
         clock.tick(60)

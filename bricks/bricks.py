@@ -5,6 +5,8 @@ import pygame
 import sys
 import random
 import math
+import os
+import json
 
 # --- Constants ---
 WINDOW_WIDTH = 1000  # increased width
@@ -31,6 +33,112 @@ BLACK = (0, 0, 0)
 GRAY = (100, 100, 100)
 RED = (200, 0, 0)
 BLUE = (0, 100, 200)
+GREEN = (0, 200, 0)
+YELLOW = (255, 255, 0)
+ORANGE = (255, 165, 0)
+PURPLE = (180, 60, 200)
+CYAN = (0, 200, 220)
+
+# Script-relative paths (T-000055)
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+SAVE_FILE = os.path.join(SCRIPT_DIR, "saved_progress.json")
+
+# --- Level definitions ---
+# Each level: rows of brick specs.
+# A row is a list of (hit, color) tuples or None for empty cells.
+# color: 1=blue,2=red,3=green,4=yellow,5=orange,6=purple,7=cyan
+COLOR_MAP = {
+    1: BLUE, 2: RED, 3: GREEN, 4: YELLOW,
+    5: ORANGE, 6: PURPLE, 7: CYAN,
+}
+
+def _row(hits, color, cols=BRICK_COLS):
+    return [(hits, color)] * cols
+
+def _gap_row(cols=BRICK_COLS):
+    return [None] * cols
+
+LEVELS = [
+    {
+        "name": "Warm Up",
+        "brick_width": 110,
+        "brick_height": 25,
+        "gap": 4,
+        "rows": [
+            _row(1, 1),
+            _row(1, 1),
+            _row(1, 2),
+        ],
+    },
+    {
+        "name": "Step Up",
+        "brick_width": 110,
+        "brick_height": 25,
+        "gap": 4,
+        "rows": [
+            _row(1, 4),
+            _row(2, 2),
+            _row(2, 2),
+            _row(1, 1),
+        ],
+    },
+    {
+        "name": "Checkerboard",
+        "brick_width": 110,
+        "brick_height": 25,
+        "gap": 4,
+        "rows": [
+            [(2, 3) if i % 2 == 0 else None for i in range(BRICK_COLS)],
+            [None if i % 2 == 0 else (2, 4) for i in range(BRICK_COLS)],
+            [(2, 3) if i % 2 == 0 else None for i in range(BRICK_COLS)],
+            [None if i % 2 == 0 else (2, 4) for i in range(BRICK_COLS)],
+            _row(1, 1),
+        ],
+    },
+    {
+        "name": "Tight Wall",
+        "brick_width": 110,
+        "brick_height": 22,
+        "gap": 2,
+        "rows": [
+            _row(3, 5),
+            _row(2, 2),
+            _row(2, 2),
+            _row(2, 7),
+            _row(1, 1),
+            _row(1, 1),
+        ],
+    },
+    {
+        "name": "Pyramid",
+        "brick_width": 110,
+        "brick_height": 22,
+        "gap": 2,
+        "rows": [
+            [None, None, (3, 6), (3, 6), (3, 6), (3, 6), None, None],
+            [None, (2, 5), (2, 5), (2, 5), (2, 5), (2, 5), (2, 5), None],
+            [(2, 4), (2, 4), (2, 4), (2, 4), (2, 4), (2, 4), (2, 4), (2, 4)],
+            _row(1, 3),
+            _row(1, 1),
+        ],
+    },
+    {
+        "name": "Gauntlet",
+        "brick_width": 110,
+        "brick_height": 20,
+        "gap": 2,
+        "rows": [
+            _row(3, 6),
+            _row(3, 6),
+            _row(2, 5),
+            _row(2, 4),
+            _row(2, 3),
+            _row(2, 2),
+            _row(1, 1),
+        ],
+    },
+]
+TOTAL_LEVELS = len(LEVELS)
 
 def calculate_intercept_position(ball_x, ball_y, ball_dx, ball_dy, target_x, target_y, paddle_y, try_alternative=False):
     """Calculate where to position paddle to hit ball toward target"""
@@ -199,35 +307,174 @@ class Ball:
         return ((self.x - target_x) ** 2 + (self.y - target_y) ** 2) ** 0.5
 
 class Brick:
-    def __init__(self, x, y, hit=1):
+    def __init__(self, x, y, hit=1, width=BRICK_WIDTH, height=BRICK_HEIGHT, color=None):
         self.x = x
         self.y = y
-        self.width = BRICK_WIDTH
-        self.height = BRICK_HEIGHT
+        self.width = width
+        self.height = height
         self.hit = hit  # Durability
         self.initial = hit  # Save initial hit count for miss calculation
         self.points = 10 * hit
         self.hover = False  # Add hover state
+        # Color overrides default hit-based palette when provided.
+        self.color = color
 
     def draw(self, surface):
         if self.hit > 0:
-            color = BLUE if self.hit == 1 else RED
+            if self.color is not None:
+                # Darken slightly as durability drops below the initial value.
+                base = self.color
+                if self.initial > 1 and self.hit < self.initial:
+                    shade = 0.55 + 0.45 * (self.hit / max(1, self.initial))
+                    color = (int(base[0] * shade), int(base[1] * shade), int(base[2] * shade))
+                else:
+                    color = base
+            else:
+                color = BLUE if self.hit == 1 else RED
             pygame.draw.rect(surface, color, (self.x, self.y, self.width, self.height))
             # Draw hover effect
             if self.hover:
-                pygame.draw.rect(surface, (255, 255, 255), 
+                pygame.draw.rect(surface, (255, 255, 255),
                                (self.x, self.y, self.width, self.height), 2)
 
 def create_bricks(level=1):
+    """Build the brick layout for a 1-indexed level using LEVELS."""
+    idx = max(1, min(TOTAL_LEVELS, level)) - 1
+    spec = LEVELS[idx]
+    bw = spec.get("brick_width", BRICK_WIDTH)
+    bh = spec.get("brick_height", BRICK_HEIGHT)
+    gap = spec.get("gap", BRICK_GAP)
+    rows = spec["rows"]
+    cols = BRICK_COLS
+    # Center the grid horizontally
+    grid_width = cols * bw + (cols - 1) * gap
+    x_offset = max(0, (WINDOW_WIDTH - grid_width) // 2)
+    y_offset = 80  # below HUD
     bricks = []
-    for row in range(BRICK_ROWS):
-        for col in range(BRICK_COLS):
-            x = col * (BRICK_WIDTH + BRICK_GAP)
-            y = row * (BRICK_HEIGHT + BRICK_GAP) + 50
-            # Optional: increase brick hits with level or row
-            hit_value = 1 if row < 2 else 2
-            bricks.append(Brick(x, y, hit_value))
+    for r, row in enumerate(rows):
+        for c, cell in enumerate(row):
+            if cell is None:
+                continue
+            hits, color_key = cell
+            color = COLOR_MAP.get(color_key, WHITE)
+            x = x_offset + c * (bw + gap)
+            y = y_offset + r * (bh + gap)
+            bricks.append(Brick(x, y, hit=hits, width=bw, height=bh, color=color))
     return bricks
+
+def load_progress():
+    """Read saved highest level reached. Returns int >= 1."""
+    try:
+        with open(SAVE_FILE, "r") as f:
+            data = json.load(f)
+        return max(1, min(TOTAL_LEVELS, int(data.get("highest_level", 1))))
+    except (OSError, ValueError, KeyError, json.JSONDecodeError):
+        return 1
+
+def save_progress(highest_level):
+    """Persist highest level reached. Best-effort, never raises."""
+    try:
+        capped = max(1, min(TOTAL_LEVELS, int(highest_level)))
+        with open(SAVE_FILE, "w") as f:
+            json.dump({"highest_level": capped}, f)
+    except OSError:
+        pass
+
+def show_level_overlay(screen, font, clock, level_index, duration_ms=1000):
+    """Show a 'Level N - Name' overlay for ~duration_ms, non-blocking so ESC works."""
+    name = LEVELS[level_index - 1]["name"]
+    big_font = pygame.font.SysFont(None, 72)
+    msg = big_font.render(f"Level {level_index}", True, WHITE)
+    sub = font.render(name, True, WHITE)
+    deadline = pygame.time.get_ticks() + duration_ms
+    while pygame.time.get_ticks() < deadline:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT or (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE):
+                pygame.quit()
+                sys.exit(0)
+        screen.fill(BLACK)
+        screen.blit(msg, (WINDOW_WIDTH // 2 - msg.get_width() // 2, WINDOW_HEIGHT // 2 - 60))
+        screen.blit(sub, (WINDOW_WIDTH // 2 - sub.get_width() // 2, WINDOW_HEIGHT // 2 + 10))
+        pygame.display.flip()
+        clock.tick(FPS)
+
+def show_level_select(screen, font, highest_unlocked):
+    """Render a level select grid, return the chosen level (1..TOTAL_LEVELS)."""
+    title_font = pygame.font.SysFont(None, 48)
+    cell_size = 80
+    margin = 20
+    grid_cols = min(TOTAL_LEVELS, 6)
+    grid_rows = (TOTAL_LEVELS + grid_cols - 1) // grid_cols
+    total_w = grid_cols * cell_size + (grid_cols - 1) * margin
+    start_x = (WINDOW_WIDTH - total_w) // 2
+    start_y = 260
+
+    def cell_rect(i):
+        r = i // grid_cols
+        c = i % grid_cols
+        return pygame.Rect(start_x + c * (cell_size + margin),
+                           start_y + r * (cell_size + margin),
+                           cell_size, cell_size)
+
+    while True:
+        mouse_pos = pygame.mouse.get_pos()
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT or (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE):
+                pygame.quit()
+                sys.exit(0)
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_RETURN or event.key == pygame.K_SPACE:
+                    return 1
+                if pygame.K_1 <= event.key <= pygame.K_9:
+                    n = event.key - pygame.K_0
+                    if 1 <= n <= TOTAL_LEVELS:
+                        return n
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                for i in range(TOTAL_LEVELS):
+                    if cell_rect(i).collidepoint(event.pos):
+                        return i + 1
+
+        screen.fill(BLACK)
+        title = title_font.render("Select Level", True, WHITE)
+        screen.blit(title, (WINDOW_WIDTH // 2 - title.get_width() // 2, 140))
+        hint = font.render(f"Highest reached: {highest_unlocked}   (1-{TOTAL_LEVELS} keys / click / Enter=Level 1)", True, WHITE)
+        screen.blit(hint, (WINDOW_WIDTH // 2 - hint.get_width() // 2, 200))
+        esc_hint = font.render("ESC to quit", True, WHITE)
+        screen.blit(esc_hint, (WINDOW_WIDTH // 2 - esc_hint.get_width()//2, 230))
+
+        for i in range(TOTAL_LEVELS):
+            rect = cell_rect(i)
+            unlocked = (i + 1) <= highest_unlocked
+            hovered = rect.collidepoint(mouse_pos)
+            bg = (60, 60, 60) if not unlocked else ((90, 130, 200) if hovered else GRAY)
+            pygame.draw.rect(screen, bg, rect)
+            border = WHITE if unlocked else (90, 90, 90)
+            pygame.draw.rect(screen, border, rect, 2)
+            label = title_font.render(str(i + 1), True, WHITE if unlocked else (140, 140, 140))
+            screen.blit(label, label.get_rect(center=rect.center))
+
+        pygame.display.flip()
+
+def parse_level_arg(argv, default=1):
+    """Parse --level <n> or --level=<n> from argv. Returns clamped int."""
+    n = default
+    i = 0
+    while i < len(argv):
+        a = argv[i]
+        if a == "--level" and i + 1 < len(argv):
+            try:
+                n = int(argv[i + 1])
+            except ValueError:
+                pass
+            i += 2
+            continue
+        if a.startswith("--level="):
+            try:
+                n = int(a.split("=", 1)[1])
+            except ValueError:
+                pass
+        i += 1
+    return max(1, min(TOTAL_LEVELS, n))
 
 def show_modal(screen, font, prev_stats=None):
     """Display modal with three buttons and previous game stats if available"""
@@ -291,28 +538,48 @@ def main():
     pygame.display.set_caption("Brick Breaker")
     clock = pygame.time.Clock()
     font = pygame.font.SysFont(None, 36)
-    
+
     prev_stats = None  # Initialize previous game stats
-    
+
+    # Parse --level argv override (1-based).
+    cli_level = parse_level_arg(sys.argv[1:], default=0)
+    # parse_level_arg clamps to >=1, but we use 0 to signal "no override"
+    raw_argv = sys.argv[1:]
+    has_level_arg = any(a == "--level" or a.startswith("--level=") for a in raw_argv)
+
+    highest_unlocked = load_progress()
+
     while True:  # Outer loop to allow restarting the game
         mode = show_modal(screen, font, prev_stats)
-        
+
+        # Pick starting level
+        if has_level_arg:
+            starting_level = cli_level
+            has_level_arg = False  # only honor on first run; subsequent restarts use selector
+        else:
+            starting_level = show_level_select(screen, font, highest_unlocked)
+
         # Initialize game variables
         paddle = Paddle()
         if mode == "fast_autoplay":
             paddle.speed = FAST_PADDLE_SPEED  # Increase paddle speed for fast autoplay
         ball = Ball()
-        bricks = create_bricks()
-        total_initial_hits = sum(b.initial for b in bricks)  # total brick hits needed to win
+        current_level = starting_level
+        bricks = create_bricks(current_level)
+        total_initial_hits = sum(b.initial for b in bricks)  # total brick hits needed to win this level
         score = 0
         lives = STARTING_LIVES
         paddle_hits = 0  # Count of paddle hits
         start_time = pygame.time.get_ticks()
-        
+
         # Initialize highlighted brick container for fast mode
         chosen_brick = None
 
+        # Intro overlay for the starting level
+        show_level_overlay(screen, font, clock, current_level, duration_ms=1000)
+
         running = True
+        victory = False
         while running:
             clock.tick(FPS)
             
@@ -422,9 +689,26 @@ def main():
                 if lives <= 0:
                     running = False
 
-            # Check if all bricks destroyed
+            # Check if all *breakable* bricks destroyed -> level clear / advance.
             if all(brick.hit <= 0 for brick in bricks):
-                running = False
+                # Persist progress (next level unlocked, or final level cleared).
+                next_level = current_level + 1
+                if next_level <= TOTAL_LEVELS:
+                    highest_unlocked = max(highest_unlocked, next_level)
+                    save_progress(highest_unlocked)
+                    current_level = next_level
+                    show_level_overlay(screen, font, clock, current_level, duration_ms=1000)
+                    bricks = create_bricks(current_level)
+                    total_initial_hits += sum(b.initial for b in bricks)
+                    # Reset ball; preserve paddle position, lives, score
+                    ball.reset()
+                    chosen_brick = None
+                else:
+                    # Final level cleared
+                    highest_unlocked = TOTAL_LEVELS
+                    save_progress(highest_unlocked)
+                    victory = True
+                    running = False
 
             # Drawing game and HUD; compute pending hits as sum of remaining (current) brick hits.
             pending_hits = sum(brick.hit for brick in bricks if brick.hit > 0)
@@ -445,22 +729,24 @@ def main():
                                        (brick.x, brick.y, brick.width, brick.height), 3)
             
             # Draw scores in two lines with better spacing
-            # First line: Score, Lives, Time
+            # First line: Score, Lives, Time, Level
             score_text = font.render(f"Score: {score}", True, WHITE)
             lives_text = font.render(f"Lives: {lives}", True, WHITE)
             elapsed_sec = (pygame.time.get_ticks() - start_time) // 1000
             time_text = font.render(f"Time: {elapsed_sec} sec", True, WHITE)
-            
+            level_text = font.render(f"Level: {current_level}/{TOTAL_LEVELS}", True, WHITE)
+
             # Second line: Paddle hits, Misses, Remaining bricks
             hits_text = font.render(f"Paddle Hits: {paddle_hits}", True, WHITE)
             misses_text = font.render(f"Misses: {misses}", True, WHITE)
             remaining_text = font.render(f"Remaining Bricks: {pending_hits}", True, WHITE)
-            
+
             # First line positioning
             screen.blit(score_text, (20, 10))
-            screen.blit(lives_text, (250, 10))
-            screen.blit(time_text, (480, 10))
-            
+            screen.blit(lives_text, (220, 10))
+            screen.blit(time_text, (400, 10))
+            screen.blit(level_text, (640, 10))
+
             # Second line positioning
             screen.blit(hits_text, (20, 40))
             screen.blit(misses_text, (250, 40))
@@ -478,7 +764,9 @@ def main():
         
         # Enhanced end screen with detailed stats
         screen.fill(BLACK)
-        if lives > 0:
+        if victory:
+            title_text = font.render("VICTORY! All levels cleared!", True, WHITE)
+        elif lives > 0:
             title_text = font.render("You Win!", True, WHITE)
         else:
             title_text = font.render("Game Over!", True, WHITE)

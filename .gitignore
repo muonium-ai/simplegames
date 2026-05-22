@@ -4,6 +4,7 @@ screenshots/
 pgns/
 learn/
 temp/
+minesweeper/saved_progress.json
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -169,3 +170,8 @@ tickets/.mt.lock
 
 # Runtime save files (regenerated each play session)
 genetic_car/saved_genome.json
+2048/saved_progress.json
+flappybird/saved_progress.json
+bricks/saved_progress.json
+sudoku/saved_progress.json
+tetris/saved_progress.json
