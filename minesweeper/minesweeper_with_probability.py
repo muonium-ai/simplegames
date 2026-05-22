@@ -167,6 +167,17 @@ class Minesweeper:
 
         self.pause_button = Button(current_x, button_y, "Pause")
 
+        # Game-Lost modal buttons (manual mode only; autoplay auto-restarts
+        # via the T-000117 path). Positioned at fixed window-center coords
+        # so click hit-testing works the same frame the modal first draws.
+        modal_button_y = WINDOW_HEIGHT // 2 + 30
+        self.lost_new_game_button = Button(
+            WINDOW_WIDTH // 2 - 210, modal_button_y, "Play New Game", height=40,
+        )
+        self.lost_exit_button = Button(
+            WINDOW_WIDTH // 2 + 30, modal_button_y, "Exit Game", height=40,
+        )
+
         # Pause state
         self.is_paused = False
         self.pause_start_time = 0
@@ -606,8 +617,12 @@ class Minesweeper:
         if self.game_over:
             if self.victory:
                 self.draw_message("Victory!")
-            else:
+            elif self.autoplay:
+                # Autoplay losses use the existing simple overlay so the
+                # T-000117 auto-restart loop isn't blocked by clickable UI.
                 self.draw_message("Game Over!")
+            else:
+                self.draw_game_lost_modal()
 
         # Add victory message if game won through auto-marking
         if self.victory:
@@ -627,6 +642,26 @@ class Minesweeper:
         restart_text = self.font.render("Press R to restart", True, WHITE)
         restart_rect = restart_text.get_rect(center=(WINDOW_WIDTH // 2, WINDOW_HEIGHT // 2 + 50))
         self.screen.blit(restart_text, restart_rect)
+
+    def draw_game_lost_modal(self):
+        """Manual-mode loss screen: title + Play New Game / Exit Game buttons."""
+        overlay = pygame.Surface((WINDOW_WIDTH, WINDOW_HEIGHT))
+        overlay.fill((0, 0, 0))
+        overlay.set_alpha(180)
+        self.screen.blit(overlay, (0, 0))
+        title_font = pygame.font.Font(None, 72)
+        title = title_font.render("Game Lost!", True, RED)
+        self.screen.blit(
+            title,
+            title.get_rect(center=(WINDOW_WIDTH // 2, WINDOW_HEIGHT // 2 - 80)),
+        )
+        subtitle = self.font.render("You clicked a mine.", True, WHITE)
+        self.screen.blit(
+            subtitle,
+            subtitle.get_rect(center=(WINDOW_WIDTH // 2, WINDOW_HEIGHT // 2 - 20)),
+        )
+        self.lost_new_game_button.draw(self.screen, self.font)
+        self.lost_exit_button.draw(self.screen, self.font)
 
     def run(self):
         running = True
@@ -648,6 +683,17 @@ class Minesweeper:
                         self.handle_both_clicks(event.pos)
 
                     elif event.button == 1:
+                        # When the Game-Lost modal is up (manual loss), only
+                        # its two buttons accept clicks — header + grid are
+                        # disabled until the player decides.
+                        if (self.game_over and not self.victory
+                                and not self.autoplay):
+                            if self.lost_new_game_button.handle_event(event):
+                                self.reset_game()
+                            elif self.lost_exit_button.handle_event(event):
+                                pygame.quit()
+                                sys.exit(0)
+                            continue
                         if self.new_game_button.handle_event(event):
                             self.reset_game()
                         elif self.restart_button.handle_event(event):

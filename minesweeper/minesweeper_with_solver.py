@@ -69,6 +69,18 @@ class Minesweeper:
         self.solver = self.load_solver(solver_name)
         self.is_solver_active = self.solver is not None  # Determine if we're using a solver
         self.step_count = 0  # Track the number of steps taken by the solver
+
+        # Game-Lost modal buttons (manual mode only; solver runs auto-restart
+        # via the T-000117 path). Fixed-position rects so click hit-testing
+        # works on the same frame the modal first draws.
+        modal_button_y = WINDOW_HEIGHT // 2 + 30
+        self.lost_new_game_rect = pygame.Rect(
+            WINDOW_WIDTH // 2 - 210, modal_button_y, 200, 40,
+        )
+        self.lost_exit_rect = pygame.Rect(
+            WINDOW_WIDTH // 2 + 30, modal_button_y, 160, 40,
+        )
+
         self.reset_game()
 
     # Explicit allowlist of solver module names under solvers/.
@@ -239,6 +251,20 @@ class Minesweeper:
                     pygame.quit()
                     sys.exit(0)
                 elif event.type == pygame.MOUSEBUTTONDOWN:
+                    # When the Game-Lost modal is up (manual loss), only its
+                    # two buttons accept clicks — grid clicks are ignored
+                    # until the player chooses New Game or Exit.
+                    if (event.button == 1
+                            and self.game_over and not self.victory
+                            and not self.is_solver_active):
+                        if self.lost_new_game_rect.collidepoint(event.pos):
+                            self.reset_game()
+                            self._round_start_time = time.monotonic()
+                            continue
+                        if self.lost_exit_rect.collidepoint(event.pos):
+                            pygame.quit()
+                            sys.exit(0)
+                        continue
                     self.handle_click(event.pos, event.button == 3)
 
             self.draw()
@@ -313,6 +339,37 @@ class Minesweeper:
                 elif cell.state == CellState.FLAGGED:
                     pygame.draw.rect(self.screen, DARK_GRAY, rect)
                     pygame.draw.circle(self.screen, RED, (x * CELL_SIZE + CELL_SIZE // 2, y * CELL_SIZE + HEADER_HEIGHT + CELL_SIZE // 2), CELL_SIZE // 4)
+
+        # Manual-mode Game-Lost modal. Solver mode skips this because the
+        # T-000117 auto-restart loop reshuffles the board within ~1s.
+        if self.game_over and not self.victory and not self.is_solver_active:
+            self.draw_game_lost_modal()
+
+    def draw_game_lost_modal(self):
+        overlay = pygame.Surface((WINDOW_WIDTH, WINDOW_HEIGHT))
+        overlay.fill((0, 0, 0))
+        overlay.set_alpha(180)
+        self.screen.blit(overlay, (0, 0))
+        title_font = pygame.font.Font(None, 72)
+        title = title_font.render("Game Lost!", True, RED)
+        self.screen.blit(
+            title,
+            title.get_rect(center=(WINDOW_WIDTH // 2, WINDOW_HEIGHT // 2 - 80)),
+        )
+        subtitle = self.font.render("You clicked a mine.", True, WHITE)
+        self.screen.blit(
+            subtitle,
+            subtitle.get_rect(center=(WINDOW_WIDTH // 2, WINDOW_HEIGHT // 2 - 20)),
+        )
+        mouse_pos = pygame.mouse.get_pos()
+        for rect, label in (
+            (self.lost_new_game_rect, "Play New Game"),
+            (self.lost_exit_rect, "Exit Game"),
+        ):
+            color = (100, 149, 237) if rect.collidepoint(mouse_pos) else (70, 130, 180)
+            pygame.draw.rect(self.screen, color, rect)
+            text = self.font.render(label, True, WHITE)
+            self.screen.blit(text, text.get_rect(center=rect.center))
 
 if __name__ == "__main__":
     import argparse
