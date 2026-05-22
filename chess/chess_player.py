@@ -45,7 +45,19 @@ with open(pgn_file) as f:
 
 # Fonts
 pygame.font.init()
-font = pygame.font.SysFont("Segoe UI Symbol", square_size - 10)
+
+def _load_chess_font(size):
+    # "Segoe UI Symbol" only ships on Windows; on macOS/Linux pygame falls
+    # back to a font without chess glyphs and pieces render as empty boxes.
+    # Walk a per-platform preference list and use the first match.
+    for name in ("Apple Symbols", "Segoe UI Symbol", "Symbola",
+                 "DejaVu Sans", "Arial Unicode MS"):
+        path = pygame.font.match_font(name)
+        if path:
+            return pygame.font.Font(path, size)
+    return pygame.font.SysFont(None, size)
+
+font = _load_chess_font(square_size - 10)
 info_font = pygame.font.SysFont("Arial", 24)
 
 def show_game_details(game, game_id, game_dir):

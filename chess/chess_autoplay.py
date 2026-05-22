@@ -21,7 +21,19 @@ HIGHLIGHT_COLOR = (186, 202, 68)
 LABEL_COLOR = (0, 0, 0)
 WHITE_PIECE_COLOR = (255, 255, 255)  # Changed: White pieces will render as white
 BLACK_PIECE_COLOR = (0, 0, 0)        # Changed: Black pieces will render as black
-font = pygame.font.SysFont("Segoe UI Symbol", square_size - 10)
+def _load_chess_font(size):
+    # Hard-coding "Segoe UI Symbol" only worked on Windows. On macOS/Linux
+    # pygame fell back to a font without chess glyphs and pieces rendered
+    # as empty boxes. Walk a per-platform preference list and use the
+    # first font that's actually installed.
+    for name in ("Apple Symbols", "Segoe UI Symbol", "Symbola",
+                 "DejaVu Sans", "Arial Unicode MS"):
+        path = pygame.font.match_font(name)
+        if path:
+            return pygame.font.Font(path, size)
+    return pygame.font.SysFont(None, size)
+
+font = _load_chess_font(square_size - 10)
 label_font = pygame.font.SysFont("Arial", 20)
 
 # Unicode pieces dictionary
