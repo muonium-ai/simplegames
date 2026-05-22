@@ -1,5 +1,6 @@
 from os import environ
 environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'
+import argparse
 import sys
 import pygame
 import random
@@ -295,6 +296,14 @@ def reset_game(hex_grid, new_maze=False):
     return Player(hex_grid), hex_grid
 
 def main():
+    parser = argparse.ArgumentParser(description="Hexagonal Maze game with optional BFS auto-solver.")
+    parser.add_argument(
+        "--autoplay",
+        action="store_true",
+        help="Start in autoplay mode: immediately trigger the BFS solver.",
+    )
+    args = parser.parse_args()
+
     hex_grid = HexGrid(7)
     generate_maze(hex_grid)
     player = Player(hex_grid)
@@ -304,6 +313,14 @@ def main():
     game_won = False
     solution_path = None
     solving = False
+
+    if args.autoplay:
+        start = (player.q, player.r)
+        goal = (hex_grid.size, -hex_grid.size)
+        solution_path = bfs_solve(hex_grid, start, goal)
+        if solution_path:
+            solving = True
+            player.path = [(player.q, player.r)]
 
     while running:
         for event in pygame.event.get():

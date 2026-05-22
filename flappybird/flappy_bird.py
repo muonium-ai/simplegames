@@ -1,6 +1,7 @@
 from os import environ
 environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'  # Hide pygame support prompt
 
+import argparse
 import os
 import sys
 import json
@@ -222,25 +223,28 @@ def draw():
             screen.blit(msg, msg_rect)
     pygame.display.flip()
 
-def parse_level_argv():
-    """Return level int from `--level N` argv, or None."""
-    argv = sys.argv[1:]
-    for i, a in enumerate(argv):
-        if a == "--level" and i + 1 < len(argv):
-            try:
-                v = int(argv[i + 1])
-                if 1 <= v <= MAX_LEVEL:
-                    return v
-            except ValueError:
-                pass
-        elif a.startswith("--level="):
-            try:
-                v = int(a.split("=", 1)[1])
-                if 1 <= v <= MAX_LEVEL:
-                    return v
-            except ValueError:
-                pass
-    return None
+def parse_cli_args(argv=None):
+    """Parse CLI args: returns (level: Optional[int], autoplay: bool)."""
+    parser = argparse.ArgumentParser(
+        prog="flappy_bird", description="Flappy Bird (simplegames)"
+    )
+    parser.add_argument(
+        "--level",
+        type=int,
+        default=None,
+        help=f"Starting level (1-{MAX_LEVEL}); clamped to highest unlocked.",
+    )
+    parser.add_argument(
+        "--autoplay",
+        action="store_true",
+        default=False,
+        help="Skip the start menu and begin in autoplay mode.",
+    )
+    args, _ = parser.parse_known_args(argv)
+    level = args.level
+    if level is not None and not (1 <= level <= MAX_LEVEL):
+        level = None
+    return level, bool(args.autoplay)
 
 def main():
     global screen, clock, font, big_font, music_enabled
@@ -264,12 +268,19 @@ def main():
     load_progress()
     selected_level = highest_level  # default to highest unlocked
 
-    # Optional CLI level override
-    cli_level = parse_level_argv()
+    # Optional CLI overrides: --level and --autoplay
+    cli_level, cli_autoplay = parse_cli_args()
     if cli_level is not None:
         selected_level = min(cli_level, highest_level)
         reset_game(selected_level)
         started = True
+    elif cli_autoplay:
+        # No explicit --level: default to highest unlocked.
+        selected_level = highest_level
+        reset_game(selected_level)
+        started = True
+    if cli_autoplay:
+        auto_play = True
 
     running = True
     while running:

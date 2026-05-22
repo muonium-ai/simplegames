@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 
 #Import Library
+import argparse
 import os
 import pygame
 from pygame.locals import *
@@ -168,7 +169,25 @@ Returns if card is Ace and the total amount of the cards per person.'''
     dealA += cA
     return getAmt(card1) + getAmt(card3), userA, getAmt(card2) + getAmt(card4), dealA
 
+def basicStrategyHit(userSum, dealerUp):
+    '''Returns True if basic strategy says HIT, False to STAND.
+Simple hard-hand table only: no soft-hand / split / double-down logic.'''
+    if userSum <= 11:
+        return True
+    if userSum >= 17:
+        return False
+    # 12..16
+    if 2 <= dealerUp <= 6:
+        return False
+    return True
+
 def main():
+    parser = argparse.ArgumentParser(description='Blackjack')
+    parser.add_argument('--autoplay', action='store_true',
+                        help='AI plays the hand using basic-strategy')
+    args, _ = parser.parse_known_args()
+    autoplay = args.autoplay
+
     #Initialize Game
     pygame.init()
     loadImages()
@@ -190,7 +209,11 @@ def main():
     restartTxt = font.render('Restart', True, black)
     gameoverTxt = font.render('GAME OVER', True, white)
     escHintTxt = font.render('ESC to quit', True, white)
+    aiTxt = font.render('AI', True, (255, 220, 0))
     userSum, userA, dealSum, dealA = initGame(ccards, userCard, dealCard)
+    clock = pygame.time.Clock()
+    autoFrameCounter = 0
+    AUTO_FRAMES_PER_DECISION = 30
 
     #Fill Background
     background = pygame.Surface(screen.get_size())
@@ -259,12 +282,42 @@ def main():
                 #erase restart button from background (rect already defined above)
                 pygame.draw.rect(background, (80, 150, 15), (270, 225, 75, 25))
 
+        #Autoplay: drive hit/stand using basic-strategy at a watchable cadence
+        if autoplay:
+            autoFrameCounter += 1
+            if autoFrameCounter >= AUTO_FRAMES_PER_DECISION:
+                autoFrameCounter = 0
+                if not (gameover or stand):
+                    # dealer's visible up-card is the first dealt to dealCard
+                    dealerUp = getAmt(dealCard[0]) if dealCard else 10
+                    if basicStrategyHit(userSum, dealerUp):
+                        card, cA = genCard(ccards, userCard)
+                        userA += cA
+                        userSum += getAmt(card)
+                        print('AI hit -> User: %i' % userSum)
+                        while userSum > 21 and userA > 0:
+                            userA -= 1
+                            userSum -= 10
+                    else:
+                        stand = True
+                        print('AI stand at %i' % userSum)
+                        while dealSum <= userSum and dealSum < 17:
+                            card, cA = genCard(ccards, dealCard)
+                            dealA += cA
+                            dealSum += getAmt(card)
+                            print('Dealer: %i' % dealSum)
+                            while dealSum > 21 and dealA > 0:
+                                dealA -= 1
+                                dealSum -= 10
+
         screen.blit(background, (0, 0))
         screen.blit(hitTxt, (39, 448))
         screen.blit(standTxt, (116, 448))
         screen.blit(winTxt, (565, 423))
         screen.blit(loseTxt, (565, 448))
         screen.blit(escHintTxt, (260, 10))
+        if autoplay:
+            screen.blit(aiTxt, (538, 423))
 
         #displays dealer's cards
         for card in dealCard:
@@ -286,7 +339,8 @@ def main():
             screen.blit(escHintTxt, (282, 260))
             
         pygame.display.update()
-            
+        clock.tick(60)
+
 
 if __name__ == '__main__':
     main()

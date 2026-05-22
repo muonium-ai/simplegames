@@ -10,7 +10,7 @@
 
 PY ?= uv run python
 
-GAMES := 2048 asteroid blackjack bricks chess chess-autoplay \
+GAMES := 2048 asteroid blackjack bricks chess chess-autoplay chess-game \
          flappybird gameoflife genetic-car grid-maze hex-maze \
          klondike minesweeper minesweeper-probability minesweeper-solver \
          multi-snake pong rubiks rubiks-3d snake solitaire \
@@ -69,6 +69,9 @@ chess:
 
 chess-autoplay:
 	$(PY) chess/chess_autoplay.py
+
+chess-game:
+	$(PY) chess-game/main.py $(ARGS)
 
 flappybird:
 	$(PY) flappybird/flappy_bird.py

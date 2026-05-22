@@ -1,5 +1,13 @@
-"""Simple local two-player Pong implementation using pygame."""
+"""Simple local two-player Pong implementation using pygame.
 
+Supports an optional autoplay AI via the ``--autoplay`` CLI flag. The flag
+accepts ``left``, ``right``, ``both`` or ``off`` (default ``off``). When a
+side is set to autoplay, that paddle tracks the ball's y-position each tick,
+clamped to the paddle's max speed. Paddles under AI control display a small
+"AI" label near them. ESC still quits the game (see ticket T-000069).
+"""
+
+import argparse
 import sys
 
 import pygame
@@ -43,6 +51,22 @@ class Paddle:
 
     def move_down(self):
         self.y += self.speed
+        if self.y + self.height > WINDOW_HEIGHT:
+            self.y = WINDOW_HEIGHT - self.height
+
+    def ai_track(self, target_y):
+        """Move paddle toward target_y, clamped to the paddle's max speed."""
+        paddle_center = self.y + self.height / 2
+        delta = target_y - paddle_center
+        # Small dead-zone to avoid jitter when aligned.
+        if abs(delta) <= self.speed:
+            self.y += delta
+        elif delta > 0:
+            self.y += self.speed
+        else:
+            self.y -= self.speed
+        if self.y < 0:
+            self.y = 0
         if self.y + self.height > WINDOW_HEIGHT:
             self.y = WINDOW_HEIGHT - self.height
 
@@ -112,7 +136,27 @@ def blit_centered_text(surface, font, text, y):
     rendered = font.render(text, True, WHITE)
     surface.blit(rendered, (WINDOW_WIDTH // 2 - rendered.get_width() // 2, y))
 
-def main():
+def parse_args(argv=None):
+    parser = argparse.ArgumentParser(
+        description="Simple two-player Pong with optional AI autoplay."
+    )
+    parser.add_argument(
+        "--autoplay",
+        choices=["left", "right", "both", "off"],
+        default="off",
+        help=(
+            "Enable AI control for paddles: 'left', 'right', 'both', or 'off' "
+            "(default: off). AI paddles track the ball, clamped to paddle speed."
+        ),
+    )
+    return parser.parse_args(argv)
+
+
+def main(argv=None):
+    args = parse_args(argv)
+    ai_left = args.autoplay in ("left", "both")
+    ai_right = args.autoplay in ("right", "both")
+
     pygame.init()
     screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
     pygame.display.set_caption("Pong")
@@ -163,17 +207,25 @@ def main():
         # Handle input for paddles
         keys = pygame.key.get_pressed()
         if not paused and not game_over:
+            ball_center_y = ball.y + BALL_SIZE / 2
+
             # Left paddle
-            if keys[pygame.K_w]:
-                left_paddle.move_up()
-            if keys[pygame.K_s]:
-                left_paddle.move_down()
+            if ai_left:
+                left_paddle.ai_track(ball_center_y)
+            else:
+                if keys[pygame.K_w]:
+                    left_paddle.move_up()
+                if keys[pygame.K_s]:
+                    left_paddle.move_down()
 
             # Right paddle
-            if keys[pygame.K_UP]:
-                right_paddle.move_up()
-            if keys[pygame.K_DOWN]:
-                right_paddle.move_down()
+            if ai_right:
+                right_paddle.ai_track(ball_center_y)
+            else:
+                if keys[pygame.K_UP]:
+                    right_paddle.move_up()
+                if keys[pygame.K_DOWN]:
+                    right_paddle.move_down()
 
             # Update ball
             ball.update(left_paddle, right_paddle)
@@ -190,6 +242,23 @@ def main():
         right_score_text = score_font.render(str(right_paddle.score), True, WHITE)
         screen.blit(left_score_text, (WINDOW_WIDTH // 4, 20))
         screen.blit(right_score_text, (WINDOW_WIDTH * 3 // 4, 20))
+
+        # AI labels near AI-controlled paddles
+        if ai_left:
+            ai_label = hint_font.render("AI", True, WHITE)
+            screen.blit(
+                ai_label,
+                (left_paddle.x, max(0, left_paddle.y - ai_label.get_height() - 2)),
+            )
+        if ai_right:
+            ai_label = hint_font.render("AI", True, WHITE)
+            screen.blit(
+                ai_label,
+                (
+                    right_paddle.x + right_paddle.width - ai_label.get_width(),
+                    max(0, right_paddle.y - ai_label.get_height() - 2),
+                ),
+            )
 
         # ESC to quit hint
         hint_surface = hint_font.render("ESC to quit", True, WHITE)

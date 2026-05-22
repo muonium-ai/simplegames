@@ -7,6 +7,7 @@ import random
 import math
 import os
 import json
+import argparse
 
 # --- Constants ---
 WINDOW_WIDTH = 1000  # increased width
@@ -476,6 +477,29 @@ def parse_level_arg(argv, default=1):
         i += 1
     return max(1, min(TOTAL_LEVELS, n))
 
+def parse_cli_args(argv):
+    """Parse command-line flags via argparse.
+
+    Returns an argparse.Namespace with:
+      - level: int or None (1..TOTAL_LEVELS) when --level was supplied
+      - autoplay: bool (True when --autoplay was supplied)
+
+    Unknown args are tolerated to avoid breaking when launched by harnesses.
+    """
+    parser = argparse.ArgumentParser(
+        prog="bricks",
+        description="Brick Breaker game.",
+        add_help=False,
+    )
+    parser.add_argument("--level", type=int, default=None,
+                        help=f"Starting level 1..{TOTAL_LEVELS}.")
+    parser.add_argument("--autoplay", action="store_true", default=False,
+                        help="Start directly in fast autoplay mode (skip modal).")
+    ns, _unknown = parser.parse_known_args(argv)
+    if ns.level is not None:
+        ns.level = max(1, min(TOTAL_LEVELS, ns.level))
+    return ns
+
 def show_modal(screen, font, prev_stats=None):
     """Display modal with three buttons and previous game stats if available"""
     modal_rect = pygame.Rect(100, 200, 800, 200)  # Made taller for stats
@@ -541,21 +565,32 @@ def main():
 
     prev_stats = None  # Initialize previous game stats
 
-    # Parse --level argv override (1-based).
+    # Parse CLI flags (argparse-based). Also keep manual parser fallback for level
+    # to preserve historical semantics.
+    cli_args = parse_cli_args(sys.argv[1:])
     cli_level = parse_level_arg(sys.argv[1:], default=0)
     # parse_level_arg clamps to >=1, but we use 0 to signal "no override"
     raw_argv = sys.argv[1:]
     has_level_arg = any(a == "--level" or a.startswith("--level=") for a in raw_argv)
+    has_autoplay_arg = bool(cli_args.autoplay)
 
     highest_unlocked = load_progress()
 
     while True:  # Outer loop to allow restarting the game
-        mode = show_modal(screen, font, prev_stats)
+        autoplay_first_run = has_autoplay_arg
+        if has_autoplay_arg:
+            mode = "fast_autoplay"
+            has_autoplay_arg = False  # only honor on first run; restarts use modal
+        else:
+            mode = show_modal(screen, font, prev_stats)
 
         # Pick starting level
         if has_level_arg:
             starting_level = cli_level
             has_level_arg = False  # only honor on first run; subsequent restarts use selector
+        elif autoplay_first_run:
+            # --autoplay alone: skip level selector, start at level 1
+            starting_level = 1
         else:
             starting_level = show_level_select(screen, font, highest_unlocked)
 

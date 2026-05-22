@@ -1,3 +1,4 @@
+import argparse
 import pygame
 import sys
 import random
@@ -742,8 +743,22 @@ def render_buttons():
 
 def main():
     """Main game loop"""
+    parser = argparse.ArgumentParser(description="3D Rubik's Cube")
+    parser.add_argument(
+        "--autoplay",
+        action="store_true",
+        default=False,
+        help="Scramble then solve automatically on launch, looping forever (ESC quits).",
+    )
+    args = parser.parse_args()
+    autoplay = args.autoplay
+    # Autoplay state machine: "scrambling" -> "solving" -> "scrambling" ...
+    autoplay_state = "scrambling" if autoplay else None
+
     cube = RubiksCube()
-    
+    if autoplay:
+        cube.scramble(20)
+
     # Mouse drag tracking
     dragging = False
     last_mouse_pos = None
@@ -854,6 +869,19 @@ def main():
         
         # Update animation state
         cube.update_animation()
+
+        # Autoplay state machine: when current phase finishes, start the next.
+        if autoplay and not cube.animating and not cube.solution_moves:
+            if autoplay_state == "scrambling":
+                # Scramble done -> start solving
+                cube.solve()
+                autoplay_state = "solving"
+            elif autoplay_state == "solving":
+                # Solve done -> scramble again
+                cube.solving = False
+                cube.move_history = []
+                cube.scramble(20)
+                autoplay_state = "scrambling"
         
         # Clear both the color and depth buffer completely
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)

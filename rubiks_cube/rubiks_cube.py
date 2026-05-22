@@ -1,6 +1,7 @@
 from os import environ
 environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'  # Hide pygame support prompt
 
+import argparse
 import pygame, sys, random
 from pygame.locals import KEYDOWN, K_ESCAPE, K_r, K_s, MOUSEBUTTONDOWN, QUIT
 import kociemba  # Make sure you have installed this library
@@ -288,25 +289,48 @@ class CubeSolver:
                 return []
 
 def main():
+    parser = argparse.ArgumentParser(description="Rubik's Cube Solver")
+    parser.add_argument(
+        "--autoplay",
+        action="store_true",
+        default=False,
+        help="Scramble then solve automatically on launch, looping forever (ESC quits).",
+    )
+    args = parser.parse_args()
+
     pygame.init()
     screen = pygame.display.set_mode((800,600))
     pygame.display.set_caption("Rubik's Cube Solver")
     clock = pygame.time.Clock()
     font = pygame.font.SysFont(None, 36)
     small_font = pygame.font.SysFont(None, 24)  # NEW: For move history
-    
+
     cube = RubiksCube()
     solver = CubeSolver(cube)
-    
+
     # Create button rectangles for mouse control
     solve_button = pygame.Rect(20, 540, 150, 40)
     scramble_button = pygame.Rect(200, 540, 150, 40)
-    
+
     solving = False
     solution_index = 0
     auto_solve = False
     status_message = "Ready"  # NEW: Status message for display
     next_move_time = 0  # Earliest tick (ms) at which the next auto-solve move may run
+    autoplay = args.autoplay
+    # Autoplay state: "idle" (need to scramble), "scrambling" (handled instantly),
+    # "solving" (waiting for solve to finish), then loop back to idle.
+    autoplay_state = "idle" if autoplay else None
+
+    if autoplay:
+        status_message = cube.scramble(20)
+        solver = CubeSolver(cube)
+        solver.solve()
+        solving = True
+        solution_index = 0
+        auto_solve = True
+        status_message = "Autoplay: Solving..."
+        autoplay_state = "solving"
     
     def draw_interface():
         screen.fill(WHITE)
@@ -400,7 +424,16 @@ def main():
                     solution_index = 0
                     continue
                 solving = False
-        
+                # Autoplay loop: scramble + solve again
+                if autoplay:
+                    status_message = cube.scramble(20)
+                    solver = CubeSolver(cube)
+                    solver.solve()
+                    solving = True
+                    solution_index = 0
+                    auto_solve = True
+                    status_message = "Autoplay: Solving..."
+
         draw_interface()  # Update display each frame
         clock.tick(10)
 

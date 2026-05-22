@@ -1,6 +1,7 @@
 from os import environ
 environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'
 
+import argparse
 import pygame
 import math
 import random
@@ -601,6 +602,21 @@ class Game:
         
         pygame.display.flip()
 
-if __name__ == "__main__":
+def main():
+    parser = argparse.ArgumentParser(description="Asteroids game")
+    parser.add_argument(
+        "--autoplay",
+        action="store_true",
+        default=False,
+        help="Skip the menu and start the game in autoplay mode",
+    )
+    args = parser.parse_args()
+
     game = Game()
+    if args.autoplay:
+        game.start_game(autoplay=True)
     game.run()
+
+
+if __name__ == "__main__":
+    main()

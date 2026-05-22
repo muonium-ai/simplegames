@@ -1,6 +1,7 @@
 from os import environ
 environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'  # Hide pygame support prompt
 
+import argparse
 import pygame, sys, random, time
 
 # Constants
@@ -205,16 +206,31 @@ def game_loop(mode):
         clock.tick(30)
     return final_score  # Return the score
 
-def main():
+def main(argv=None):
+    parser = argparse.ArgumentParser(description="Snake Game")
+    parser.add_argument(
+        "--autoplay",
+        action="store_true",
+        default=False,
+        help="Skip the start screen and use the built-in AI (ai_direction) instead of keyboard input.",
+    )
+    args = parser.parse_args(argv)
+
     while True:
         try:
-            mode = start_screen()
+            if args.autoplay:
+                mode = "autosnake"
+            else:
+                mode = start_screen()
             score = game_loop(mode)
+            if args.autoplay:
+                # In autoplay mode, exit after one game to avoid infinite loop without UI selection.
+                break
         except SystemExit:
             break
         except Exception:
             break
-    
+
     pygame.quit()
     sys.exit()
 

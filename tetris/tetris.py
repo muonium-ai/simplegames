@@ -3,6 +3,7 @@ import random
 import sys
 import os
 import json
+import argparse
 
 pygame.init()
 
@@ -43,6 +44,24 @@ def parse_argv_level():
             except ValueError:
                 return None
     return None
+
+
+def parse_cli_args():
+    """Parse command-line arguments. Returns argparse.Namespace.
+
+    Honors --level (also via parse_argv_level for back-compat) and --autoplay.
+    """
+    parser = argparse.ArgumentParser(description="Tetris", add_help=True)
+    parser.add_argument("--level", type=int, default=None,
+                        help="Starting level (1-%d)" % LEVEL_CAP)
+    parser.add_argument("--autoplay", action="store_true", default=False,
+                        help="Run a greedy autoplay bot (skips start screen)")
+    try:
+        args, _unknown = parser.parse_known_args()
+    except SystemExit:
+        # Fall back to defaults if argparse decided to exit
+        args = argparse.Namespace(level=None, autoplay=False)
+    return args
 
 
 def initial_fall_speed_for_level(level):
@@ -286,6 +305,168 @@ def clear_rows(grid, locked_positions):
 def get_new_piece():
     return Piece(random.choice(list(SHAPES.keys())))
 
+
+# ---------------------------------------------------------------------------
+# Greedy Autoplay Bot
+# ---------------------------------------------------------------------------
+
+def _grid_from_locked(locked_positions):
+    """Return a fresh 2D grid (color-or-None) from locked_positions."""
+    return create_grid(locked_positions)
+
+
+def _piece_cells(shape_key, rotation, x, y):
+    """Cells occupied by a piece given shape, rotation index, and offsets."""
+    rotations = SHAPES[shape_key]
+    indices = rotations[rotation % len(rotations)]
+    cells = []
+    for idx in indices:
+        row = idx // 4
+        col = idx % 4
+        cells.append((y + row, x + col))
+    return cells
+
+
+def _fits(cells, board):
+    """Check that all cells are inside the play area and not overlapping board."""
+    for (r, c) in cells:
+        if r < 0 or r >= GRID_ROWS or c < 0 or c >= GRID_COLS:
+            return False
+        if board[r][c] is not None:
+            return False
+    return True
+
+
+def _drop_cells(shape_key, rotation, x, board):
+    """Drop the piece in the given rotation at x as far down as possible.
+
+    Returns the resting cells (list of (r, c)) or None if it cannot rest legally.
+    """
+    # Find the highest y that places piece off-board (above 0 if needed)
+    # Start above the board and increment y until next y is illegal.
+    y = -3
+    # ensure starting position is at least not below board
+    last_valid = None
+    while True:
+        cells = _piece_cells(shape_key, rotation, x, y)
+        # Allow rows < 0 while dropping; we only check column bounds and overlap
+        any_out_bottom = any(r >= GRID_ROWS for (r, c) in cells)
+        any_out_side = any(c < 0 or c >= GRID_COLS for (r, c) in cells)
+        if any_out_side:
+            return None
+        if any_out_bottom:
+            break
+        # Check overlap only for rows within board
+        overlap = any(r >= 0 and board[r][c] is not None for (r, c) in cells)
+        if overlap:
+            break
+        last_valid = cells
+        y += 1
+    return last_valid
+
+
+def _simulate_lock(board, cells, color=1):
+    """Return a new board with the piece cells filled."""
+    new_board = [row[:] for row in board]
+    for (r, c) in cells:
+        if 0 <= r < GRID_ROWS and 0 <= c < GRID_COLS:
+            new_board[r][c] = color
+    return new_board
+
+
+def _clear_full_rows(board):
+    """Clear full rows from a 2D board; returns (new_board, lines_cleared)."""
+    kept = [row for row in board if any(cell is None for cell in row)]
+    cleared = GRID_ROWS - len(kept)
+    while len(kept) < GRID_ROWS:
+        kept.insert(0, [None] * GRID_COLS)
+    return kept, cleared
+
+
+def _column_heights(board):
+    """For each column, height = GRID_ROWS - first filled row (0 if empty)."""
+    heights = [0] * GRID_COLS
+    for c in range(GRID_COLS):
+        for r in range(GRID_ROWS):
+            if board[r][c] is not None:
+                heights[c] = GRID_ROWS - r
+                break
+    return heights
+
+
+def _count_holes(board):
+    """An empty cell with a filled cell anywhere above it (same column)."""
+    holes = 0
+    for c in range(GRID_COLS):
+        seen_block = False
+        for r in range(GRID_ROWS):
+            if board[r][c] is not None:
+                seen_block = True
+            elif seen_block:
+                holes += 1
+    return holes
+
+
+def _bumpiness(heights):
+    return sum(abs(heights[i] - heights[i + 1]) for i in range(len(heights) - 1))
+
+
+def _score_placement(board_after, lines_cleared):
+    heights = _column_heights(board_after)
+    aggregate = sum(heights)
+    holes = _count_holes(board_after)
+    bumps = _bumpiness(heights)
+    return (
+        1.0 * lines_cleared
+        - 0.5 * aggregate
+        - 0.7 * holes
+        - 0.2 * bumps
+    )
+
+
+def plan_best_placement(piece, locked_positions):
+    """Enumerate every (rotation, column) for piece and return best plan.
+
+    Returns dict with keys: rotation, x, score. Returns None if no legal move.
+    """
+    board = _grid_from_locked(locked_positions)
+    rotations = SHAPES[piece.shape_key]
+    best = None
+    for rot in range(len(rotations)):
+        for x in range(-3, GRID_COLS + 1):
+            cells = _drop_cells(piece.shape_key, rot, x, board)
+            if cells is None:
+                continue
+            # Ensure piece is fully inside columns (already enforced) and within rows
+            if any(r < 0 for (r, c) in cells):
+                continue
+            simulated = _simulate_lock(board, cells, color=1)
+            cleared_board, cleared = _clear_full_rows(simulated)
+            s = _score_placement(cleared_board, cleared)
+            if best is None or s > best["score"]:
+                best = {"rotation": rot, "x": x, "score": s, "cells": cells}
+    return best
+
+
+def bot_step(piece, plan, grid):
+    """Advance the piece one step toward the planned (rotation, x).
+
+    Mutates piece via rotate_piece / move_piece. Returns True if some action
+    occurred this tick (rotation or horizontal move); False if already aligned.
+    """
+    if plan is None:
+        return False
+    # First match rotation
+    if piece.rotation != plan["rotation"]:
+        rotate_piece(piece, grid)
+        return True
+    # Then move horizontally toward target column
+    if piece.x < plan["x"]:
+        return move_piece(piece, 1, 0, grid)
+    if piece.x > plan["x"]:
+        return move_piece(piece, -1, 0, grid)
+    return False
+
 def draw_grid_lines(surface):
     # Draw grid lines with vertical offset TOP_BOX_HEIGHT
     for i in range(GRID_ROWS + 1):
@@ -327,7 +508,7 @@ def draw_current_piece_top(surface, current_piece):
                          current_piece.color,
                          (draw_x, draw_y, BLOCK_SIZE, BLOCK_SIZE))
 
-def draw_window(surface, grid, locked_positions, score, level, current_piece, next_piece):
+def draw_window(surface, grid, locked_positions, score, level, current_piece, next_piece, autoplay=False):
     surface.fill(BLACK)
     # Draw the top area showing the current piece
     draw_current_piece_top(surface, current_piece)
@@ -347,7 +528,8 @@ def draw_window(surface, grid, locked_positions, score, level, current_piece, ne
 
     font = pygame.font.SysFont('Arial', 24, bold=True)
     score_label = font.render(f"Score: {score}", True, WHITE)
-    level_label = font.render(f"Level: {level}", True, WHITE)
+    level_text = f"Level: {level}" + ("  [AI]" if autoplay else "")
+    level_label = font.render(level_text, True, WHITE)
     surface.blit(score_label, (SIDE_OFFSET, 10))
     surface.blit(level_label, (SIDE_OFFSET, 30))
 
@@ -379,10 +561,20 @@ def main():
 
     clock = pygame.time.Clock()
 
+    cli_args = parse_cli_args()
+    autoplay = bool(cli_args.autoplay)
+
     highest_unlocked = load_highest_level()
 
-    argv_level = parse_argv_level()
-    if argv_level is not None:
+    # Determine starting level. --level (argparse) takes precedence; fall back
+    # to legacy parse_argv_level for back-compat with T-000097.
+    argv_level = cli_args.level if cli_args.level is not None else parse_argv_level()
+
+    if autoplay:
+        # Skip the start screen entirely; default to level 1, honor --level if given.
+        starting_level = argv_level if argv_level is not None else 1
+        starting_level = max(1, min(LEVEL_CAP, starting_level))
+    elif argv_level is not None:
         starting_level = min(argv_level, max(highest_unlocked, 1))
     else:
         starting_level = show_start_screen(surface, clock, highest_unlocked)
@@ -404,10 +596,19 @@ def main():
     level_up_deadline = 0
     overlay_font = pygame.font.SysFont('Arial', 56, bold=True)
 
+    # Autoplay bot state: one planned placement per active piece.
+    bot_plan = None
+    bot_plan_piece_id = None
+    # Throttle bot ticks so the play remains watchable.
+    bot_step_interval = 0.06  # seconds between bot actions
+    bot_step_accum = 0.0
+
     while running:
         grid = create_grid(locked_positions)
         dt = clock.tick(60) / 1000.0
         fall_time += dt
+        if autoplay:
+            bot_step_accum += dt
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT or (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE):
@@ -431,7 +632,10 @@ def main():
                     paused = False
                     game_over = False
                     level_up_deadline = 0
-                if not paused and not game_over:
+                    bot_plan = None
+                    bot_plan_piece_id = None
+                    bot_step_accum = 0.0
+                if not paused and not game_over and not autoplay:
                     if event.key == pygame.K_LEFT:
                         move_piece(current_piece, -1, 0, grid)
                     elif event.key == pygame.K_RIGHT:
@@ -448,8 +652,17 @@ def main():
                         while move_piece(current_piece, 0, 1, grid):
                             score += 2
 
+        # Autoplay: plan once per active piece, then advance one step per tick
+        if autoplay and not paused and not game_over:
+            if bot_plan_piece_id != id(current_piece):
+                bot_plan = plan_best_placement(current_piece, locked_positions)
+                bot_plan_piece_id = id(current_piece)
+            if bot_step_accum >= bot_step_interval:
+                bot_step_accum = 0.0
+                bot_step(current_piece, bot_plan, grid)
+
         if paused or game_over:
-            draw_window(surface, grid, locked_positions, score, level, current_piece, next_piece)
+            draw_window(surface, grid, locked_positions, score, level, current_piece, next_piece, autoplay=autoplay)
             if pygame.time.get_ticks() < level_up_deadline:
                 _draw_level_overlay(surface, overlay_font, level)
                 pygame.display.update()
@@ -485,7 +698,7 @@ def main():
                         save_highest_level(max(highest_unlocked, min(LEVEL_CAP, level)))
                     game_over = True
 
-        draw_window(surface, grid, locked_positions, score, level, current_piece, next_piece)
+        draw_window(surface, grid, locked_positions, score, level, current_piece, next_piece, autoplay=autoplay)
         if pygame.time.get_ticks() < level_up_deadline:
             _draw_level_overlay(surface, overlay_font, level)
             pygame.display.update()

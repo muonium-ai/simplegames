@@ -1,5 +1,6 @@
 from os import environ
 environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'  # Hide pygame support prompt
+import argparse
 import sys
 import pygame
 import random
@@ -151,6 +152,14 @@ def reset_game(new_maze=False):
         maze[ROWS-1][COLS-1] = 0
 
 def main():
+    parser = argparse.ArgumentParser(description="Grid Maze game with optional BFS auto-solver.")
+    parser.add_argument(
+        "--autoplay",
+        action="store_true",
+        help="Start in autoplay mode: immediately trigger the BFS solver.",
+    )
+    args = parser.parse_args()
+
     running = True
     clock = pygame.time.Clock()
     move_delay = 100  # milliseconds
@@ -162,6 +171,13 @@ def main():
     show_modal = False
     ai_path = None
     solving = False
+
+    if args.autoplay:
+        ai_path = bfs_solve((0, 0), (COLS-1, ROWS-1))
+        if ai_path:
+            player.path = [(0, 0)]
+            player.x, player.y = 0, 0
+            solving = True
 
     while running:
         current_time = pygame.time.get_ticks()
