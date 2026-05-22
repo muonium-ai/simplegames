@@ -58,6 +58,8 @@ def game_loop(mode):
     food = (random.randrange(BLOCK_SIZE, SCREEN_WIDTH - BLOCK_SIZE, BLOCK_SIZE),
             random.randrange(BLOCK_SIZE, SCREEN_HEIGHT - BLOCK_SIZE, BLOCK_SIZE))
     start_time = time.time()
+    # T-000117: monotonic timestamp for outcome timing print
+    round_start_monotonic = time.monotonic()
     # Double the default FPS in autosnake (AI) mode for the uniform autoplay UX.
     current_fps = FPS * 2 if mode == "autosnake" else FPS
     
@@ -198,8 +200,16 @@ def game_loop(mode):
     draw_text(final_score, WHITE, (SCREEN_WIDTH//2, SCREEN_HEIGHT//2 + 20))
     draw_text("ESC to quit", WHITE, (SCREEN_WIDTH//2, SCREEN_HEIGHT - 30))
     pygame.display.flip()
+    # T-000117: in autosnake mode, print outcome (always LOSS in snake) and
+    # keep the wait short so the outer loop restarts quickly.
+    if mode == "autosnake":
+        elapsed = time.monotonic() - round_start_monotonic
+        print(f"[snake] LOSS in {elapsed:.2f}s", flush=True)
+        _go_wait_ms = 1000
+    else:
+        _go_wait_ms = 2000
     # Non-blocking wait so QUIT events are still handled on the game-over screen
-    _go_deadline = pygame.time.get_ticks() + 2000
+    _go_deadline = pygame.time.get_ticks() + _go_wait_ms
     while pygame.time.get_ticks() < _go_deadline:
         for event in pygame.event.get():
             if event.type == pygame.QUIT or (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE):
@@ -225,9 +235,8 @@ def main(argv=None):
             else:
                 mode = start_screen()
             score = game_loop(mode)
-            if args.autoplay:
-                # In autoplay mode, exit after one game to avoid infinite loop without UI selection.
-                break
+            # T-000117: in autoplay mode, loop forever (ESC inside game_loop quits).
+            # In manual mode preserve existing behavior (return to start screen).
         except SystemExit:
             break
         except Exception:

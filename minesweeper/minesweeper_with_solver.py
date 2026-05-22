@@ -3,6 +3,7 @@ environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'  # Hide pygame support prompt
 import pygame
 import random
 import sys
+import time
 import importlib
 from enum import Enum
 
@@ -206,6 +207,8 @@ class Minesweeper:
 
     def run(self):
         running = True
+        # T-000117: record monotonic start of this round for outcome timing
+        self._round_start_time = time.monotonic()
         while running:
             if self.is_solver_active and not self.game_over and not self.victory:
                 self.step_count += 1
@@ -240,6 +243,22 @@ class Minesweeper:
             # Double the FPS cap when a solver is driving the game, matching the
             # uniform autoplay/solver speedup convention.
             self.clock.tick(120 if self.is_solver_active else 60)
+
+            # T-000117: in solver/autoplay mode, on game end print outcome,
+            # hold ~1s, then start a new round.
+            if self.is_solver_active and (self.game_over or self.victory):
+                outcome = "WIN" if self.victory else "LOSS"
+                elapsed = time.monotonic() - self._round_start_time
+                print(f"[minesweeper-solver] {outcome} in {elapsed:.2f}s", flush=True)
+                restart_deadline = pygame.time.get_ticks() + 1000
+                while pygame.time.get_ticks() < restart_deadline:
+                    for event in pygame.event.get():
+                        if event.type == pygame.QUIT or (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE):
+                            pygame.quit()
+                            sys.exit(0)
+                    self.clock.tick(60)
+                self.reset_game()
+                self._round_start_time = time.monotonic()
 
         pygame.quit()
 

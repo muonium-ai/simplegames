@@ -1,5 +1,6 @@
 from os import environ
 environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'  # Hide pygame support prompt
+import argparse
 import json
 import os
 import sys
@@ -255,7 +256,48 @@ def draw_levels_panel(window, game, top_y):
                     glyph_surf.get_rect(center=(cx + (chip_w - 4) // 2,
                                                 chip_y + chip_h // 2 + 8)))
 
+def _autoplay_pick_move(game):
+    """Tiny heuristic move picker for --autoplay mode.
+
+    Tries DOWN/LEFT/RIGHT/UP in that order and returns the first direction
+    that actually changes the board (computed via a cheap dry run). Falls
+    back to None if no direction changes anything (game over).
+    """
+    for direction in ('DOWN', 'LEFT', 'RIGHT', 'UP'):
+        # Cheap dry run: copy grid, simulate compress+merge+compress in that
+        # direction, compare to original.
+        original = [row[:] for row in game.grid]
+        if direction in ('UP', 'DOWN'):
+            game.transpose()
+        if direction in ('RIGHT', 'DOWN'):
+            game.reverse()
+        game.compress()
+        game.merge()
+        game.compress()
+        if direction in ('RIGHT', 'DOWN'):
+            game.reverse()
+        if direction in ('UP', 'DOWN'):
+            game.transpose()
+        changed = original != game.grid
+        # Restore
+        game.grid = original
+        if changed:
+            return direction
+    return None
+
+
 def main():
+    parser = argparse.ArgumentParser(description="2048 Extended")
+    parser.add_argument(
+        "--autoplay",
+        action="store_true",
+        default=False,
+        help="Run a built-in heuristic that picks moves until game over, "
+             "then loops forever (ESC quits).",
+    )
+    args = parser.parse_args()
+    autoplay = args.autoplay
+
     pygame.init()
     window = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
     pygame.display.set_caption('2048 Extended')
@@ -263,13 +305,18 @@ def main():
 
     game = Game()
     game_won = False
+    # T-000117: monotonic round start so we can print outcome timing.
+    round_start_time = time.monotonic()
+    # Throttle autoplay moves so the play remains watchable.
+    AUTOPLAY_MOVE_INTERVAL_MS = 100
+    next_autoplay_move_ms = pygame.time.get_ticks()
 
     while True:
         for event in pygame.event.get():
             if event.type == pygame.QUIT or (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE):
                 pygame.quit()
                 sys.exit(0)
-            elif event.type == pygame.KEYDOWN and not game.is_game_over():
+            elif event.type == pygame.KEYDOWN and not game.is_game_over() and not autoplay:
                 moved = False
                 if event.key == pygame.K_UP:
                     moved = game.move('UP')
@@ -282,6 +329,16 @@ def main():
 
                 if moved:
                     pygame.display.set_caption(f'2048 Extended - Max Tile: {game.max_tile}')
+
+        # Autoplay: drive moves at a throttled cadence
+        if autoplay and not game.is_game_over():
+            now_ms = pygame.time.get_ticks()
+            if now_ms >= next_autoplay_move_ms:
+                direction = _autoplay_pick_move(game)
+                if direction is not None:
+                    game.move(direction)
+                    pygame.display.set_caption(f'2048 Extended - Max Tile: {game.max_tile}')
+                next_autoplay_move_ms = now_ms + AUTOPLAY_MOVE_INTERVAL_MS
 
         # Draw background
         window.fill(BACKGROUND)
@@ -366,6 +423,25 @@ def main():
 
         pygame.display.update()
         clock.tick(60)
+
+        # T-000117: in autoplay mode, on game end print outcome, hold ~1s, restart.
+        if autoplay and (game.is_game_over() or game.has_won()):
+            outcome = "WIN" if game.has_won() else "LOSS"
+            elapsed = time.monotonic() - round_start_time
+            print(f"[2048] {outcome} in {elapsed:.2f}s", flush=True)
+            restart_deadline = pygame.time.get_ticks() + 1000
+            while pygame.time.get_ticks() < restart_deadline:
+                for event in pygame.event.get():
+                    if event.type == pygame.QUIT or (
+                        event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE
+                    ):
+                        pygame.quit()
+                        sys.exit(0)
+                clock.tick(60)
+            game = Game()
+            game_won = False
+            round_start_time = time.monotonic()
+            next_autoplay_move_ms = pygame.time.get_ticks()
 
 if __name__ == "__main__":
     main()

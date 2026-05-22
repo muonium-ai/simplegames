@@ -4,6 +4,7 @@ import pygame
 import chess
 import random
 import sys
+import time
 
 # Initialize Pygame
 pygame.init()
@@ -132,8 +133,8 @@ def make_computer_move(board):
         return True
     return False
 
-def display_game_over(board):
-    """Display game over message."""
+def display_game_over(board, hold_ms=3000):
+    """Display game over message. Holds for hold_ms (non-blocking)."""
     screen.fill((255, 255, 255))
     if board.is_checkmate():
         winner = "White wins!" if board.turn == chess.BLACK else "Black wins!"
@@ -143,16 +144,16 @@ def display_game_over(board):
         winner = "Draw by insufficient material!"
     else:
         winner = "Game Over!"
-    
+
     text_surface = font.render(winner, True, (0, 0, 0))
     text_rect = text_surface.get_rect(center=(screen_width // 2, screen_height // 2))
     screen.blit(text_surface, text_rect)
     quit_label = label_font.render("ESC to quit", True, (0, 0, 0))
     screen.blit(quit_label, (screen_width // 2 - quit_label.get_width() // 2, screen_height // 2 + 40))
     pygame.display.flip()
-    # Non-blocking wait (~3s) so QUIT/ESC stay responsive
+    # Non-blocking wait so QUIT/ESC stay responsive
     _go_clock = pygame.time.Clock()
-    _go_deadline = pygame.time.get_ticks() + 3000
+    _go_deadline = pygame.time.get_ticks() + hold_ms
     while pygame.time.get_ticks() < _go_deadline:
         for _ev in pygame.event.get():
             if _ev.type == pygame.QUIT or (_ev.type == pygame.KEYDOWN and _ev.key == pygame.K_ESCAPE):
@@ -161,66 +162,102 @@ def display_game_over(board):
         _go_clock.tick(30)
 
 def main():
-    board = chess.Board()
-    selected_square = None
-    
-    # Computer (White) makes the first move
-    make_computer_move(board)
-    draw_board(board)
+    # T-000117: this script's autoplay is always-on (White is the AI). For
+    # demo/play-all-auto runs the game must progress without human input,
+    # so Black also plays random moves. When game ends, print outcome,
+    # show overlay ~1s, and start a new game.
+    while True:
+        board = chess.Board()
+        selected_square = None
+        round_start = time.monotonic()
 
-    while not board.is_game_over():
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT or (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE):
-                pygame.quit()
-                sys.exit(0)
+        # Computer (White) makes the first move
+        make_computer_move(board)
+        draw_board(board)
 
-            if event.type == pygame.MOUSEBUTTONDOWN and board.turn == chess.BLACK:
-                clicked_square = get_square_from_mouse(event.pos)
-                
-                if clicked_square is not None:
-                    if selected_square is None:
-                        # Select piece if it's valid
-                        piece = board.piece_at(clicked_square)
-                        if piece and piece.color == chess.BLACK:
-                            selected_square = clicked_square
-                            draw_board(board, selected_square)
-                    else:
-                        # Try to make a move
-                        piece = board.piece_at(selected_square)
-                        promotion = None
-                        if (
-                            piece is not None
-                            and piece.piece_type == chess.PAWN
-                            and chess.square_rank(clicked_square) in (0, 7)
-                        ):
-                            promotion = chess.QUEEN
-                        move = chess.Move(selected_square, clicked_square, promotion=promotion)
-                        if move in board.legal_moves:
-                            board.push(move)
-                            selected_square = None
-                            draw_board(board)
+        _move_clock = pygame.time.Clock()
+        while not board.is_game_over():
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT or (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE):
+                    pygame.quit()
+                    sys.exit(0)
 
-                            # Computer's turn
-                            if not board.is_game_over():
-                                # Non-blocking wait so QUIT events stay responsive.
-                                # Halved from 500ms -> 250ms for the uniform autoplay speedup.
-                                _move_deadline = pygame.time.get_ticks() + 250
-                                _move_clock = pygame.time.Clock()
-                                while pygame.time.get_ticks() < _move_deadline:
-                                    for _ev in pygame.event.get():
-                                        if _ev.type == pygame.QUIT or (_ev.type == pygame.KEYDOWN and _ev.key == pygame.K_ESCAPE):
-                                            pygame.quit()
-                                            sys.exit(0)
-                                    _move_clock.tick(30)
-                                make_computer_move(board)
-                                draw_board(board)
-                        else:
-                            # If invalid move, check if new square selection
+                if event.type == pygame.MOUSEBUTTONDOWN and board.turn == chess.BLACK:
+                    clicked_square = get_square_from_mouse(event.pos)
+
+                    if clicked_square is not None:
+                        if selected_square is None:
+                            # Select piece if it's valid
                             piece = board.piece_at(clicked_square)
-                            selected_square = clicked_square if piece and piece.color == chess.BLACK else None
-                            draw_board(board, selected_square)
+                            if piece and piece.color == chess.BLACK:
+                                selected_square = clicked_square
+                                draw_board(board, selected_square)
+                        else:
+                            # Try to make a move
+                            piece = board.piece_at(selected_square)
+                            promotion = None
+                            if (
+                                piece is not None
+                                and piece.piece_type == chess.PAWN
+                                and chess.square_rank(clicked_square) in (0, 7)
+                            ):
+                                promotion = chess.QUEEN
+                            move = chess.Move(selected_square, clicked_square, promotion=promotion)
+                            if move in board.legal_moves:
+                                board.push(move)
+                                selected_square = None
+                                draw_board(board)
 
-    display_game_over(board)
+                                # Computer's turn
+                                if not board.is_game_over():
+                                    # Non-blocking wait so QUIT events stay responsive.
+                                    _move_deadline = pygame.time.get_ticks() + 250
+                                    while pygame.time.get_ticks() < _move_deadline:
+                                        for _ev in pygame.event.get():
+                                            if _ev.type == pygame.QUIT or (_ev.type == pygame.KEYDOWN and _ev.key == pygame.K_ESCAPE):
+                                                pygame.quit()
+                                                sys.exit(0)
+                                        _move_clock.tick(30)
+                                    make_computer_move(board)
+                                    draw_board(board)
+                            else:
+                                # If invalid move, check if new square selection
+                                piece = board.piece_at(clicked_square)
+                                selected_square = clicked_square if piece and piece.color == chess.BLACK else None
+                                draw_board(board, selected_square)
+
+            # Autoplay: if it's Black's turn and there are no pending human
+            # interactions, make a random Black move so the game progresses.
+            if not board.is_game_over() and board.turn == chess.BLACK and selected_square is None:
+                _move_deadline = pygame.time.get_ticks() + 250
+                while pygame.time.get_ticks() < _move_deadline:
+                    for _ev in pygame.event.get():
+                        if _ev.type == pygame.QUIT or (_ev.type == pygame.KEYDOWN and _ev.key == pygame.K_ESCAPE):
+                            pygame.quit()
+                            sys.exit(0)
+                    _move_clock.tick(30)
+                make_computer_move(board)
+                draw_board(board)
+                # And let White respond
+                if not board.is_game_over():
+                    make_computer_move(board)
+                    draw_board(board)
+            else:
+                _move_clock.tick(60)
+
+        # Game over: detect outcome and announce.
+        if board.is_checkmate():
+            # board.turn is the side to move (the side that got mated).
+            # WIN if White (computer) won; LOSS if Black got mated by White's
+            # checkmate-against-Black; treating non-checkmate draws as WIN per
+            # the ticket's "draws -> WIN" rule.
+            outcome = "WIN" if board.turn == chess.BLACK else "LOSS"
+        else:
+            outcome = "WIN"
+        elapsed = time.monotonic() - round_start
+        print(f"[chess-autoplay] {outcome} in {elapsed:.2f}s", flush=True)
+        # Show the existing overlay briefly (~1s) then restart.
+        display_game_over(board, hold_ms=1000)
 
 if __name__ == "__main__":
     main()

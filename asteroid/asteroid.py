@@ -296,6 +296,8 @@ class Game:
         self.reset_game()
         self.autoplay = autoplay
         self.game_state = "playing"
+        # T-000117: track round start for autoplay outcome timing
+        self.round_start_time = time.monotonic()
 
     def reset_game(self):
         self.player = Player(Vector2D(
@@ -437,6 +439,19 @@ class Game:
             elif self.game_state == "victory":
                 self.menu.draw_victory(self.score, self.asteroid_stats,
                                      self.final_time, self.shots_fired)  # Use final_time
+                # T-000117: in autoplay, print outcome, hold ~1s, auto-restart
+                if self.autoplay:
+                    elapsed = time.monotonic() - getattr(self, "round_start_time", time.monotonic())
+                    print(f"[asteroid] WIN in {elapsed:.2f}s", flush=True)
+                    restart_deadline = pygame.time.get_ticks() + 1000
+                    while pygame.time.get_ticks() < restart_deadline:
+                        for event in pygame.event.get():
+                            if event.type == pygame.QUIT or (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE):
+                                pygame.quit()
+                                sys.exit(0)
+                        self.clock.tick(60)
+                    self.start_game(autoplay=True)
+                    continue
                 for event in pygame.event.get():
                     if event.type == pygame.QUIT or (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE):
                         pygame.quit()
@@ -451,6 +466,19 @@ class Game:
             elif self.game_state == "game_over":
                 # Return to menu on any input so player can restart
                 self.menu.draw()
+                # T-000117: in autoplay, print LOSS, hold ~1s, auto-restart
+                if self.autoplay:
+                    elapsed = time.monotonic() - getattr(self, "round_start_time", time.monotonic())
+                    print(f"[asteroid] LOSS in {elapsed:.2f}s", flush=True)
+                    restart_deadline = pygame.time.get_ticks() + 1000
+                    while pygame.time.get_ticks() < restart_deadline:
+                        for event in pygame.event.get():
+                            if event.type == pygame.QUIT or (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE):
+                                pygame.quit()
+                                sys.exit(0)
+                        self.clock.tick(60)
+                    self.start_game(autoplay=True)
+                    continue
                 for event in pygame.event.get():
                     if event.type == pygame.QUIT or (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE):
                         pygame.quit()

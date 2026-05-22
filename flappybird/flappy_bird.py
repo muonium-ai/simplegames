@@ -410,6 +410,21 @@ def main():
 
         draw()
 
+        # T-000117: in autoplay, on game over print LOSS, hold ~1s, restart.
+        if game_over and auto_play:
+            elapsed = time.monotonic() - level_start_time
+            print(f"[flappybird] LOSS in {elapsed:.2f}s", flush=True)
+            restart_deadline = pygame.time.get_ticks() + 1000
+            while pygame.time.get_ticks() < restart_deadline:
+                for event in pygame.event.get():
+                    if event.type == pygame.QUIT or (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE):
+                        pygame.quit()
+                        sys.exit(0)
+                clock.tick(60)
+            reset_game(selected_level)
+            started = True
+            auto_play = True
+
     pygame.quit()
 
 

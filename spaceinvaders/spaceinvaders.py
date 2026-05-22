@@ -1,6 +1,7 @@
 from os import environ
 environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'
 import os
+import time
 import pygame, sys, random
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -195,7 +196,7 @@ class Game:
         self.player_bullets.empty()
         self.enemy_bullets.empty()
         self.barriers.empty()
-        
+
         self.player = Player()
         self.all_sprites.add(self.player)
         self.create_enemies()
@@ -204,6 +205,8 @@ class Game:
         self.level = 1
         self.auto_mode = auto_mode
         self.game_state = "playing"
+        # T-000117: per-round monotonic timer for outcome timing print.
+        self.round_start_time = time.monotonic()
 
     def auto_play(self):
         """AI logic for auto-play mode with bullet evasion and enemy type prioritization"""
@@ -317,6 +320,24 @@ class Game:
                 self.draw()
             elif self.game_state == "game_over":
                 self.show_game_over()
+                # T-000117: in auto_mode, print outcome and auto-restart after ~1s.
+                if self.auto_mode:
+                    # Lives <= 0 is the only way to reach game_over in this build
+                    # (level clear regenerates enemies). Treat as LOSS.
+                    outcome = "LOSS"
+                    elapsed = time.monotonic() - getattr(self, "round_start_time", time.monotonic())
+                    print(f"[spaceinvaders] {outcome} in {elapsed:.2f}s", flush=True)
+                    restart_deadline = pygame.time.get_ticks() + 1000
+                    while pygame.time.get_ticks() < restart_deadline:
+                        for event in pygame.event.get():
+                            if event.type == pygame.QUIT or (
+                                event.type == pygame.KEYDOWN and event.key == pygame.K_q
+                            ):
+                                self.save_high_score()
+                                pygame.quit()
+                                sys.exit(0)
+                        self.clock.tick(60)
+                    self.new_game(auto_mode=True)
 
     def update(self):
         self.all_sprites.update()

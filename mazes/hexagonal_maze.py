@@ -2,6 +2,7 @@ from os import environ
 environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'
 import argparse
 import sys
+import time
 import pygame
 import random
 import heapq
@@ -317,7 +318,9 @@ def main():
     solution_path = None
     solving = False
 
-    if args.autoplay:
+    autoplay_mode = bool(args.autoplay)
+    round_start_time = time.monotonic()
+    if autoplay_mode:
         start = (player.q, player.r)
         goal = (hex_grid.size, -hex_grid.size)
         solution_path = bfs_solve(hex_grid, start, goal)
@@ -401,6 +404,27 @@ def main():
         pygame.display.flip()
         # Double the FPS cap while solving so SOLVER mode runs at ~2x normal speed.
         clock.tick(120 if solving else 60)
+
+        # T-000117: in autoplay, on win print outcome, hold ~1s, regenerate.
+        if autoplay_mode and game_won:
+            elapsed = time.monotonic() - round_start_time
+            print(f"[hex-maze] WIN in {elapsed:.2f}s", flush=True)
+            restart_deadline = pygame.time.get_ticks() + 1000
+            while pygame.time.get_ticks() < restart_deadline:
+                for event in pygame.event.get():
+                    if event.type == pygame.QUIT or (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE):
+                        pygame.quit()
+                        sys.exit(0)
+                clock.tick(60)
+            player, hex_grid = reset_game(hex_grid, new_maze=True)
+            game_won = False
+            start = (player.q, player.r)
+            goal = (hex_grid.size, -hex_grid.size)
+            solution_path = bfs_solve(hex_grid, start, goal)
+            solving = bool(solution_path)
+            if solving:
+                player.path = [(player.q, player.r)]
+            round_start_time = time.monotonic()
 
     pygame.quit()
 

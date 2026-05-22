@@ -2,6 +2,7 @@ from os import environ
 environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'  # Hide pygame support prompt
 import os
 import sys
+import time
 import pygame
 import random
 from enum import Enum
@@ -586,6 +587,26 @@ class Minesweeper:
             # Double the FPS cap while in autoplay/solver mode (uniform autoplay UX).
             self.clock.tick(120 if self.autoplay else 60)
 
+            # T-000117: in autoplay/solver mode, when game ends print outcome,
+            # hold ~1s, and start a new round.
+            if self.autoplay and self.game_over:
+                # solve_it() reveals every cell correctly and stops the timer:
+                # treat that as a WIN even if the victory flag wasn't flipped.
+                outcome = "WIN" if (self.victory or self._all_safe_revealed()) else "LOSS"
+                elapsed = time.monotonic() - getattr(self, "_round_start_time", time.monotonic())
+                print(f"[minesweeper-probability] {outcome} in {elapsed:.2f}s", flush=True)
+                restart_deadline = pygame.time.get_ticks() + 1000
+                while pygame.time.get_ticks() < restart_deadline:
+                    for event in pygame.event.get():
+                        if event.type == pygame.QUIT or (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE):
+                            pygame.quit()
+                            sys.exit(0)
+                    self.clock.tick(60)
+                self.reset_game()
+                self._round_start_time = time.monotonic()
+                # Re-invoke the solver for the new round.
+                self.solve_it()
+
         pygame.quit()
 
     def handle_both_clicks(self, pos):
@@ -646,6 +667,14 @@ class Minesweeper:
         if self.is_paused:
             return (self.pause_start_time - self.start_time - self.total_pause_time) // 1000
         return (current_time - self.start_time - self.total_pause_time) // 1000
+
+    def _all_safe_revealed(self) -> bool:
+        """T-000117 helper: true if all non-mine cells are revealed."""
+        for row in self.grid:
+            for cell in row:
+                if not cell.is_mine and cell.state != CellState.REVEALED:
+                    return False
+        return True
 
     def count_hidden(self) -> int:
         """
@@ -839,5 +868,6 @@ if __name__ == "__main__":
     game = Minesweeper()
     if args.autoplay:
         game.autoplay = True
+        game._round_start_time = time.monotonic()
         game.solve_it()
     game.run()

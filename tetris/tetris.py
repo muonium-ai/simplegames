@@ -709,6 +709,38 @@ def main():
             _draw_level_overlay(surface, overlay_font, level)
             pygame.display.update()
 
+        # T-000117: in autoplay mode, on game over print outcome, hold ~1s, restart.
+        if autoplay and game_over:
+            elapsed = time.monotonic() - level_start_time
+            print(f"[tetris] LOSS in {elapsed:.2f}s", flush=True)
+            restart_deadline = pygame.time.get_ticks() + 1000
+            while pygame.time.get_ticks() < restart_deadline:
+                for event in pygame.event.get():
+                    if event.type == pygame.QUIT or (
+                        event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE
+                    ):
+                        save_highest_level(max(highest_unlocked, min(LEVEL_CAP, level)))
+                        pygame.quit()
+                        sys.exit(0)
+                clock.tick(60)
+            # Restart at the chosen starting_level (mirrors the K_r handler).
+            locked_positions = {}
+            grid = create_grid(locked_positions)
+            current_piece = get_new_piece()
+            next_piece = get_new_piece()
+            fall_time = 0
+            level = starting_level
+            fall_speed = initial_fall_speed_for_level(level) * (0.5 if autoplay else 1.0)
+            lines_cleared_total = (level - 1) * 10
+            score = 0
+            paused = False
+            game_over = False
+            level_up_deadline = 0
+            bot_plan = None
+            bot_plan_piece_id = None
+            bot_step_accum = 0.0
+            level_start_time = time.monotonic()
+
     # Game Over screen
     font = pygame.font.SysFont('Arial', 48, bold=True)
     surface.fill(BLACK)

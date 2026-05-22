@@ -2,6 +2,7 @@ from os import environ
 environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'  # Hide pygame support prompt
 
 import argparse
+import time
 import pygame, sys, random
 from pygame.locals import KEYDOWN, K_ESCAPE, K_r, K_s, MOUSEBUTTONDOWN, QUIT
 import kociemba  # Make sure you have installed this library
@@ -322,6 +323,9 @@ def main():
     # "solving" (waiting for solve to finish), then loop back to idle.
     autoplay_state = "idle" if autoplay else None
 
+    # T-000117: per-round monotonic start time for outcome timing print.
+    round_start_time = time.monotonic()
+
     if autoplay:
         status_message = cube.scramble(20)
         solver = CubeSolver(cube)
@@ -331,6 +335,7 @@ def main():
         auto_solve = True
         status_message = "Autoplay: Solving..."
         autoplay_state = "solving"
+        round_start_time = time.monotonic()
     
     def draw_interface():
         screen.fill(WHITE)
@@ -433,6 +438,9 @@ def main():
                 solving = False
                 # Autoplay loop: scramble + solve again
                 if autoplay:
+                    # T-000117: print outcome (rubiks autoplay always reaches solve -> WIN).
+                    elapsed = time.monotonic() - round_start_time
+                    print(f"[rubiks_cube] WIN in {elapsed:.2f}s", flush=True)
                     status_message = cube.scramble(20)
                     solver = CubeSolver(cube)
                     solver.solve()
@@ -440,6 +448,7 @@ def main():
                     solution_index = 0
                     auto_solve = True
                     status_message = "Autoplay: Solving..."
+                    round_start_time = time.monotonic()
 
         draw_interface()  # Update display each frame
         clock.tick(10)

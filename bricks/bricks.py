@@ -817,7 +817,7 @@ def main():
             title_text = font.render("You Win!", True, WHITE)
         else:
             title_text = font.render("Game Over!", True, WHITE)
-        
+
         # Show detailed stats
         final_score_text = font.render(f"Final Score: {score}", True, WHITE)
         final_time = font.render(f"Time: {elapsed_sec} sec", True, WHITE)
@@ -836,6 +836,22 @@ def main():
         screen.blit(esc_hint_text, (WINDOW_WIDTH//2 - esc_hint_text.get_width()//2, WINDOW_HEIGHT//2 + 170))
 
         pygame.display.flip()
+        # T-000117: in autoplay/fast_autoplay, print outcome + restart in ~1s.
+        if mode in ("autoplay", "fast_autoplay"):
+            outcome = "WIN" if victory else "LOSS"
+            elapsed_round = time.monotonic() - level_start_time
+            print(f"[bricks] {outcome} in {elapsed_round:.2f}s", flush=True)
+            restart_deadline = pygame.time.get_ticks() + 1000
+            while pygame.time.get_ticks() < restart_deadline:
+                for event in pygame.event.get():
+                    if event.type == pygame.QUIT or (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE):
+                        pygame.quit()
+                        sys.exit(0)
+                clock.tick(60)
+            # Re-arm autoplay mode for the next outer loop iteration so we
+            # bypass the modal/level-select and restart at level 1.
+            has_autoplay_arg = True
+            continue
         # Non-blocking wait so QUIT events are still handled during the end screen
         _end_deadline = pygame.time.get_ticks() + 3000
         while pygame.time.get_ticks() < _end_deadline:

@@ -9,6 +9,7 @@ clamped to the paddle's max speed. Paddles under AI control display a small
 
 import argparse
 import sys
+import time
 
 from os import environ
 environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'  # Hide pygame support prompt
@@ -183,6 +184,8 @@ def main(argv=None):
     paused = False
     game_over = False
     winner_text = ""
+    # T-000117: track per-round start so autoplay can print outcome timing.
+    round_start_time = time.monotonic()
 
     running = True
     while running:
@@ -278,6 +281,33 @@ def main(argv=None):
             blit_centered_text(screen, score_font, "Press R to Restart", WINDOW_HEIGHT // 2 + 10)
 
         pygame.display.flip()
+
+        # T-000117: in autoplay mode, on game over print outcome, hold ~1s, restart.
+        if game_over and autoplay_active:
+            # If both sides are AI, the winner is just "WIN" (someone won the
+            # match). If only one side is AI, treat that side's victory as WIN
+            # and the other as LOSS.
+            if ai_left and ai_right:
+                outcome = "WIN"
+            elif ai_left:
+                outcome = "WIN" if left_paddle.score >= WINNING_SCORE else "LOSS"
+            else:  # ai_right
+                outcome = "WIN" if right_paddle.score >= WINNING_SCORE else "LOSS"
+            elapsed = time.monotonic() - round_start_time
+            print(f"[pong] {outcome} in {elapsed:.2f}s", flush=True)
+            restart_deadline = pygame.time.get_ticks() + 1000
+            while pygame.time.get_ticks() < restart_deadline:
+                for event in pygame.event.get():
+                    if event.type == pygame.QUIT or (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE):
+                        pygame.quit()
+                        sys.exit(0)
+                clock.tick(60)
+            left_paddle.score = 0
+            right_paddle.score = 0
+            ball.reset()
+            game_over = False
+            winner_text = ""
+            round_start_time = time.monotonic()
 
     pygame.quit()
     return 0

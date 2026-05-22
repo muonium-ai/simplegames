@@ -3,6 +3,7 @@
 #Import Library
 import argparse
 import os
+import time
 from os import environ
 environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'  # Hide pygame support prompt
 import pygame
@@ -217,6 +218,10 @@ def main():
     autoFrameCounter = 0
     # Halved (30 -> 15 frames per AI decision) for the uniform autoplay speedup.
     AUTO_FRAMES_PER_DECISION = 15
+    # T-000117: per-hand monotonic start time for outcome timing print.
+    round_start_time = time.monotonic()
+    # When in autoplay, a non-zero deadline schedules the auto-restart.
+    auto_restart_deadline = 0
 
     #Fill Background
     background = pygame.Surface(screen.get_size())
@@ -284,6 +289,8 @@ def main():
                 userSum, userA, dealSum, dealA = initGame(ccards, userCard, dealCard)
                 #erase restart button from background (rect already defined above)
                 pygame.draw.rect(background, (80, 150, 15), (270, 225, 75, 25))
+                # T-000117: reset per-hand timer on manual restart too.
+                round_start_time = time.monotonic()
 
         #Autoplay: drive hit/stand using basic-strategy at a watchable cadence
         if autoplay:
@@ -312,6 +319,43 @@ def main():
                             while dealSum > 21 and dealA > 0:
                                 dealA -= 1
                                 dealSum -= 10
+
+        # T-000117: in autoplay, schedule auto-restart ~1s after a hand ends.
+        if autoplay and (gameover or stand) and auto_restart_deadline == 0:
+            # Determine outcome (matches the manual-mode restart-button logic).
+            if userSum == dealSum:
+                outcome = "LOSS"  # push counts as no-win for outcome print
+            elif userSum <= 21 and len(userCard) == 5:
+                outcome = "WIN"
+            elif userSum <= 21 and (dealSum < userSum or dealSum > 21):
+                outcome = "WIN"
+            else:
+                outcome = "LOSS"
+            elapsed = time.monotonic() - round_start_time
+            print(f"[blackjack] {outcome} in {elapsed:.2f}s", flush=True)
+            auto_restart_deadline = pygame.time.get_ticks() + 1000
+
+        # T-000117: when the auto-restart deadline passes, reset the hand.
+        if autoplay and auto_restart_deadline and pygame.time.get_ticks() >= auto_restart_deadline:
+            if userSum == dealSum:
+                pass
+            elif userSum <= 21 and len(userCard) == 5:
+                winNum += 1
+            elif userSum <= 21 and (dealSum < userSum or dealSum > 21):
+                winNum += 1
+            else:
+                loseNum += 1
+            gameover = False
+            stand = False
+            userCard = []
+            dealCard = []
+            ccards = copy.copy(cards)
+            userSum, userA, dealSum, dealA = initGame(ccards, userCard, dealCard)
+            # Erase prior restart button drawing from background.
+            pygame.draw.rect(background, (80, 150, 15), (270, 225, 75, 25))
+            round_start_time = time.monotonic()
+            auto_restart_deadline = 0
+            autoFrameCounter = 0
 
         screen.blit(background, (0, 0))
         screen.blit(hitTxt, (39, 448))

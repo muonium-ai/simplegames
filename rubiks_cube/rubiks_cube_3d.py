@@ -1,4 +1,5 @@
 import argparse
+import time
 from os import environ
 environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'  # Hide pygame support prompt
 import pygame
@@ -758,11 +759,14 @@ def main():
     autoplay_state = "scrambling" if autoplay else None
 
     cube = RubiksCube()
+    # T-000117: per-round monotonic timer for outcome timing print.
+    round_start_time = time.monotonic()
     if autoplay:
         # Double the per-frame rotation speed for the uniform autoplay/solver
         # speedup convention.
         cube.animation_speed = cube.animation_speed * 2
         cube.scramble(20)
+        round_start_time = time.monotonic()
 
     # Mouse drag tracking
     dragging = False
@@ -882,11 +886,15 @@ def main():
                 cube.solve()
                 autoplay_state = "solving"
             elif autoplay_state == "solving":
+                # T-000117: solve done -> print outcome (always WIN), then loop.
+                elapsed = time.monotonic() - round_start_time
+                print(f"[rubiks_cube_3d] WIN in {elapsed:.2f}s", flush=True)
                 # Solve done -> scramble again
                 cube.solving = False
                 cube.move_history = []
                 cube.scramble(20)
                 autoplay_state = "scrambling"
+                round_start_time = time.monotonic()
         
         # Clear both the color and depth buffer completely
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)

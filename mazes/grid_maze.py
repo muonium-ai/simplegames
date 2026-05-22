@@ -2,6 +2,7 @@ from os import environ
 environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'  # Hide pygame support prompt
 import argparse
 import sys
+import time
 import pygame
 import random
 from collections import deque
@@ -175,7 +176,9 @@ def main():
     ai_path = None
     solving = False
 
-    if args.autoplay:
+    autoplay_mode = bool(args.autoplay)
+    round_start_time = time.monotonic()
+    if autoplay_mode:
         ai_path = bfs_solve((0, 0), (COLS-1, ROWS-1))
         if ai_path:
             player.path = [(0, 0)]
@@ -261,7 +264,25 @@ def main():
         # Double the FPS cap while the BFS solver is animating, so SOLVER mode
         # runs at ~2x normal speed (uniform autoplay UX).
         clock.tick(120 if solving else 60)
-    
+
+        # T-000117: in autoplay, on win print outcome, hold ~1s, regenerate.
+        if autoplay_mode and game_won:
+            elapsed = time.monotonic() - round_start_time
+            print(f"[grid-maze] WIN in {elapsed:.2f}s", flush=True)
+            restart_deadline = pygame.time.get_ticks() + 1000
+            while pygame.time.get_ticks() < restart_deadline:
+                for event in pygame.event.get():
+                    if event.type == pygame.QUIT or (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE):
+                        pygame.quit()
+                        sys.exit(0)
+                clock.tick(60)
+            reset_game(new_maze=True)
+            game_won = False
+            show_modal = False
+            ai_path = bfs_solve((0, 0), (COLS-1, ROWS-1))
+            solving = bool(ai_path)
+            round_start_time = time.monotonic()
+
     pygame.quit()
 
 if __name__ == "__main__":

@@ -501,8 +501,10 @@ def play_round(difficulty):
                                 # T-000114: terminal print on solve
                                 elapsed = time.monotonic() - level_start_time
                                 print(f"[sudoku] Difficulty {difficulty} solved in {elapsed:.2f}s", flush=True)
-                                # Non-blocking deadline pattern (T-000056)
-                                solved_deadline = pygame.time.get_ticks() + 1500
+                                # T-000117: outcome print (WIN — sudoku has no LOSS path)
+                                print(f"[sudoku] WIN in {elapsed:.2f}s", flush=True)
+                                # Non-blocking deadline pattern (T-000056, <=1s overlay)
+                                solved_deadline = pygame.time.get_ticks() + 1000
                         else:
                             message = "Invalid Move"
                         key = None
