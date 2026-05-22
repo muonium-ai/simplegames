@@ -139,6 +139,278 @@ LEVELS = [
             _row(1, 1),
         ],
     },
+    {
+        "name": "Diamond",
+        "brick_width": 110,
+        "brick_height": 22,
+        "gap": 2,
+        "rows": [
+            [None, None, None, (2, 6), (2, 6), None, None, None],
+            [None, None, (2, 5), (2, 5), (2, 5), (2, 5), None, None],
+            [None, (2, 4), (2, 4), (2, 4), (2, 4), (2, 4), (2, 4), None],
+            [(2, 3), (2, 3), (2, 3), (2, 3), (2, 3), (2, 3), (2, 3), (2, 3)],
+            [None, (1, 2), (1, 2), (1, 2), (1, 2), (1, 2), (1, 2), None],
+            [None, None, (1, 1), (1, 1), (1, 1), (1, 1), None, None],
+        ],
+    },
+    {
+        "name": "Arrow Down",
+        "brick_width": 110,
+        "brick_height": 22,
+        "gap": 2,
+        "rows": [
+            _row(2, 2),
+            [None, (2, 3), (2, 3), (2, 3), (2, 3), (2, 3), (2, 3), None],
+            [None, None, (2, 4), (2, 4), (2, 4), (2, 4), None, None],
+            [None, None, None, (3, 5), (3, 5), None, None, None],
+            [None, None, None, (3, 6), (3, 6), None, None, None],
+        ],
+    },
+    {
+        "name": "Hollow Frame",
+        "brick_width": 110,
+        "brick_height": 22,
+        "gap": 2,
+        "rows": [
+            _row(2, 5),
+            [(2, 5), None, None, None, None, None, None, (2, 5)],
+            [(2, 5), None, (1, 1), (1, 1), (1, 1), (1, 1), None, (2, 5)],
+            [(2, 5), None, None, None, None, None, None, (2, 5)],
+            _row(2, 5),
+        ],
+    },
+    {
+        "name": "Columns",
+        "brick_width": 110,
+        "brick_height": 22,
+        "gap": 2,
+        "rows": [
+            [(3, 6) if i % 2 == 0 else None for i in range(BRICK_COLS)],
+            [None if i % 2 == 0 else (3, 7) for i in range(BRICK_COLS)],
+            [(3, 6) if i % 2 == 0 else None for i in range(BRICK_COLS)],
+            [None if i % 2 == 0 else (3, 7) for i in range(BRICK_COLS)],
+            [(3, 6) if i % 2 == 0 else None for i in range(BRICK_COLS)],
+            [None if i % 2 == 0 else (3, 7) for i in range(BRICK_COLS)],
+        ],
+    },
+    {
+        "name": "Plus",
+        "brick_width": 110,
+        "brick_height": 22,
+        "gap": 2,
+        "rows": [
+            [None, None, None, (2, 2), (2, 2), None, None, None],
+            [None, None, None, (2, 2), (2, 2), None, None, None],
+            _row(2, 5),
+            _row(2, 5),
+            [None, None, None, (2, 2), (2, 2), None, None, None],
+            [None, None, None, (2, 2), (2, 2), None, None, None],
+        ],
+    },
+    {
+        "name": "Zigzag",
+        "brick_width": 110,
+        "brick_height": 20,
+        "gap": 2,
+        "rows": [
+            [(2, 3), (2, 3), (2, 3), None, None, None, None, None],
+            [None, (2, 4), (2, 4), (2, 4), None, None, None, None],
+            [None, None, (2, 5), (2, 5), (2, 5), None, None, None],
+            [None, None, None, (2, 6), (2, 6), (2, 6), None, None],
+            [None, None, None, None, (2, 7), (2, 7), (2, 7), None],
+            [None, None, None, None, None, (2, 2), (2, 2), (2, 2)],
+        ],
+    },
+    {
+        "name": "Stripes",
+        "brick_width": 110,
+        "brick_height": 22,
+        "gap": 2,
+        "rows": [
+            _row(2, 2),
+            _row(1, 4),
+            _row(2, 2),
+            _row(1, 4),
+            _row(2, 2),
+            _row(1, 4),
+        ],
+    },
+    {
+        "name": "Twin Pillars",
+        "brick_width": 110,
+        "brick_height": 20,
+        "gap": 2,
+        "rows": [
+            [(3, 6), (3, 6), None, None, None, None, (3, 6), (3, 6)],
+            [(3, 6), (3, 6), None, None, None, None, (3, 6), (3, 6)],
+            _row(2, 5),
+            _row(2, 5),
+            [(3, 6), (3, 6), None, None, None, None, (3, 6), (3, 6)],
+            [(3, 6), (3, 6), None, None, None, None, (3, 6), (3, 6)],
+        ],
+    },
+    {
+        "name": "Heart",
+        "brick_width": 110,
+        "brick_height": 20,
+        "gap": 2,
+        "rows": [
+            [None, (2, 2), (2, 2), None, None, (2, 2), (2, 2), None],
+            _row(2, 2),
+            _row(2, 2),
+            [None, (2, 2), (2, 2), (2, 2), (2, 2), (2, 2), (2, 2), None],
+            [None, None, (2, 2), (2, 2), (2, 2), (2, 2), None, None],
+            [None, None, None, (2, 2), (2, 2), None, None, None],
+        ],
+    },
+    {
+        "name": "Fortress",
+        "brick_width": 110,
+        "brick_height": 20,
+        "gap": 2,
+        "rows": [
+            _row(3, 6),
+            [(3, 6), None, None, None, None, None, None, (3, 6)],
+            [(3, 6), None, (2, 2), (2, 2), (2, 2), (2, 2), None, (3, 6)],
+            [(3, 6), None, (2, 2), (1, 4), (1, 4), (2, 2), None, (3, 6)],
+            [(3, 6), None, (2, 2), (2, 2), (2, 2), (2, 2), None, (3, 6)],
+            [(3, 6), None, None, None, None, None, None, (3, 6)],
+            _row(3, 6),
+        ],
+    },
+    {
+        "name": "Honeycomb",
+        "brick_width": 110,
+        "brick_height": 20,
+        "gap": 2,
+        "rows": [
+            [None, (2, 5), (2, 5), None, (2, 5), (2, 5), None, (2, 5)],
+            [(2, 4), (2, 4), None, (2, 4), (2, 4), None, (2, 4), (2, 4)],
+            [None, (2, 5), (2, 5), None, (2, 5), (2, 5), None, (2, 5)],
+            [(2, 4), (2, 4), None, (2, 4), (2, 4), None, (2, 4), (2, 4)],
+            [None, (2, 5), (2, 5), None, (2, 5), (2, 5), None, (2, 5)],
+        ],
+    },
+    {
+        "name": "Ladder",
+        "brick_width": 110,
+        "brick_height": 20,
+        "gap": 2,
+        "rows": [
+            _row(2, 3),
+            [(2, 3), None, None, None, None, None, None, (2, 3)],
+            _row(2, 3),
+            [(2, 3), None, None, None, None, None, None, (2, 3)],
+            _row(2, 3),
+            [(2, 3), None, None, None, None, None, None, (2, 3)],
+            _row(2, 3),
+        ],
+    },
+    {
+        "name": "Snake",
+        "brick_width": 110,
+        "brick_height": 20,
+        "gap": 2,
+        "rows": [
+            _row(2, 4),
+            [None, None, None, None, None, None, None, (2, 4)],
+            _row(2, 4),
+            [(2, 4), None, None, None, None, None, None, None],
+            _row(2, 4),
+            [None, None, None, None, None, None, None, (2, 4)],
+            _row(2, 4),
+        ],
+    },
+    {
+        "name": "Mosaic",
+        "brick_width": 110,
+        "brick_height": 20,
+        "gap": 2,
+        "rows": [
+            [(2, ((i % 6) + 1)) for i in range(BRICK_COLS)],
+            [(3, (((i + 1) % 6) + 1)) for i in range(BRICK_COLS)],
+            [(2, (((i + 2) % 6) + 1)) for i in range(BRICK_COLS)],
+            [(3, (((i + 3) % 6) + 1)) for i in range(BRICK_COLS)],
+            [(2, (((i + 4) % 6) + 1)) for i in range(BRICK_COLS)],
+        ],
+    },
+    {
+        "name": "Star",
+        "brick_width": 110,
+        "brick_height": 20,
+        "gap": 2,
+        "rows": [
+            [None, None, None, (2, 4), (2, 4), None, None, None],
+            [None, (2, 4), (2, 4), (2, 4), (2, 4), (2, 4), (2, 4), None],
+            _row(3, 5),
+            [None, (2, 4), (2, 4), (2, 4), (2, 4), (2, 4), (2, 4), None],
+            [None, None, (2, 4), (2, 4), (2, 4), (2, 4), None, None],
+            [None, (2, 4), (2, 4), None, None, (2, 4), (2, 4), None],
+        ],
+    },
+    {
+        "name": "X Marks",
+        "brick_width": 110,
+        "brick_height": 20,
+        "gap": 2,
+        "rows": [
+            [(3, 2), None, None, None, None, None, None, (3, 2)],
+            [(2, 2), (3, 2), None, None, None, None, (3, 2), (2, 2)],
+            [None, (2, 2), (3, 2), None, None, (3, 2), (2, 2), None],
+            [None, None, (2, 2), (3, 2), (3, 2), (2, 2), None, None],
+            [None, None, (2, 2), (3, 2), (3, 2), (2, 2), None, None],
+            [None, (2, 2), (3, 2), None, None, (3, 2), (2, 2), None],
+            [(2, 2), (3, 2), None, None, None, None, (3, 2), (2, 2)],
+            [(3, 2), None, None, None, None, None, None, (3, 2)],
+        ],
+    },
+    {
+        "name": "Bricks Galore",
+        "brick_width": 110,
+        "brick_height": 18,
+        "gap": 2,
+        "rows": [
+            _row(3, 6),
+            _row(2, 5),
+            _row(3, 6),
+            _row(2, 5),
+            _row(3, 6),
+            _row(2, 5),
+            _row(3, 6),
+        ],
+    },
+    {
+        "name": "Inferno",
+        "brick_width": 110,
+        "brick_height": 18,
+        "gap": 2,
+        "rows": [
+            _row(4, 2),
+            _row(3, 5),
+            _row(4, 2),
+            _row(3, 5),
+            _row(4, 2),
+            _row(3, 5),
+            _row(4, 2),
+            _row(3, 5),
+        ],
+    },
+    {
+        "name": "The Wall",
+        "brick_width": 110,
+        "brick_height": 18,
+        "gap": 2,
+        "rows": [
+            _row(4, 6),
+            _row(4, 6),
+            _row(3, 2),
+            _row(3, 5),
+            _row(3, 5),
+            _row(3, 2),
+            _row(4, 6),
+            _row(4, 6),
+        ],
+    },
 ]
 TOTAL_LEVELS = len(LEVELS)
 
@@ -403,13 +675,19 @@ def show_level_overlay(screen, font, clock, level_index, duration_ms=1000):
 def show_level_select(screen, font, highest_unlocked):
     """Render a level select grid, return the chosen level (1..TOTAL_LEVELS)."""
     title_font = pygame.font.SysFont(None, 48)
-    cell_size = 80
-    margin = 20
-    grid_cols = min(TOTAL_LEVELS, 6)
+    # Pick column count + cell size so the grid fits below the header (~240px)
+    # without overflowing the window even when TOTAL_LEVELS is large.
+    if TOTAL_LEVELS <= 6:
+        grid_cols, cell_size, margin = min(TOTAL_LEVELS, 6), 80, 20
+    elif TOTAL_LEVELS <= 16:
+        grid_cols, cell_size, margin = 8, 70, 14
+    else:
+        grid_cols, cell_size, margin = 9, 60, 12
     grid_rows = (TOTAL_LEVELS + grid_cols - 1) // grid_cols
     total_w = grid_cols * cell_size + (grid_cols - 1) * margin
     start_x = (WINDOW_WIDTH - total_w) // 2
-    start_y = 260
+    total_h = grid_rows * cell_size + (grid_rows - 1) * margin
+    start_y = max(250, (WINDOW_HEIGHT - total_h) // 2 + 30)
 
     def cell_rect(i):
         r = i // grid_cols
@@ -439,7 +717,11 @@ def show_level_select(screen, font, highest_unlocked):
         screen.fill(BLACK)
         title = title_font.render("Select Level", True, WHITE)
         screen.blit(title, (WINDOW_WIDTH // 2 - title.get_width() // 2, 140))
-        hint = font.render(f"Highest reached: {highest_unlocked}   (1-{TOTAL_LEVELS} keys / click / Enter=Level 1)", True, WHITE)
+        key_range = min(9, TOTAL_LEVELS)
+        hint = font.render(
+            f"Highest reached: {highest_unlocked}   (1-{key_range} keys / click any of 1-{TOTAL_LEVELS} / Enter=Level 1)",
+            True, WHITE,
+        )
         screen.blit(hint, (WINDOW_WIDTH // 2 - hint.get_width() // 2, 200))
         esc_hint = font.render("ESC to quit", True, WHITE)
         screen.blit(esc_hint, (WINDOW_WIDTH // 2 - esc_hint.get_width()//2, 230))
@@ -723,7 +1005,10 @@ def main():
 
             # Check if ball fell below
             if ball.y > WINDOW_HEIGHT:
-                lives -= 1
+                # In autoplay/fast_autoplay, treat dropped balls as free respawns
+                # so the demo always progresses through every level.
+                if mode == "manual":
+                    lives -= 1
                 ball.reset()
                 if lives <= 0:
                     running = False
