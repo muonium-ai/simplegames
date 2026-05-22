@@ -16,7 +16,7 @@ GAMES := 2048 asteroid blackjack bricks chess chess-autoplay \
          multi-snake pong rubiks rubiks-3d snake solitaire \
          spaceinvaders sudoku tetris
 
-EXTRA_TARGETS := 2048-server
+EXTRA_TARGETS := 2048-server play-all
 
 .PHONY: help install list $(GAMES) $(EXTRA_TARGETS)
 
@@ -27,6 +27,7 @@ help:
 	@echo "  make install                  # uv sync (install/refresh deps)"
 	@echo "  make list                     # list every game target"
 	@echo "  make <game>                   # run a game (see 'make list')"
+	@echo "  make play-all                 # run every game sequentially (ESC to advance)"
 	@echo "  make chess PGN=path/to.pgn    # chess replay viewer needs a PGN file"
 	@echo "  make 2048-server              # start the 2048 AI solver Flask service"
 	@echo ""
@@ -38,6 +39,9 @@ list:
 install:
 	@command -v uv >/dev/null 2>&1 || { echo "uv is not installed. See https://docs.astral.sh/uv/"; exit 1; }
 	uv sync
+
+play-all:
+	@./play-all.sh
 
 # --- Games ---
 
