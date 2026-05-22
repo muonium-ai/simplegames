@@ -314,11 +314,32 @@ class Minesweeper:
         esc_hint = esc_font.render("ESC to quit", True, BLACK)
         self.screen.blit(esc_hint, (WINDOW_WIDTH - esc_hint.get_width() - 10, 5))
 
-        # SOLVER badge in the header when a solver is driving the game.
+        # SOLVER badge with the active solver's name in the header.
         if self.is_solver_active:
             badge_font = pygame.font.Font(None, 28)
-            badge = badge_font.render("SOLVER", True, RED)
+            badge = badge_font.render(f"SOLVER: {self.solver_name}", True, RED)
             self.screen.blit(badge, (10, 5))
+
+        # HUD line: step counter (solver mode only), hidden cells remaining,
+        # mines remaining (MINE_COUNT minus flag count). The print loop in
+        # run() emits the same numbers — this just mirrors them on-screen.
+        hud_font = pygame.font.Font(None, 24)
+        hidden_left = sum(
+            1 for row in self.grid for cell in row
+            if cell.state == CellState.HIDDEN
+        )
+        flagged = sum(
+            1 for row in self.grid for cell in row
+            if cell.state == CellState.FLAGGED
+        )
+        mines_left = MINE_COUNT - flagged
+        parts = []
+        if self.is_solver_active:
+            parts.append(f"Step: {self.step_count}")
+        parts.append(f"Hidden: {hidden_left}")
+        parts.append(f"Mines: {mines_left}")
+        hud_text = hud_font.render("   ".join(parts), True, BLACK)
+        self.screen.blit(hud_text, (10, 38))
 
         for y in range(GRID_HEIGHT):
             for x in range(GRID_WIDTH):
