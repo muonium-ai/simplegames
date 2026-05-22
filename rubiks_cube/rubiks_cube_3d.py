@@ -1,4 +1,6 @@
 import argparse
+from os import environ
+environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'  # Hide pygame support prompt
 import pygame
 import sys
 import random

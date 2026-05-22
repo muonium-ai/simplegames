@@ -1,5 +1,7 @@
 # lib/grid.py
 
+from os import environ
+environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'  # Hide pygame support prompt
 import pygame
 import random  # Needed for the hint method
 from .cell import Cell

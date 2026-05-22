@@ -1,3 +1,5 @@
+from os import environ
+environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'  # Hide pygame support prompt
 import pygame
 from enum import Enum
 from config import BLACK, BUTTON_COLOR, BUTTON_HOVER_COLOR, PAUSE_COLOR, WHITE

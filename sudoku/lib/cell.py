@@ -1,5 +1,7 @@
 # lib/cell.py
 
+from os import environ
+environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'  # Hide pygame support prompt
 import pygame
 from .config import BLACK, GRAY, GREEN, SELECTED_CELL_COLOR, HIGHLIGHT_COLOR, NUMBER_FONT, TOP_OFFSET
 

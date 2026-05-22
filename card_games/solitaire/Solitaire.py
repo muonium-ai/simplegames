@@ -2,6 +2,8 @@
 # Source of card images: https://code.google.com/archive/p/vector-playing-deck/
 import os
 import sys
+from os import environ
+environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'  # Hide pygame support prompt
 import pygame
 import random
 

@@ -3,6 +3,8 @@
 #Import Library
 import argparse
 import os
+from os import environ
+environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'  # Hide pygame support prompt
 import pygame
 from pygame.locals import *
 import random
